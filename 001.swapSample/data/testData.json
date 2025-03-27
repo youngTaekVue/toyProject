@@ -1,0 +1,52 @@
+[
+    {
+        "userId": "a",
+        "displayName": "A",
+        "score": 170
+    },
+    {
+        "userId": "b",
+        "displayName": "B",
+        "score": 462
+    },
+    {
+        "userId": "c",
+        "displayName": "C",
+        "score": 388
+    },
+    {
+        "userId": "d",
+        "displayName": "D",
+        "score": 334
+    },
+    {
+        "userId": "e",
+        "displayName": "E",
+        "score": 316
+    },
+    {
+        "userId": "f",
+        "displayName": "F",
+        "score": 308
+    },
+    {
+        "userId": "g",
+        "displayName": "G",
+        "score": 223
+    },
+    {
+        "userId": "h",
+        "displayName": "H",
+        "score": 178
+    },
+    {
+        "userId": "i",
+        "displayName": "I",
+        "score": 173
+    },
+    {
+        "userId": "j",
+        "displayName": "J",
+        "score": 154
+    }
+]
