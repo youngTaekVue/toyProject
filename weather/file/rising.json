@@ -1,0 +1,56 @@
+[
+  {
+    "type": "PTY",
+    "value": "0",
+    "content": "없음",
+    "icon": ""
+  },
+  {
+    "type": "PTY",
+    "value": "1",
+    "content": "눈",
+    "icon": "rain.png"
+  },
+  {
+    "type": "PTY",
+    "value": "2",
+    "content": "비/눈",
+    "icon": "rain_snow.png"
+  },
+  {
+    "type": "PTY",
+    "value": "3",
+    "content": "눈",
+    "icon": "snow.png"
+  },
+  {
+    "type": "PTY",
+    "value": "4",
+    "content": "소나기",
+    "icon": "shower.png"
+  },
+  {
+    "type": "skyCode",
+    "value": "1",
+    "content": "맑음",
+    "icon": "sun.png"
+  },
+  {
+    "type": "skyCode",
+    "value": "2",
+    "content": "구름 조금",
+    "icon": "partly_cloudy_day.png"
+  },
+  {
+    "type": "skyCode",
+    "value": "3",
+    "content": "구름 많음",
+    "icon": "cloudy.png"
+  },
+  {
+    "type": "skyCode",
+    "value": "24",
+    "content": "흐림",
+    "icon": "overcast.png"
+  }
+]
