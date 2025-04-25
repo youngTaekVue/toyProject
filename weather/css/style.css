@@ -72,7 +72,9 @@ body {
 #main_card {
     background: #6EBDFF;
     background: linear-gradient(0deg, rgba(73, 116, 255, 1) 0%, rgba(110, 189, 255, 1) 100%);
-    height: 15.5em;
+    height: 25.5em;
+    border: none;
+    border-radius: 10px;
 }
 
 #main_card > .card-body {
@@ -81,15 +83,35 @@ body {
     color: var(--bs-white-rgb);
 }
 
+.card-bottom{
+    height: 3rem;
+}
+
 #main_card #temperatures {
     font-size: 3rem;
     text-align: center;
 }
 
 #main_card #img_tempContain {
-    border: 1px solid red;
+    /*border: 1px solid red;*/
     margin: auto;
     width: 6rem;
     height: 6rem;
 }
 
+#txtT1H{
+    font-size: 3rem;
+    /*color : var(--bs-card-bg);*/
+    background: #FFFFFF;
+    background: linear-gradient(to bottom, #FFFFFF 0%, #6EBDFF 90%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+#tempIcon{
+    width: 100%;
+    fill: blue;
+}
+#MyRect {
+    fill: blue;
+}
