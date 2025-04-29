@@ -20,8 +20,14 @@
                 <div class="col-12">
                     <div class="card" id="main_card">
                         <div class="card-title">
-                            <p class="m-0 px-4 py-2 text-center text-warning">teste</p>
-                            <p class="m-0 px-4 py-2 text-center text-warning">
+                            <div class="row mx-1 my-1">
+                                <div class="col-6">
+                                    <select class="form-select form-select-sm" id="provinceSelect">
+                                        <option value="" disabled selected>시/도를 선택하세요</option>
+                                    </select>
+                                </div>
+                            </div>
+
                             <div class="row mx-1">
                                 <div class="col-6">
                                     <select class="form-select form-select-sm" id="citySelect" disabled>
@@ -35,7 +41,6 @@
                                 </div>
 
                             </div>
-                            </p>
                         </div>
                         <div class="card-body">
                             <p class="card-text text-center" id="txtT1H"></p>
@@ -47,7 +52,7 @@
                             <div class="row">
                                 <div class="col-4">
                                     <div>
-                                        <p class="px-4 py-2 text-center text-warning" id="txtREH"></p>
+                                        <p class="px-4 py-2 text-center text-warning" id="txtREH"></p>1Q
                                     </div>
                                 </div>
                                 <div class="col-4">
@@ -66,22 +71,54 @@
                 </div>
             </div>
         </div>
-        <div class="col-4">
-            <div class="card">
-                <select id="provinceSelect">
-                    <option value="" disabled selected>시/도를 선택하세요</option>
-                </select>
+        <div class="col-sm-12 col-md-8">
 
-                <!--                <select id="citySelect" disabled>-->
-                <!--                    <option value="" disabled selected>군/구를 선택하세요</option>-->
-                <!--                </select>-->
-
-                <!--                <select id="districtSelect" disabled>-->
-                <!--                    <option value="" disabled selected>읍/면/동을 선택하세요</option>-->
-                <!--                </select>-->
+            <div
+                 style="max-width: 1200px; white-space: nowrap;">
+                <div class="bd-example d-md-flex">
+                    <div class="card" style="width: 200px;">
+                        <div class="card-body">
+                            <h5 class="card-title">Card title</h5>
+                            <p class="card-text">Some quick exam t.</p>
+                            <a href="#" class="btn btn-primary">Go somewhere</a>
+                        </div>
+                    </div>
+                    <div class="card" style="width: 200px;">
+                        <div class="card-body">
+                            <h5 class="card-title">Card title</h5>
+                            <p class="card-text">Some quick exam t.</p>
+                            <a href="#" class="btn btn-primary">Go somewhere</a>
+                        </div>
+                    </div>
+                    <div class="card" style="width: 200px;">
+                        <div class="card-body">
+                            <h5 class="card-title">Card title</h5>
+                            <p class="card-text">Some quick exam t.</p>
+                            <a href="#" class="btn btn-primary">Go somewhere</a>
+                        </div>
+                    </div>
+                    <div class="card" style="width: 200px;">
+                        <div class="card-body">
+                            <h5 class="card-title">Card title</h5>
+                            <p class="card-text">Some quick exam t.</p>
+                            <a href="#" class="btn btn-primary">Go somewhere</a>
+                        </div>
+                    </div>
+                    <div class="card" style="width: 200px;">
+                        <div class="card-body">
+                            <h5 class="card-title">Card title</h5>
+                            <p class="card-text">Some quick exam t.</p>
+                            <a href="#" class="btn btn-primary">Go somewhere</a>
+                        </div>
+                    </div>
+                </div>
             </div>
+
         </div>
+
+
     </div>
+</div>
 </div>
 <input type="file" id="fileInput" accept=".xlsx">
 
