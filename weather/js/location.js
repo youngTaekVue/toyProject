@@ -67,7 +67,7 @@ function convertJsonArrayToAdministrativeData(jsonArray) {
 // 시/도 옵션 생성
 function populateProvinces(data) {
     console.log(data);
-    provinceSelect.innerHTML = '<option value="" disabled selected>시/도를 선택하세요</option>';
+    provinceSelect.innerHTML = '<option value="" disabled selected>시/도</option>';
     for (const province in data) {
         const option = document.createElement('option');
         option.value = province;
@@ -78,8 +78,8 @@ function populateProvinces(data) {
 
 // 군/구 옵션 생성
 function populateCities(selectedProvince) {
-    citySelect.innerHTML = '<option value="" disabled selected>군/구를 선택하세요</option>';
-    districtSelect.innerHTML = '<option value="" disabled selected>읍/면/동을 선택하세요</option>';
+    citySelect.innerHTML = '<option value="" disabled selected>군/구</option>';
+    districtSelect.innerHTML = '<option value="" disabled selected>읍/면/동</option>';
     districtSelect.disabled = true;
 
     if (selectedProvince && administrativeData[selectedProvince]) {
@@ -99,7 +99,7 @@ function populateCities(selectedProvince) {
 
 // 읍/면/동 옵션 생성
 function populateDistricts(selectedCity) {
-    districtSelect.innerHTML = '<option value="" disabled selected>읍/면/동을 선택하세요</option>';
+    districtSelect.innerHTML = '<option value="" disabled selected>읍/면/동</option>';
 
     const selectedProvince = provinceSelect.value;
 
@@ -133,10 +133,7 @@ districtSelect.addEventListener('change', (event) => {
         const locationInfo = JSON.parse(selectedValue);
         const selectedNx = locationInfo.nx;
         const selectedNy = locationInfo.ny;
-        // 여기서 선택된 격자 X, Y 값을 활용하여 날씨 API를 호출하거나 다른 작업을 수행할 수 있습니다.
-        const apiUrl = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst?serviceKey=${apiKey}&numOfRows=10&pageNo=1&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${selectedNx}&ny=${selectedNy}`;
-
-        fetchWeatherData(apiUrl);
-
+        let defaultLocation = [selectedNx, selectedNy];
+        fetchWeatherData(defaultLocation);
     }
 });

@@ -9,7 +9,7 @@
     --bs-body-color: #000000;
     --bs-card-border-width: 1px;
     --bs-card-border-color: rgba(0, 0, 0, 0.175);
-    --bs-card-border-radius: 0.375rem;
+    --bs-border-radius: 0.375rem;
 
     /* color */
     --bs-primary-rgb: 13, 110, 253;
@@ -47,6 +47,16 @@
     --bs-white-rgb: 255, 255, 255;
     --bs-card-spacer-y: 1rem;
     --bs-card-spacer-x: 1rem;
+    --bs-border-radius: 0.375rem;
+    --bs-border-width: 1px;
+}
+
+.default-br {
+    border-radius: var(--bs-border-radius);
+}
+
+.min-height {
+    min-height: calc(1.5em + 5rem + calc(var(--bs-border-width) * 2));
 }
 
 body {
@@ -54,64 +64,117 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 20px;
+    padding: 1rem;
+    background-color: #f0f2f5;
 }
 
-#weather-info {
-    margin-top: 20px;
-    padding: 15px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    background-color: #f9f9f9;
-}
 
 #weather-info p {
     margin: 5px 0;
 }
 
-#main_card {
-    background: #6EBDFF;
-    background: linear-gradient(0deg, rgba(73, 116, 255, 1) 0%, rgba(110, 189, 255, 1) 100%);
-    height: 25.5em;
+.default-card {
     border: none;
-    border-radius: 10px;
+
+    background: rgba(255, 255, 255, 0.8);
+    /*background: #6EBDFF;*/
+    /*background: linear-gradient(0deg, rgba(73, 116, 255, 1) 0%, rgba(110, 189, 255, 1) 100%);*/
+    /*height: 25.5em;*/
+    /*border: none;*/
+    /*border-radius: var(--bs-border-radius);*/
 }
 
-#main_card > .card-body {
+.default-card > .card-body {
     flex: 1 1 auto;
     padding: var(--bs-card-spacer-y) var(--bs-card-spacer-x);
     color: var(--bs-white-rgb);
 }
 
-.card-bottom{
+.card-bottom {
     height: 3rem;
 }
 
-#main_card #temperatures {
+.default-card #temperatures {
     font-size: 3rem;
     text-align: center;
 }
 
-#main_card #img_tempContain {
+.default-card #img_tempContain {
     /*border: 1px solid red;*/
-    margin: auto;
+    margin: auto auto 16px auto;
     width: 6rem;
     height: 6rem;
 }
 
-#txtT1H{
+
+#txtT1H {
     font-size: 3rem;
     /*color : var(--bs-card-bg);*/
-    background: #FFFFFF;
-    background: linear-gradient(to bottom, #FFFFFF 0%, #6EBDFF 90%);
+    /*background: linear-gradient(to bottom, #FFFFFF 0%, #6EBDFF 90%);*/
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
-#tempIcon{
+#tempIcon {
     width: 100%;
     fill: blue;
 }
+
 #MyRect {
     fill: blue;
+}
+
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+}
+
+.header h2 {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 0;
+}
+
+.header .see-all {
+    color: #8c8c9e;
+    text-decoration: none;
+    font-size: 15px;
+}
+
+
+.weather-item {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* 구분선 */
+}
+
+.weather-item:last-child {
+    border-bottom: none; /* 마지막 항목에는 구분선 없음 */
+}
+
+.weather-item .day {
+    flex: 1;
+    font-size: 17px;
+    font-weight: 500;
+}
+
+.weather-item .weather-icon {
+    width: 30px; /* 아이콘 크기 조정 */
+    height: 30px;
+    margin-right: 15px;
+}
+
+.weather-item .temperature {
+    font-size: 17px;
+    font-weight: 500;
+}
+
+
+.item_Container1 {
+    max-height: 300px;
+    overflow-y: auto;
 }
