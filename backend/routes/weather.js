@@ -31,7 +31,7 @@ router.post('/search', function (req, res) {
             }
 
             if (response.statusCode !== 200) {
-                console.error('Naver API 응답 실패:', response.statusCode, body);
+                console.error('API 응답 실패:', response.statusCode, body);
                 return res.status(response.statusCode).send('외부 API 호출에 실패했습니다.');
             }
 
