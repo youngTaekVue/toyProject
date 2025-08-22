@@ -1,6 +1,5 @@
 let myData;
 const weatherInfoDiv = document.getElementById('weather-info');
-const apiKey = '';
 let nx = 59;
 let ny = 120;
 let defaultLocation = [nx, ny];
@@ -34,9 +33,7 @@ async function fetchDataAndProcess() {
 // 날씨 정보 API 호출 함수
 function getUltraSrtNcstData(location) {
     let apiName = "getUltraSrtNcst";
-
-    console.log("defaultLocation.nx : " + defaultLocation[0] + ", location.ny : " + defaultLocation[1]);
-
+    //console.log("defaultLocation.nx : " + defaultLocation[0] + ", location.ny : " + defaultLocation[1]);
     getApiCall(apiName, location);
 }
 
@@ -48,13 +45,10 @@ function getUltraSrtFcstData(location) {
 
 
 async function getApiCall(name, lodata) {
-    console.log(name);
-    //const apiUrl = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/${name}?serviceKey=${apiKey}&numOfRows=1052&pageNo=1&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${lodata[0]}&ny=${lodata[1]}`;
     let allAverages;
     const apiUrl = ' http://localhost:3000/weather/search';
     const dataToSend = {
         name: name,
-        // serviceKey: apiUrl,
         numOfRows: '1052',
         pageNo: '1',
         dataType: 'JSON',
@@ -90,27 +84,6 @@ async function getApiCall(name, lodata) {
         // 응답 실패 시 에러 메시지 표시
         weatherInfoDiv.innerHTML = `<p>날씨 정보를 불러오는 데 실패했습니다: ${data.response.header.resultMsg}</p>`;
     }
-
-    // fetch(apiUrl)
-    //     .then(response => response.json())
-    //     .then(data => {
-    //         if (data.response.header.resultCode === '00') {
-    //             // 응답 성공 시 items 배열에서 날씨 정보를 추출하여 화면에 표시
-    //             const items = data.response.body.items.item;
-    //             if (name === "getUltraSrtNcst") {
-    //                 getUltraSrtNcstWeatherData(items, name);
-    //             } else if (name === "getVilageFcst") {
-    //                 getVilageFcstWeatherData(items, name);
-    //             }
-    //         } else {
-    //             // 응답 실패 시 에러 메시지 표시
-    //             weatherInfoDiv.innerHTML = `<p>날씨 정보를 불러오는 데 실패했습니다: ${data.response.header.resultMsg}</p>`;
-    //         }
-    //     })
-    //     .catch(error => {
-    //         // 네트워크 오류 등 예외 발생 시 에러 메시지 표시
-    //         weatherInfoDiv.innerHTML = `<p>오류가 발생했습니다: ${error}</p>`;
-    //     });
 }
 
 // 초단기실황조회 API 응답 데이터에서 필요한 날씨 정보를 추출하여 화면에 표시합니다.
@@ -568,10 +541,3 @@ function fetchWeatherData(location) {
 $(document).ready(function () { // jQuery ready 함수를 사용하여 DOM 로드 후 실행
     fetchWeatherData(defaultLocation);
 });
-// setInterval(myFunction, 10000);
-// function myFunction() {
-//     console.log("defaultLocation");
-//     console.log(defaultLocation);
-//     getUltraSrtNcstData(defaultLocation)
-//     console.log("5분마다 실행되는 함수입니다.");
-// }
