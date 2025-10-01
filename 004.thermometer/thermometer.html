@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        .donation-meter {
+            /* 눈금과 기둥을 가로로 나란히 배치하기 위해 Flexbox 사용 */
+            display: flex;
+            align-items: flex-end; /* 모든 요소를 아래쪽으로 정렬 */
+            width: 150px; /* 눈금과 기둥을 모두 포함할 수 있는 충분한 너비 */
+            height: 400px; /* 전체 온도계 높이 */
+            margin-left: 30px;
+            position: relative; /* 자식 요소의 absolute 기준 */
+        }
+
+        .glass {
+            background: #e5e5e5;
+            border-radius: 100px 100px 0 0;
+            display: block;
+            height: 300px;
+            margin: 0 35px 10px;
+            padding: 5px;
+            position: relative;
+            width: 20px;
+        }
+
+        .amount {
+            background: #f34e54;
+            border-radius: 100px;
+            display: block;
+            width: 20px;
+            position: absolute;
+            bottom: 5px;
+        }
+
+        .bulb {
+            background: #e5e5e5;
+            border-radius: 100px;
+            display: block;
+            height: 50px;
+            margin: 0 35px 10px;
+            padding: 5px;
+            position: relative;
+            top: -20px;
+            right: 15px;
+            width: 50px;
+        }
+
+        .red-circle {
+            background: #f34e54;
+            border-radius: 100px;
+            display: block;
+            height: 50px;
+            width: 50px;
+        }
+
+        .filler {
+            background: #f34e54;
+            border-radius: 100px 100px 0 0;
+            display: block;
+            height: 30px;
+            width: 20px;
+            position: relative;
+            top: -65px;
+            right: -15px;
+            z-index: 30;
+        }
+
+        /* === 눈금 정렬 핵심 === */
+        .markings-container {
+            height: 300px;
+            width: 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: absolute;
+            right: 120px;
+            bottom: 80px;
+            padding: 5px 0;
+            z-index: 99;
+        }
+
+        .label {
+            font-size: 12px;
+            line-height: 1;
+            color: #333;
+            position: relative;
+            padding-right: 15px; /* 숫자와 눈금선 사이 간격 */
+            text-align: right;
+            width: 100%;
+        }
+
+        /* 눈금 선 생성 */
+        .label::after {
+            content: '';
+            position: absolute;
+            right: 0; /* 오른쪽 끝에 배치 */
+            top: 50%;
+            transform: translateY(-50%);
+            height: 1px;
+            width: 10px; /* 눈금 선 길이 */
+            background-color: #333;
+        }
+
+        /* 0도 눈금 강조 */
+        .label.zero {
+            font-weight: bold;
+            color: #f34e54; /* 붉은색으로 강조 */
+        }
+    </style>
+    <title>온도계</title>
+    <script>
+        window.addEventListener('load', function () {
+            const T_MIN = -20;
+            const T_MAX = 50;
+            let current_temp = 0;
+
+            let height = ((current_temp - T_MIN) / (T_MAX - T_MIN)) * 100;
+            console.log(height);
+            let amount = document.getElementById("amount");
+            amount.style.height = height + "%";
+        });
+
+
+    </script>
+
+</head>
+<body>
+
+<div class="donation-meter">
+
+    <div class="markings-container">
+        <span class="label">50°</span>
+        <span class="label">40°</span>
+        <span class="label">30°</span>
+        <span class="label">20°</span>
+        <span class="label">10°</span>
+        <span class="label zero">0°</span>
+        <span class="label">-10°</span>
+        <span class="label">-20°</span>
+    </div>
+
+    <div class="column-container">
+            <span class="glass">
+                <span class="amount" id="amount" style="height: 28.57%"></span>
+            </span>
+
+        <div class="bulb">
+            <span class="red-circle"></span>
+            <span class="filler">
+                    </span>
+        </div>
+    </div>
+
+</div>
+</body>
+</html>
