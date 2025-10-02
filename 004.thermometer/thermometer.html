@@ -20,18 +20,64 @@
             display: block;
             height: 300px;
             margin: 0 35px 10px;
-            padding: 5px;
+            padding: 0 5px;
             position: relative;
             width: 20px;
         }
 
+        /* === 눈금 정렬 핵심 === */
+        .markings-container {
+            height: 300px;
+            width: 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: absolute;
+            right: 120px;
+            bottom: 80px;
+            z-index: 99;
+        }
+
+        .label {
+            font-size: 12px;
+            line-height: 1;
+            color: #333;
+            position: relative;
+            padding-right: 15px; /* 숫자와 눈금선 사이 간격 */
+            text-align: right;
+            width: 100%;
+
+        }
+
+        /* 눈금 선 생성 */
+        .label::after {
+            content: '';
+            position: absolute;
+            right: 0; /* 오른쪽 끝에 배치 */
+            top: 50%;
+            transform: translateY(-50%);
+            height: 1px;
+            width: 10px; /* 눈금 선 길이 */
+            background-color: #333;
+
+        }
+
+        /* 0도 눈금 강조 */
+        .label.zero {
+            font-weight: bold;
+            color: #f34e54; /* 붉은색으로 강조 */
+        }
+
         .amount {
-            background: #f34e54;
-            border-radius: 100px;
+            /*background: #f34e54;*/
+            border-radius: 100px 100px 0 0;
             display: block;
             width: 20px;
             position: absolute;
-            bottom: 5px;
+            bottom: 0;
+            z-index: 9;
+            /*background: #6EBDFF;*/
+            background: linear-gradient(0deg, rgba(110, 189, 255, 1) 0%, rgba(156, 210, 255, 1) 100%);
         }
 
         .bulb {
@@ -47,82 +93,90 @@
             width: 50px;
         }
 
-        .red-circle {
-            background: #f34e54;
+        .circle {
+            /*background: #f34e54;*/
             border-radius: 100px;
             display: block;
             height: 50px;
             width: 50px;
+            /*background: #6EBDFF;*/
+            background: linear-gradient(180deg, rgba(110, 189, 255, 1) 0%, rgba(73, 116, 255, 0.5) 100%);
         }
 
         .filler {
-            background: #f34e54;
-            border-radius: 100px 100px 0 0;
+            background: #f34e54; /* 붉은색으로 강조 */;
+            /*border-radius: 100px 100px 0 0;*/
             display: block;
-            height: 30px;
+            height: 15px;
             width: 20px;
             position: relative;
-            top: -65px;
+            top: -55px;
             right: -15px;
-            z-index: 30;
-        }
-
-        /* === 눈금 정렬 핵심 === */
-        .markings-container {
-            height: 300px;
-            width: 50px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            position: absolute;
-            right: 120px;
-            bottom: 80px;
-            padding: 5px 0;
             z-index: 99;
+
         }
 
-        .label {
-            font-size: 12px;
-            line-height: 1;
-            color: #333;
-            position: relative;
-            padding-right: 15px; /* 숫자와 눈금선 사이 간격 */
-            text-align: right;
-            width: 100%;
-        }
 
-        /* 눈금 선 생성 */
-        .label::after {
-            content: '';
-            position: absolute;
-            right: 0; /* 오른쪽 끝에 배치 */
-            top: 50%;
-            transform: translateY(-50%);
-            height: 1px;
-            width: 10px; /* 눈금 선 길이 */
-            background-color: #333;
-        }
-
-        /* 0도 눈금 강조 */
-        .label.zero {
-            font-weight: bold;
-            color: #f34e54; /* 붉은색으로 강조 */
-        }
     </style>
     <title>온도계</title>
     <script>
         window.addEventListener('load', function () {
-            const T_MIN = -20;
-            const T_MAX = 50;
             let current_temp = 0;
 
-            let height = ((current_temp - T_MIN) / (T_MAX - T_MIN)) * 100;
-            console.log(height);
-            let amount = document.getElementById("amount");
-            amount.style.height = height + "%";
+            getTempColor(current_temp);
+
         });
 
+        function getTempColor(temp) {
+            const T_MIN = -20;
+            const T_MAX = 40;
+            let height = ((temp - T_MIN) / (T_MAX - T_MIN)) * 100;
+            let amount = document.getElementById("amount");
+            let circle = document.getElementById("circle");
 
+            const colorMap = [
+                {
+                    temp: 0,
+                    color: '#6EBDFF',
+                    amount_style: 'linear-gradient(0deg, rgba(110, 189, 255, 1) 0%, rgba(156, 210, 255, 1) 100%)',
+                    circle_style: 'linear-gradient(180deg, rgba(110, 189, 255, 1) 0%, rgba(73, 116, 255, 0.5) 100%)'
+                }
+            ]
+            let amountColor = '';
+            let circleColor = '';
+            let matchedColor = colorMap[0] ? colorMap[0].color : '#000000'; // 기본 색상 설정 (가장 낮은 온도 색상 또는 기본 검은색)
+
+
+            for (let i = 0; i < colorMap.length; i++) {
+                const item = colorMap[i];
+
+                if (temp < item.temp) {
+
+                    if (i > 0) {
+                        return colorMap[i - 1].color;
+                    } else {
+                        // temp < colorMap[0].temp 인 경우 (가장 낮은 온도 미만)
+                        return colorMap[0].color;
+                    }
+                }
+
+                // 이 시점에서 matchedColor는 현재 인덱스의 색상으로 계속 업데이트됩니다.
+                // (만약 for문 끝까지 찾지 못할 경우, 가장 마지막 색상이 반환됩니다.)
+                matchedColor = item.color;
+                amountColor = item.amount_style;
+                circleColor = item.circle_style;
+            }
+            amount.style.height = height + "%";
+            amount.style.background = matchedColor;
+            amount.style.backgroundImage = amountColor;
+            circle.style.background = matchedColor;
+            circle.style.backgroundImage = circleColor;
+
+            // for 루프가 끝까지 돌았다는 것은 현재 온도가 배열의 '가장 높은 온도 임계값 이상'이라는 의미입니다.
+            // 이 경우, 마지막 색상을 반환합니다.
+            return matchedColor;
+
+        }
     </script>
 
 </head>
@@ -131,7 +185,6 @@
 <div class="donation-meter">
 
     <div class="markings-container">
-        <span class="label">50°</span>
         <span class="label">40°</span>
         <span class="label">30°</span>
         <span class="label">20°</span>
@@ -143,13 +196,13 @@
 
     <div class="column-container">
             <span class="glass">
-                <span class="amount" id="amount" style="height: 28.57%"></span>
+                <span class="amount" id="amount"></span>
             </span>
 
         <div class="bulb">
-            <span class="red-circle"></span>
-            <span class="filler">
-                    </span>
+            <span class="circle" id="circle"></span>
+            <!--            <span class="filler">-->
+            <!--                    </span>-->
         </div>
     </div>
 
