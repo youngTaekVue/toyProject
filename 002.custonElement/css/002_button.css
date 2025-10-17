@@ -1,0 +1,116 @@
+body {
+    background: #eee;
+}
+
+a {
+    text-decoration-line: none;
+    cursor: default;
+}
+
+.wrap {
+    width: 85%;
+    margin: auto;
+}
+
+.btn {
+    width: 100%;
+    height: 50px;
+    border: 1px solid #333;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 0;
+    transition: 1s;
+    box-sizing: border-box;
+}
+
+
+#btn1::before,
+#btn1::after {
+    position: absolute;
+    background: #eee;
+    z-index: -1;
+    transition: 1s;
+    content: '';
+}
+
+#btn1::before {
+    width: 90%;
+    height: 50px;
+}
+
+#btn1::after {
+    width: 100%;
+    height: 30px;
+}
+
+.animation {
+    animation-name: example;
+    animation-duration: 1s;
+}
+
+#btn1:hover::before {
+    width: 0px;
+    background: #fff;
+}
+
+#btn1:hover::after {
+    height: 0px;
+    background: #fff;
+}
+
+#btn1:hover {
+    background: #fff;
+}
+
+#btn1 span {
+    display: inline-block;
+    animation: loading .7s infinite;
+}
+
+#btn1 span:nth-child(2) {
+    animation-delay: .1s;
+}
+
+#btn1 span:nth-child(3) {
+    animation-delay: .2s;
+}
+
+#btn1 span:nth-child(4) {
+    animation-delay: .3s;
+}
+
+#btn1 span:nth-child(5) {
+    animation-delay: .4s;
+}
+
+#btn1 span:nth-child(6) {
+    animation-delay: .5s;
+}
+
+#btn1 span:nth-child(7) {
+    animation-delay: .6s;
+}
+
+#btn1 span:nth-child(8) {
+    animation-delay: .7s;
+}
+
+@keyframes loading {
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(0.8);
+    }
+}
+
+#btn2 {
+    background-color: rgb(184, 185, 255);
+}

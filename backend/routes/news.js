@@ -13,6 +13,7 @@ router.get('/search', function (req, res) {
   const api_base_url = 'https://openapi.naver.com/v1/search/news';
 
   let params = {
+    // query: req.query.query || '오늘날씨', // URL 쿼리 파라미터에서 query 값을 가져옵니다.
     query: req.query.query || '오늘날씨', // URL 쿼리 파라미터에서 query 값을 가져옵니다.
     display: 10,
     start: 1,

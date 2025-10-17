@@ -23,7 +23,7 @@ router.post('/search', function (req, res) {
         };
 
         request.get(options, function (error, response, body) {
-            console.error('수신된 응답 본문:', body); // <--- 이 부분으로 실제 응답 확인
+            console.log('수신된 응답 본문:', body); // <--- 이 부분으로 실제 응답 확인
             if (error) {
                 console.error('API 호출 중 네트워크 에러:', error);
                 return res.status(500).send('네트워크 오류가 발생했습니다.');

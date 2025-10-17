@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    /* style.css */
+    .kakao-share-button {
+      display: flex; /* Aligns content (logo and text) in a row */
+      align-items: center; /* Vertically centers content */
+      justify-content: center; /* Horizontally centers content */
+      padding: 10px 20px; /* Adjust padding as needed */
+      border: 1px solid #ccc; /* Light grey border */
+      border-radius: 5px; /* Slightly rounded corners */
+      background-color: #fff; /* White background */
+      color: #333; /* Dark grey text color */
+      font-size: 16px;
+      font-family: 'Helvetica Neue', Arial, sans-serif; /* Modern sans-serif font */
+      cursor: pointer;
+      text-decoration: none; /* Remove underline if it were an <a> tag */
+      white-space: nowrap; /* Prevent text from wrapping */
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Subtle shadow for depth */
+      transition: background-color 0.3s ease, box-shadow 0.3s ease; /* Smooth transitions */
+    }
+
+    .kakao-share-button:hover {
+      background-color: #f0f0f0; /* Lighten background on hover */
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15); /* More prominent shadow on hover */
+    }
+
+    .kakao-logo {
+      width: 24px; /* Size of the KakaoTalk logo */
+      height: 24px;
+      margin-right: 8px; /* Space between logo and text */
+      vertical-align: middle; /* Align with text */
+    }
+  </style>
+  <title>KakaoTalk Share Button</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<button class="kakao-share-button">
+  <img src="kakao-talk-logo.png" alt="KakaoTalk Logo" class="kakao-logo">
+  카카오톡으로 공유하기
+</button>
+</body>
+</html>

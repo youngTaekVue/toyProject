@@ -7,7 +7,7 @@
     <link href="/css/defult.css" rel="stylesheet">
     <link href="/css/bootstrap.min.css" rel="stylesheet">
     <link href="/css/style.css" rel="stylesheet">
-    <title>기상청 단기예보</title>
+    <title>테스트</title>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
 </head>
@@ -21,17 +21,18 @@
                     <div class="card shadow-sm h-100 default-card">
                         <div class="card-title">
                             <div class="row mx-1 my-1">
-                                <div class="col-4 py-2 px-1">
+
+                                <div class="col-3 py-2 px-1">
                                     <select class="form-select form-select-sm text-center" id="provinceSelect">
                                         <option value="" disabled selected>시/도</option>
                                     </select>
                                 </div>
-                                <div class="col-4 py-2 px-1">
+                                <div class="col-3 py-2 px-1">
                                     <select class="form-select form-select-sm text-center" id="citySelect" disabled>
                                         <option value="" disabled selected>군/구</option>
                                     </select>
                                 </div>
-                                <div class="col-4 py-2 px-1">
+                                <div class="col-3 py-2 px-1">
                                     <select class="form-select form-select-sm text-center" id="districtSelect" disabled>
                                         <option value="" disabled selected>읍/면/동</option>
                                     </select>
@@ -53,6 +54,7 @@
                                     <span class="text-center text-warning" id="txtRN1"></span>
                                 </li>
                                 <li class="nav-item">
+
                                     <span class="text-center text-warning" id="txtWSD"></span>
                                 </li>
                             </ul>
@@ -64,13 +66,12 @@
         <div class="col-sm-12 col-md-5">
             <div class="row min-height">
                 <div class="col-12 pa-2">
-                    <div class="card shadow-sm h-100 default-card">
+                    <div class="card shadow-sm h-100  default-card">
                         <div class="card-title">
                             <div class="row mx-1 my-1">
                                 <div class="col-12 py-2 px-1">
                                     <div class="d-flex justify-content-between align-items-center">
                                         <h5 class="mb-0">Invoices</h5>
-                                        <a href="#">VIEW ALL</a>
                                     </div>
                                 </div>
                             </div>
@@ -92,26 +93,57 @@
         <div class="col-sm-12 col-md-3">
             <div class="row min-height">
                 <div class="col-12 pa-2">
-                    <div class="card shadow-sm h-100 default-card">
-                        <input type="file" id="fileInput" accept=".xlsx">
+                <div class="card shadow-sm h-100 default-card">
+                <div class="col-lg-5 col-md-6 mb-4">
+                        <div class="d-flex align-items-center p-3">
+                            <img src="path/to/profile-image.png" class="rounded-circle me-2" width="30" height="30" alt="프로필 사진">
+                            <strong class="me-auto">대한민국국국구석</strong>
+                            <i class="bi bi-patch-check-fill text-primary"></i>
+                        </div>
+
+                        <img src="path/to/character-image.png" class="card-img-top" alt="캐릭터">
+
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between mb-2">
+                                <div>
+                                    <i class="bi bi-heart me-3"></i>
+                                    <i class="bi bi-chat me-3"></i>
+                                    <i class="bi bi-share"></i>
+                                </div>
+                                <i class="bi bi-bookmark"></i>
+                            </div>
+                            <p class="card-text fw-bold">#대한민국국구석 #꾸온꾸</p>
+                            <p class="card-text text-muted">#나만의 캐릭터 #국내여행 #여행룩 #코디완성</p>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-    <div class="row">
-        <div class="col-sm-12 col-md-9">
-            <div class="row min-height">
-                <div class="col-12 pa-2">
-                <div  id="weather-display1">
-                    <div id="item_Container1" class="row">
-
-
-                    </div>
                 </div>
             </div>
+                <div class="col-lg-7 col-md-6">
+                </div>
+            </div>
+<!--            <div class="row min-height">-->
+<!--                <div class="col-12 pa-2">-->
+<!--                    <div class="card shadow-sm h-100 default-card">-->
+<!--                      -->
+<!--                    </div>-->
+<!--                </div>-->
+<!--            </div>-->
         </div>
     </div>
+<!--    <div class="row">-->
+<!--        <div class="col-sm-12 col-md-9">-->
+<!--            <div class="row min-height">-->
+<!--                <div class="col-12 pa-2">-->
+<!--                <div  id="weather-display1">-->
+<!--                    <div id="item_Container1" class="row">-->
+
+
+<!--                    </div>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--    </div>-->
 </div>
 
 

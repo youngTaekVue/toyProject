@@ -118,7 +118,7 @@
     <title>온도계</title>
     <script>
         window.addEventListener('load', function () {
-            let current_temp = 28;
+            let current_temp = 0;
             getTempColor(current_temp);
 
         });
@@ -180,6 +180,7 @@
                 circle_style: 'linear-gradient(180deg, rgba(255, 137, 133, 1) 0%, rgba(237, 71, 62, 0.5) 100%)' // 중간빨강 → 대표색(투명)
             }
         ];
+
         function getTempColor(temp) {
             const T_MIN = -20;
             const T_MAX = 40;
@@ -237,7 +238,6 @@
 
 </head>
 <body>
-
 <div class="donation-meter">
 
     <div class="markings-container">
@@ -257,11 +257,10 @@
 
         <div class="bulb">
             <span class="circle" id="circle"></span>
-            <!--            <span class="filler">-->
-            <!--                    </span>-->
         </div>
     </div>
 
 </div>
+
 </body>
 </html>

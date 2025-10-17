@@ -4,31 +4,42 @@ const provinceSelect = document.getElementById('provinceSelect');
 const citySelect = document.getElementById('citySelect');
 const districtSelect = document.getElementById('districtSelect');
 
-fileInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) {
-        return;
-    }
+document.addEventListener('DOMContentLoaded', () => {
+    //console.log('DOMContentLoaded');
+    fetch('./file/coordinate.csv')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.text(); // 텍스트 형태로 응답을 받음
+        })
+        .then(csvText => {
+            // csvText 변수에 CSV 데이터가 문자열로 담겨 있습니다.
+            // 이제 이 데이터를 파싱해야 합니다.
 
-    const reader = new FileReader();
+            // CSV 데이터를 읽기 위한 워크북 생성 (XLSX.read는 파일 데이터 또는 문자열을 처리할 수 있음)
+            // 타입은 'csv'로 지정하여 CSV 형식임을 명시합니다.
+            const workbook = XLSX.read(csvText, {type: 'string', FS: ',', raw: true});
 
-    reader.onload = (event) => {
-        const data = new Uint8Array(event.target.result);
-        const workbook = XLSX.read(data, {type: 'array'});
+            // 모든 시트 이름 가져오기
+            const sheetNameList = workbook.SheetNames;
+            //console.log('시트 이름:', sheetNameList);
 
-        const sheetNameList = workbook.SheetNames;
-        console.log('시트 이름:', sheetNameList);
+            // 첫 번째 시트 이름 가져오기
+            const firstSheetName = sheetNameList[0];
+            //console.log('첫 번째 시트 이름:', firstSheetName);
 
-        const firstSheetName = sheetNameList[0];
-        const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName]);
+            // 해당 시트의 데이터를 JSON 형식으로 변환
+            const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName]);
 
-        administrativeData = convertJsonArrayToAdministrativeData(jsonData);
-        populateProvinces(administrativeData); // 데이터 변환 후 시/도 옵션 로드
-        console.log('최종 지역 데이터:', administrativeData);
-    };
-
-    reader.readAsArrayBuffer(file);
+            administrativeData = convertJsonArrayToAdministrativeData(jsonData);
+            populateProvinces(administrativeData); // 데이터 변환 후 시/도 옵션 로드
+        })
+        .catch(error => {
+            console.error('There was a problem fetching the CSV file:', error);
+        });
 });
+
 
 function convertJsonArrayToAdministrativeData(jsonArray) {
     const data = {};
@@ -66,8 +77,7 @@ function convertJsonArrayToAdministrativeData(jsonArray) {
 
 // 시/도 옵션 생성
 function populateProvinces(data) {
-    console.log(data);
-    provinceSelect.innerHTML = '<option value="" disabled selected>시/도</option>';
+        provinceSelect.innerHTML = '<option value="" disabled selected>시/도</option>';
     for (const province in data) {
         const option = document.createElement('option');
         option.value = province;
