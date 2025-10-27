@@ -104,7 +104,6 @@ router.post('/api/insert', async (req, res) => {
             {
                 headers: {
                     // 🚨 일정 생성/수정/삭제는 OAuth Access Token이 필수입니다.
-                    'Authorization': `Bearer ${ACCESS_TOKEN}`,
                     'Content-Type': 'application/json'
                 }
             }
