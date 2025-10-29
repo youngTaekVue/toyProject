@@ -15,7 +15,6 @@ app.use(cors(corsOptions));
 const weatherRouter = require('./routes/weather');
 const newsRouter = require('./routes/news');
 const calendarRouter = require('./routes/calendar');
-//const mapRouter = require('./routes/map');
 
 app.use(express.json()); // JSON 형식
 
@@ -23,9 +22,6 @@ app.use(express.json()); // JSON 형식
 app.use('/weather', weatherRouter);
 app.use('/news', newsRouter);
 app.use('/calendar', calendarRouter);
-//app.use('/map', mapRouter);
-
-
 
 app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);

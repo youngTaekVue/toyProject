@@ -4,14 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
+        /* CSS는 기존과 동일합니다 */
         .donation-meter {
-            /* 눈금과 기둥을 가로로 나란히 배치하기 위해 Flexbox 사용 */
             display: flex;
-            align-items: flex-end; /* 모든 요소를 아래쪽으로 정렬 */
-            width: 150px; /* 눈금과 기둥을 모두 포함할 수 있는 충분한 너비 */
-            height: 400px; /* 전체 온도계 높이 */
+            align-items: flex-end;
+            width: 150px;
+            height: 400px;
             margin-left: 30px;
-            position: relative; /* 자식 요소의 absolute 기준 */
+            position: relative;
         }
 
         .glass {
@@ -25,7 +25,6 @@
             width: 20px;
         }
 
-        /* === 눈금 정렬 핵심 === */
         .markings-container {
             height: 300px;
             width: 50px;
@@ -43,41 +42,35 @@
             line-height: 1;
             color: #333;
             position: relative;
-            padding-right: 15px; /* 숫자와 눈금선 사이 간격 */
+            padding-right: 15px;
             text-align: right;
             width: 100%;
-
         }
 
-        /* 눈금 선 생성 */
         .label::after {
             content: '';
             position: absolute;
-            right: 0; /* 오른쪽 끝에 배치 */
+            right: 0;
             top: 50%;
             transform: translateY(-50%);
             height: 1px;
-            width: 10px; /* 눈금 선 길이 */
+            width: 10px;
             background-color: #333;
-
         }
 
-        /* 0도 눈금 강조 */
         .label.zero {
             font-weight: bold;
-            color: #f34e54; /* 붉은색으로 강조 */
+            color: #f34e54;
         }
 
         .amount {
-            /*background: #f34e54;*/
             border-radius: 100px 100px 0 0;
             display: block;
             width: 20px;
             position: absolute;
             bottom: 0;
             z-index: 9;
-            /*background: #6EBDFF;*/
-            background: linear-gradient(0deg, rgba(110, 189, 255, 1) 0%, rgba(156, 210, 255, 1) 100%);
+            /* 배경색은 JS에서 동적으로 적용됨 */
         }
 
         .bulb {
@@ -94,18 +87,16 @@
         }
 
         .circle {
-            /*background: #f34e54;*/
             border-radius: 100px;
             display: block;
             height: 50px;
             width: 50px;
-            /*background: #6EBDFF;*/
-            background: linear-gradient(180deg, rgba(110, 189, 255, 1) 0%, rgba(73, 116, 255, 0.5) 100%);
+            /* 배경색은 JS에서 동적으로 적용됨 */
         }
 
+        /* filler는 현재 사용되지 않으므로 유지합니다. */
         .filler {
-            background: #f34e54; /* 붉은색으로 강조 */;
-            /*border-radius: 100px 100px 0 0;*/
+            background: #f34e54;
             display: block;
             height: 15px;
             width: 20px;
@@ -114,117 +105,147 @@
             right: -15px;
             z-index: 99;
         }
+        /* 1. 기본 스타일 초기화 및 전체 Range Input 설정 */
+        #range {
+            -webkit-appearance: none; /* WebKit/Blink 브라우저 기본 스타일 제거 */
+            -moz-appearance: none;    /* Firefox 브라우저 기본 스타일 제거 */
+            width: 300px; /* 원하는 너비 설정 */
+            height: 10px; /* 전체 높이 */
+            background: transparent; /* 배경을 투명하게 설정 (트랙을 따로 스타일링 할 것이기 때문) */
+            margin: 20px 0;
+            cursor: pointer;
+        }
+
+        /* Range Input 포커스 시 아웃라인 제거 */
+        #range:focus {
+            outline: none;
+        }
+
+        /* ------------------------------------------- */
+        /* 2. 트랙 (Track, 슬라이더 배경 막대) 스타일링 */
+        /* ------------------------------------------- */
+
+        /* WebKit/Blink (Chrome, Safari, Edge)용 트랙 스타일 */
+        #range::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px; /* 트랙 높이 */
+            background: #e0e0e0; /* 트랙의 기본 배경색 (밝은 회색) */
+            border-radius: 4px; /* 모서리 둥글게 */
+            /* 트랙에 미세한 그림자 추가 */
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) inset;
+        }
+
+        /* Firefox용 트랙 스타일 */
+        #range::-moz-range-track {
+            width: 100%;
+            height: 8px; /* 트랙 높이 */
+            background: #e0e0e0; /* 트랙의 기본 배경색 (밝은 회색) */
+            border-radius: 4px; /* 모서리 둥글게 */
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) inset;
+        }
+
+        /* ------------------------------------------- */
+        /* 3. 엄지손가락 (Thumb, 핸들) 스타일링 */
+        /* ------------------------------------------- */
+
+        /* WebKit/Blink (Chrome, Safari, Edge)용 핸들 스타일 */
+        #range::-webkit-slider-thumb {
+            -webkit-appearance: none; /* 기본 스타일 재거 */
+            height: 20px; /* 핸들 높이 */
+            width: 20px; /* 핸들 너비 */
+            border-radius: 50%; /* 완전한 원형 */
+            background: #f2974a; /* 강조 색상 (주황색 계열) */
+            cursor: grab;
+            margin-top: -6px; /* 트랙 중앙에 오도록 위치 조정 (트랙 높이 8px, 핸들 높이 20px -> (20-8)/2 = 6px 위로) */
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* 그림자 추가 */
+            border: 2px solid #ffffff; /* 흰색 테두리 추가 */
+        }
+
+        /* Firefox용 핸들 스타일 */
+        #range::-moz-range-thumb {
+            height: 20px; /* 핸들 높이 */
+            width: 20px; /* 핸들 너비 */
+            border-radius: 50%; /* 완전한 원형 */
+            background: #f2974a; /* 강조 색상 (주황색 계열) */
+            cursor: grab;
+            /* Firefox는 margin-top 대신 border-top을 사용하여 높이를 맞추는 경우가 많습니다. */
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            border: 2px solid #ffffff;
+        }
+
+        /* ------------------------------------------- */
+        /* 4. 포커스 시 핸들 스타일 변경 */
+        /* ------------------------------------------- */
+
+        #range:focus::-webkit-slider-thumb {
+            background: #f8c052; /* 포커스 시 색상 변경 */
+            box-shadow: 0 0 0 4px rgba(242, 151, 74, 0.3); /* 포커스 링 효과 */
+        }
+
+        #range:focus::-moz-range-thumb {
+            background: #f8c052; /* 포커스 시 색상 변경 */
+            box-shadow: 0 0 0 4px rgba(242, 151, 74, 0.3);
+        }
     </style>
     <title>온도계</title>
     <script>
-        window.addEventListener('load', function () {
-            let current_temp = 0;
-            getTempColor(current_temp);
-
-        });
         const colorMap = [
-            // 0도 미만 (Light Blue) - 기존 코드 유지
-            {
-                temp: 0,
-                color: '#4d6997', // 대표색: 푸른 계열
-                amount_style: 'linear-gradient(0deg, rgba(105, 179, 255, 1) 0%, rgba(156, 210, 255, 1) 100%)', // 밝은하늘 → 중간하늘
-                circle_style: 'linear-gradient(180deg, rgba(110, 189, 255, 1) 0%, rgba(73, 116, 255, 0.5) 100%)' // 중간하늘 → 대표색(투명)
-            },
+            // 0도 미만 (Light Blue)
+            {temp: 0, color: '#4d6997', amount_style: 'linear-gradient(0deg, rgba(105, 179, 255, 1) 0%, rgba(156, 210, 255, 1) 100%)', circle_style: 'linear-gradient(180deg, rgba(110, 189, 255, 1) 0%, rgba(73, 116, 255, 0.5) 100%)'},
             // 5도 미만 (Blue-Green)
-            {
-                temp: 5,
-                color: '#51889b', // 대표색: 청록 계열
-                amount_style: 'linear-gradient(0deg, rgba(122, 197, 212, 1) 0%, rgba(172, 222, 230, 1) 100%)', // 밝은청록 → 중간청록
-                circle_style: 'linear-gradient(180deg, rgba(127, 204, 218, 1) 0%, rgba(81, 136, 155, 0.5) 100%)' // 중간청록 → 대표색(투명)
-            },
+            {temp: 5, color: '#51889b', amount_style: 'linear-gradient(0deg, rgba(122, 197, 212, 1) 0%, rgba(172, 222, 230, 1) 100%)', circle_style: 'linear-gradient(180deg, rgba(127, 204, 218, 1) 0%, rgba(81, 136, 155, 0.5) 100%)'},
             // 9도 미만 (Greenish)
-            {
-                temp: 9,
-                color: '#65987e', // 대표색: 녹색 계열
-                amount_style: 'linear-gradient(0deg, rgba(198, 214, 129, 1) 0%, rgba(180, 227, 199, 1) 100%)', // 밝은녹색 → 중간녹색
-                circle_style: 'linear-gradient(180deg, rgba(141, 214, 178, 1) 0%, rgba(101, 152, 126, 0.5) 100%)' // 중간녹색 → 대표색(투명)
-            },
+            {temp: 9, color: '#65987e', amount_style: 'linear-gradient(0deg, rgba(139, 210, 174, 1) 0%, rgba(180, 227, 199, 1) 100%)', circle_style: 'linear-gradient(180deg, rgba(141, 214, 178, 1) 0%, rgba(101, 152, 126, 0.5) 100%)'},
             // 12도 미만 (Yellow-Green)
-            {
-                temp: 12,
-                color: '#a6b343', // 대표색: 연두 계열
-                amount_style: 'linear-gradient(0deg, rgba(202, 218, 137, 1) 0%, rgba(223, 234, 178, 1) 100%)', // 밝은연두 → 중간연두
-                circle_style: 'linear-gradient(180deg, rgba(202, 218, 137, 1) 0%, rgba(166, 179, 67, 0.5) 100%)' // 중간연두 → 대표색(투명)
-            },
+            {temp: 12, color: '#a6b343', amount_style: 'linear-gradient(0deg, rgba(202, 218, 137, 1) 0%, rgba(223, 234, 178, 1) 100%)', circle_style: 'linear-gradient(180deg, rgba(202, 218, 137, 1) 0%, rgba(166, 179, 67, 0.5) 100%)'},
             // 17도 미만 (Yellow)
-            {
-                temp: 17,
-                color: '#e3bf42', // 대표색: 노란 계열
-                amount_style: 'linear-gradient(0deg, rgba(252, 230, 122, 1) 0%, rgba(255, 243, 173, 1) 100%)', // 밝은노랑 → 중간노랑
-                circle_style: 'linear-gradient(180deg, rgba(255, 235, 128, 1) 0%, rgba(227, 191, 66, 0.5) 100%)' // 중간노랑 → 대표색(투명)
-            },
+            {temp: 17, color: '#e3bf42', amount_style: 'linear-gradient(0deg, rgba(252, 230, 122, 1) 0%, rgba(255, 243, 173, 1) 100%)', circle_style: 'linear-gradient(180deg, rgba(255, 235, 128, 1) 0%, rgba(227, 191, 66, 0.5) 100%)'},
             // 20도 미만 (Light Orange)
-            {
-                temp: 20,
-                color: '#f8c052', // 대표색: 밝은 주황 계열
-                amount_style: 'linear-gradient(0deg, rgba(255, 255, 147, 1) 0%, rgba(255, 238, 194, 1) 100%)', // 밝은주황 → 중간주황
-                circle_style: 'linear-gradient(180deg, rgba(255, 228, 154, 1) 0%, rgba(248, 192, 82, 0.5) 100%)' // 중간주황 → 대표색(투명)
-            },
+            {temp: 20, color: '#f8c052', amount_style: 'linear-gradient(0deg, rgba(254, 224, 148, 1) 0%, rgba(255, 238, 194, 1) 100%)', circle_style: 'linear-gradient(180deg, rgba(255, 228, 154, 1) 0%, rgba(248, 192, 82, 0.5) 100%)'},
             // 23도 미만 (Orange)
-            {
-                temp: 23,
-                color: '#f2974a', // 대표색: 주황 계열
-                amount_style: 'linear-gradient(0deg, rgba(254, 184, 132, 1) 0%, rgba(255, 211, 177, 1) 100%)', // 밝은주황 → 중간주황
-                circle_style: 'linear-gradient(180deg, rgba(255, 187, 138, 1) 0%, rgba(242, 151, 74, 0.5) 100%)' // 중간주황 → 대표색(투명)
-            },
+            {temp: 23, color: '#f2974a', amount_style: 'linear-gradient(0deg, rgba(254, 184, 132, 1) 0%, rgba(255, 211, 177, 1) 100%)', circle_style: 'linear-gradient(180deg, rgba(255, 187, 138, 1) 0%, rgba(242, 151, 74, 0.5) 100%)'},
             // 28도 이상 (Red)
-            {
-                temp: 28,
-                color: '#ed473e', // 대표색: 빨강 계열
-                amount_style: 'linear-gradient(0deg, rgba(253, 130, 125, 1) 0%, rgba(255, 179, 177, 1) 100%)', // 밝은빨강 → 중간빨강
-                circle_style: 'linear-gradient(180deg, rgba(255, 137, 133, 1) 0%, rgba(237, 71, 62, 0.5) 100%)' // 중간빨강 → 대표색(투명)
-            }
+            {temp: 28, color: '#ed473e', amount_style: 'linear-gradient(0deg, rgba(253, 130, 125, 1) 0%, rgba(255, 179, 177, 1) 100%)', circle_style: 'linear-gradient(180deg, rgba(255, 137, 133, 1) 0%, rgba(237, 71, 62, 0.5) 100%)'}
         ];
 
-        function getTempColor(temp) {
+        function updateTemperature(tempValue) {
+            let temp = parseFloat(tempValue);
+            updateThermometer(temp);
+        }
+
+        window.addEventListener('load', function () {
+            const rangeInput = document.getElementById("range");
+            let initialTemp = parseFloat(rangeInput.value);
+            updateThermometer(initialTemp);
+        });
+
+        function updateThermometer(temp) {
             const T_MIN = -20;
             const T_MAX = 40;
 
-            // 높이 계산 및 0%~100% 제한
             let height = ((temp - T_MIN) / (T_MAX - T_MIN)) * 100;
             height = Math.max(0, Math.min(100, height));
 
-            // DOM 요소
             let amount = document.getElementById("amount");
             let circle = document.getElementById("circle");
 
-            // colorMap 정의가 함수 밖에 있다면 내부로 가져오거나 전역 변수임을 확인하세요.
-            // (현재는 colorMap이 정의되었다고 가정하고 진행합니다.)
-
-            // 1. 스타일 정보를 담을 변수들을 colorMap[0]으로 초기화
             let matchedColor = colorMap[0].color;
             let amountColor = colorMap[0].amount_style;
             let circleColor = colorMap[0].circle_style;
 
-            // 2. 루프를 돌면서 해당 온도에 맞는 스타일 정보를 찾습니다.
             for (let i = 0; i < colorMap.length; i++) {
                 const item = colorMap[i];
-
-                // 현재 온도가 임계값 이상인 경우
                 if (temp >= item.temp) {
-                    // 임계값을 통과했으므로, 현재 아이템의 스타일 정보를 '후보'로 저장하고 다음 단계로 진행합니다.
                     matchedColor = item.color;
                     amountColor = item.amount_style;
                     circleColor = item.circle_style;
                 } else {
-                    // 현재 온도가 임계값 미만인 경우 (temp < item.temp)
-                    // -> '이전' 단계의 색상 정보가 우리가 찾는 최종 정보입니다.
-                    // 이미 'matchedColor' 등에 '이전' 단계의 정보가 저장되어 있거나 (i>0)
-                    // 초기화된 'colorMap[0]' 정보 그대로 유지되어야 합니다 (i=0).
-
-                    // 더 이상 루프를 진행할 필요가 없으므로 즉시 종료합니다.
                     break;
                 }
             }
 
-            // 3. 루프 종료 후, 최종 결정된 정보를 DOM에 적용합니다.
             if (amount && circle) {
-                amount.style.height = height + "%"; // 높이 적용!
+                amount.style.height = height + "%";
                 amount.style.background = matchedColor;
                 amount.style.backgroundImage = amountColor;
 
@@ -238,6 +259,8 @@
 
 </head>
 <body>
+
+
 <div class="donation-meter">
     <div class="markings-container">
         <span class="label">40°</span>
@@ -252,12 +275,12 @@
             <span class="glass">
                 <span class="amount" id="amount"></span>
             </span>
-         <div class="bulb">
+        <div class="bulb">
             <span class="circle" id="circle"></span>
         </div>
     </div>
-
 </div>
 
+<input type="range" id="range" min="-15" max="35" step="1" oninput="updateTemperature(this.value)" />
 </body>
 </html>

@@ -1,5 +1,24 @@
 document.addEventListener('DOMContentLoaded', function () {
     var calendarEl = document.getElementById('calendar');
+    var calendarContainerEl = document.querySelector('.calendar-container'); // 전체 래퍼 클래스
+
+    // 1월부터 12월까지의 배경 이미지 파일 경로를 배열로 정의합니다. (인덱스 0은 사용하지 않음)
+    // 실제 이미지 경로에 맞게 수정하세요.
+    const monthBackgroundImages = [
+        null, // 인덱스 0 (사용 안 함)
+        'images/january-bg.jpg',   // 1월
+        'images/february-bg.jpg',  // 2월
+        'images/march-bg.jpg',     // 3월
+        'images/april-bg.jpg',     // 4월
+        'images/may-bg.jpg',       // 5월
+        'images/june-bg.jpg',      // 6월
+        'images/july-bg.jpg',      // 7월
+        'images/august-bg.jpg',    // 8월
+        'images/september-bg.jpg', // 9월
+        'images/october-bg.jpg',   // 10월
+        'images/november-bg.jpg',  // 11월
+        'images/december-bg.jpg'   // 12월
+    ];
 
     // 💡 1. kbo_list 데이터를 FullCalendar Event Source 규격에 맞게 수정:
     //    이벤트 배열은 'events' 속성 아래에 위치해야 하며, 'id'를 최상위에 둡니다.
@@ -59,7 +78,41 @@ document.addEventListener('DOMContentLoaded', function () {
             //   source_b,
             kbo_source
         ],
+        // 뷰가 변경될 때 (월 변경 시) 실행되는 콜백
+        datesSet: function (info) {
+            // 현재 달력의 시작 날짜 (startDate)를 가져옵니다.
+            var currentMonth = info.view.currentStart.getMonth() + 1; // 1 (1월) ~ 12 (12월)
 
+            // 1. 컨테이너에 월별 클래스 동적 추가 (기존 방식 유지)
+            var monthClass = 'month-' + (currentMonth < 10 ? '0' : '') + currentMonth;
+
+            // 기존 월별 클래스 제거
+            calendarContainerEl.className = calendarContainerEl.className.split(' ')
+                .filter(c => !c.startsWith('month-'))
+                .join(' ');
+
+            // 새 월별 클래스 추가
+            calendarContainerEl.classList.add(monthClass);
+
+            // 2. 배경 이미지 스타일을 동적으로 적용
+            const imageUrl = monthBackgroundImages[currentMonth];
+
+            if (imageUrl) {
+                // 상단 커스텀 이미지 영역에 배경 이미지를 직접 적용
+                const customHeaderImageEl = document.querySelector('.custom-header-image');
+
+                // 이미지 태그가 있다면 숨기고, 배경으로 대체합니다.
+                const imgTag = customHeaderImageEl.querySelector('img');
+                if (imgTag) {
+                    imgTag.style.display = 'none'; // 이미지 태그 숨기기
+                }
+
+                // 컨테이너 배경 스타일 적용
+                customHeaderImageEl.style.backgroundImage = `url('${imageUrl}')`;
+                customHeaderImageEl.style.backgroundSize = 'cover';
+                customHeaderImageEl.style.backgroundPosition = 'center';
+            }
+        },
         // 🌟 일정 생성 로직 (select)은 그대로 유지
         select: function (info) {
             var title = prompt('새 일정 제목을 입력하세요:');
@@ -70,7 +123,8 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             // 선택 영역 해제
             calendar.unselect();
-        },
+        }
+        ,
         // 이벤트 클릭 핸들러
         eventClick: function (info) {
             // 캘린더 이벤트 객체 정보 (info.event)
@@ -96,7 +150,8 @@ document.addEventListener('DOMContentLoaded', function () {
     // 💡 3. setupEventSourceToggles 함수 호출 시 배열을 전달
     //    A의 일정 토글도 함께 처리할 수 있도록 배열로 전달합니다.
     setupEventSourceToggles(calendar, [source_a, kbo_source]);
-});
+})
+;
 
 // 서버에 일정 생성 요청을 보내는 함수 (변경 없음)
 function createEventOnServer(title, startStr, endStr, allDay, calendar) {
