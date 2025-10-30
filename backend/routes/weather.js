@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const request = require('request');
 require("dotenv").config();
-const apiKey =  process.env.weatherApk;
+const apiKey =  process.env.WEATHER_APK;
 
 router.post('/search', function (req, res) {
 
