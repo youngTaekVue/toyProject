@@ -1,25 +1,34 @@
-const apiUrl = 'http://localhost:3000/mapkey/getkey';
-const mpaUrl = 'http://localhost:3000/mapkey/trade';
-
-
-
 // 클라이언트 JavaScript (client.js)
-async function loadMap() {
+async function loadTradeData() { // 함수명 변경 (더 명확하게)
+
+    const tradeUrl = 'http://localhost:3000/mapkey/trade'; // tradeUrl로 변수명 변경
+
     try {
-        // 1. 서버에서 API 키 요청
-        const response = await fetch(mpaUrl);
-        const config = await response.json();
-console.log(config);
+        // 1. 서버 API 호출 (서버가 키를 사용해 외부 데이터를 가져온 후 반환할 것을 기대)
+        const response = await fetch(tradeUrl);
+
+        if (!response.ok) {
+            // 서버에서 4xx 또는 5xx 응답이 왔을 경우 처리
+            const errorText = await response.text();
+            throw new Error(`서버 요청 실패: ${response.status} ${response.statusText} - ${errorText}`);
+        }
+        // 2. 서버가 반환한 최종 데이터(실거래가 정보)를 JSON으로 파싱
+        const tradeData = await response.json();
+
+        console.log('성공적으로 수신된 실거래가 데이터:', tradeData);
+
+        // 3. 맵에 데이터 표시 등의 후속 작업 수행...
+        // displayDataOnMap(tradeData);
+
     } catch (error) {
-        console.error('Failed to fetch config:', error);
+        console.error('실거래가 데이터를 가져오는 데 실패했습니다:', error);
     }
 }
 
 
-
-
 // 클라이언트 JavaScript (client.js)
 async function loadKakaoMap() {
+    const apiUrl = 'http://localhost:3000/mapkey/getkey';
     try {
         // 1. 서버에서 API 키 요청
         const response = await fetch(apiUrl);
@@ -45,7 +54,7 @@ async function loadKakaoMap() {
 
 
         // 키 값을 URL 쿼리 파라미터로 전달
-       // script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&autoload=false`;
+        // script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&autoload=false`;
         script.onload = () => {
             // 3. 맵 초기화 및 표시
             kakao.maps.load(() => {
@@ -64,5 +73,6 @@ async function loadKakaoMap() {
         console.error('Failed to fetch config:', error);
     }
 }
-loadMap()
+
+loadTradeData()
 loadKakaoMap();

@@ -40,84 +40,21 @@ router.get('/getkey', (req, res) => {
     });
 });
 
+router.get('/trade', async (req, res) => {
 
-/**
- * @route GET /apt/trade
- * @desc 국토교통부 아파트 매매 실거래가 데이터를 조회
- * @query LAWD_CD: 법정동 코드 (필수, 예: 11110)
- * @query DEAL_YMD: 계약 연월 (필수, 예: 202301)
- */
-router.get('/', async (req, res) => {
-    // 1. 필수 파라미터 유효성 검사
-    // const { LAWD_CD, DEAL_YMD } = req.query;
-    //
-    // if (!LAWD_CD || !DEAL_YMD) {
-    //     return res.status(400).json({
-    //         success: false,
-    //         message: "LAWD_CD (법정동 코드)와 DEAL_YMD (계약 연월)는 필수 파라미터입니다."
-    //     });
-    // }
-
-
+    // 💡 API URL 수정 (LAWD_CD와 DEAL_YMD 사용): 정확한 엔드포인트 확인 필요
+    let api_base_url = `https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev?serviceKey=${SERVICE_KEY}&numOfRows=1000&pageNo=1&LAWD_CD=41113&DEAL_YMD=202503`;
 
     try {
-        // 3. 공공데이터 API 호출
-        const response = await axios.get(API_URL, { params });
-        const xmlData = response.data;
+        const response = await axios.get(api_base_url);
 
-        // 4. (누락된 부분) XML 파싱 및 JSON 응답 로직 추가 필요
-
-    } catch (error) {
-        console.error('API 호출 에러:', error.message);
-        res.status(500).json({
-            success: false,
-            error: '외부 공공데이터 API 호출 중 에러 발생',
-            details: error.message
-        });
+        console.log(response.data.response.body.items);
+        //const result = JSON.parse(body); // 👈 여기서 에러 발생 가능성 높음
+        res.status(200).json(response.data.response.body.items);
+    } catch (e) {
+        console.error('JSON 파싱 에러:', e);
+        res.status(500).send('데이터 처리 중 오류가 발생했습니다.');
     }
 });
-
-router.post('/trade', function (req, res) {
-
-    const receivedData = req.body;
-    if (receivedData != null) {
-        let name = receivedData.name;
-        let numOfRows = receivedData.numOfRows;
-        let pageNo = receivedData.pageNo;
-        let dataType = receivedData.dataType;
-        let base_Date = receivedData.baseDate;
-        let base_time = receivedData.baseTime;
-        let nx = receivedData.nx;
-        let ny = receivedData.ny;
-        let api_base_url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/${name}?serviceKey=${apiKey}&numOfRows=1052&pageNo=1&dataType=JSON&base_date=${base_Date}&base_time=${base_time}&nx=${nx}&ny=${ny}`;
-
-        const options = {
-            url: api_base_url
-        };
-
-        request.get(options, function (error, response, body) {
-            console.log('수신된 응답 본문:', body); // <--- 이 부분으로 실제 응답 확인
-            if (error) {
-                console.error('API 호출 중 네트워크 에러:', error);
-                return res.status(500).send('네트워크 오류가 발생했습니다.');
-
-            }
-
-            if (response.statusCode !== 200) {
-                console.error('API 응답 실패:', response.statusCode, body);
-                return res.status(response.statusCode).send('외부 API 호출에 실패했습니다.');
-            }
-
-            try {
-                const result = JSON.parse(body);
-                res.status(200).json(result);
-            } catch (e) {
-                console.error('JSON 파싱 에러:', e);
-                res.status(500).send('데이터 처리 중 오류가 발생했습니다.');
-            }
-        });
-    }
-});
-
 
 module.exports = router;
