@@ -13,6 +13,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // news 라우트 파일 불러오기
+const commonRouter = require('./routes/common');
 const weatherRouter = require('./routes/weather');
 const newsRouter = require('./routes/news');
 const calendarRouter = require('./routes/calendar');
@@ -22,6 +23,7 @@ const mapkeyRouter = require('./routes/kakao_map');
 app.use(express.json()); // JSON 형식
 
 // /news 경로로 들어오는 모든 요청을 newsRouter로 전달
+app.use('/api', commonRouter);
 app.use('/weather', weatherRouter);
 app.use('/news', newsRouter);
 app.use('/calendar', calendarRouter);

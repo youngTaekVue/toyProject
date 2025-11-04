@@ -1,4 +1,31 @@
 // 클라이언트 JavaScript (client.js)
+async function locations() { // 함수명 변경 (더 명확하게)
+
+    const tradeUrl = 'http://localhost:3000/api/lottery-locations'; // tradeUrl로 변수명 변경
+
+    try {
+        // 1. 서버 API 호출 (서버가 키를 사용해 외부 데이터를 가져온 후 반환할 것을 기대)
+        const response = await fetch(tradeUrl);
+
+        if (!response.ok) {
+            // 서버에서 4xx 또는 5xx 응답이 왔을 경우 처리
+            const errorText = await response.text();
+            throw new Error(`서버 요청 실패: ${response.status} ${response.statusText} - ${errorText}`);
+        }
+        // 2. 서버가 반환한 최종 데이터(실거래가 정보)를 JSON으로 파싱
+        const tradeData = await response.json();
+
+        console.log('성공적으로 수신된 실거래가 데이터:', tradeData);
+
+        // 3. 맵에 데이터 표시 등의 후속 작업 수행...
+        // displayDataOnMap(tradeData);
+
+    } catch (error) {
+        console.error('실거래가 데이터를 가져오는 데 실패했습니다:', error);
+    }
+}
+
+// 클라이언트 JavaScript (client.js)
 async function loadTradeData() { // 함수명 변경 (더 명확하게)
 
     const tradeUrl = 'http://localhost:3000/mapkey/trade'; // tradeUrl로 변수명 변경
@@ -74,5 +101,5 @@ async function loadKakaoMap() {
     }
 }
 
-loadTradeData()
+locations()
 loadKakaoMap();
