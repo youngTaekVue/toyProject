@@ -1,105 +1,144 @@
-// 클라이언트 JavaScript (client.js)
-async function locations() { // 함수명 변경 (더 명확하게)
+// -------------------------------------------------------------
+// ⭐ 통합 함수: 지도 로드, 데이터 로드, 마커 표시를 순차적으로 처리
+// -------------------------------------------------------------
+async function initMapAndData() {
 
-    const tradeUrl = 'http://localhost:3000/api/lottery-locations'; // tradeUrl로 변수명 변경
+    // 1. 서버에서 카카오맵 API 키 가져오기
+    const mapConfig = await fetchMapConfig();
+    if (!mapConfig) return;
 
-    try {
-        // 1. 서버 API 호출 (서버가 키를 사용해 외부 데이터를 가져온 후 반환할 것을 기대)
-        const response = await fetch(tradeUrl);
-
-        if (!response.ok) {
-            // 서버에서 4xx 또는 5xx 응답이 왔을 경우 처리
-            const errorText = await response.text();
-            throw new Error(`서버 요청 실패: ${response.status} ${response.statusText} - ${errorText}`);
-        }
-        // 2. 서버가 반환한 최종 데이터(실거래가 정보)를 JSON으로 파싱
-        const tradeData = await response.json();
-
-        console.log('성공적으로 수신된 실거래가 데이터:', tradeData);
-
-        // 3. 맵에 데이터 표시 등의 후속 작업 수행...
-        // displayDataOnMap(tradeData);
-
-    } catch (error) {
-        console.error('실거래가 데이터를 가져오는 데 실패했습니다:', error);
+    // 2. Geocoding 결과 JSON 파일 데이터 가져오기
+    const locationData = await fetchLocationData();
+    if (!locationData || locationData.length === 0) {
+        console.warn('표시할 Geocoding 데이터가 없습니다.');
+        return;
     }
-}
 
-// 클라이언트 JavaScript (client.js)
-async function loadTradeData() { // 함수명 변경 (더 명확하게)
-
-    const tradeUrl = 'http://localhost:3000/mapkey/trade'; // tradeUrl로 변수명 변경
-
-    try {
-        // 1. 서버 API 호출 (서버가 키를 사용해 외부 데이터를 가져온 후 반환할 것을 기대)
-        const response = await fetch(tradeUrl);
-
-        if (!response.ok) {
-            // 서버에서 4xx 또는 5xx 응답이 왔을 경우 처리
-            const errorText = await response.text();
-            throw new Error(`서버 요청 실패: ${response.status} ${response.statusText} - ${errorText}`);
-        }
-        // 2. 서버가 반환한 최종 데이터(실거래가 정보)를 JSON으로 파싱
-        const tradeData = await response.json();
-
-        console.log('성공적으로 수신된 실거래가 데이터:', tradeData);
-
-        // 3. 맵에 데이터 표시 등의 후속 작업 수행...
-        // displayDataOnMap(tradeData);
-
-    } catch (error) {
-        console.error('실거래가 데이터를 가져오는 데 실패했습니다:', error);
-    }
+    // 3. 카카오맵 SDK 동적 로드 및 초기화
+    await loadKakaoMapSDK(mapConfig, locationData); // mapConfig 객체 전달
 }
 
 
-// 클라이언트 JavaScript (client.js)
-async function loadKakaoMap() {
-    const apiUrl = 'http://localhost:3000/mapkey/getkey';
+// --- A. 서버에서 API 키 설정 가져오기 (수정됨) ---
+async function fetchMapConfig() {
+    const apiUrl = 'http://localhost:3000/mapkey/getkey'; // 서버 라우터 경로
+
     try {
-        // 1. 서버에서 API 키 요청
         const response = await fetch(apiUrl);
-
-        // HTTP 상태 코드가 200번대가 아니면 에러를 던져 catch 블록으로 이동
         if (!response.ok) {
             console.error(`HTTP Error: ${response.status} - ${response.statusText}`);
-            // 서버에서 에러 메시지를 JSON 형태로 보낼 경우, 응답 본문을 읽어볼 수 있습니다.
             const errorBody = await response.text();
             throw new Error(`Failed to fetch config. Server response: ${errorBody}`);
         }
-
+        // ⭐ 수정: response.json() 호출 ⭐
         const config = await response.json();
-        const apiKey = config.kakaoMapAppKey;
-        if (!apiKey) {
-            console.error("API Key is missing.");
-            return;
-        }
-
-        // 2. 카카오맵 SDK 동적 로드
-        const script = document.createElement('script');
-        script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&autoload=false`;
-
-
-        // 키 값을 URL 쿼리 파라미터로 전달
-        // script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&autoload=false`;
-        script.onload = () => {
-            // 3. 맵 초기화 및 표시
-            kakao.maps.load(() => {
-                const container = document.getElementById('map');
-                const options = {
-                    center: new kakao.maps.LatLng(33.450701, 126.570667),
-                    level: 3
-                };
-                const map = new kakao.maps.Map(container, options);
-                console.log('카카오맵 로드 완료!');
-            });
-        };
-        document.head.appendChild(script);
+        return config;
 
     } catch (error) {
-        console.error('Failed to fetch config:', error);
+        console.error('❌ API 키 설정을 가져오는 데 실패했습니다:', error.message);
+        return null;
     }
 }
 
-locations()
-loadKakaoMap();
+
+// --- B. 서버의 JSON 파일 데이터를 가져오기 (동일) ---
+async function fetchLocationData() {
+    const tradeUrl = 'http://localhost:3000/files/geocoding.json';
+
+    try {
+        const response = await fetch(tradeUrl);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`서버 요청 실패: ${response.status} ${response.statusText} - ${errorText}`);
+        }
+        const locationData = await response.json();
+        console.log('✅ Geocoding 데이터 수신 완료:', locationData.length, '개');
+        return locationData;
+
+    } catch (error) {
+        console.error('❌ Geocoding 데이터를 가져오는 데 실패했습니다:', error.message);
+        return null;
+    }
+}
+
+
+// --- C. 카카오맵 SDK 로드 및 지도/마커 표시 (수정됨) ---
+async function loadKakaoMapSDK(mapConfig, data) { // mapConfig 객체를 인수로 받음
+
+    // ⭐ 수정: mapConfig 객체에서 kakaoMapAppKey 추출 ⭐
+    const apiKey = mapConfig.kakaoMapAppKey;
+    if (!apiKey) {
+        console.error("카카오맵 API Key가 config 객체에 없습니다.");
+        return;
+    }
+
+    return new Promise((resolve) => {
+        const script = document.createElement('script');
+        // apiKey 변수를 사용하여 SDK 로드 URL 생성
+        script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&autoload=false`;
+
+        script.onload = () => {
+            kakao.maps.load(() => {
+                const container = document.getElementById('map');
+
+                // 데이터의 첫 번째 위치를 지도의 중심으로 설정
+                const centerLat = data[0]?.lat || 37.566826;
+                const centerLng = data[0]?.lng || 126.9786567;
+
+                const options = {
+                    center: new kakao.maps.LatLng(centerLat, centerLng),
+                    level: 7
+                };
+                const map = new kakao.maps.Map(container, options);
+                console.log('✅ 카카오맵 초기화 완료!');
+
+                // ⭐ 마커 표시 로직 실행 ⭐
+                displayMarkers(map, data);
+
+                resolve();
+            });
+        };
+        document.head.appendChild(script);
+    });
+}
+
+
+// --- D. 마커 표시 함수 (동일) ---
+function displayMarkers(map, data) {
+    let bounds = new kakao.maps.LatLngBounds();
+
+    data.forEach(item => {
+        // 좌표값이 유효하고, Geocoding이 성공한 항목만 표시
+        if (item.lat && item.lng && item.geocoding_status === 'SUCCESS') {
+            const position = new kakao.maps.LatLng(item.lat, item.lng);
+
+            // ... (마커 생성 및 인포윈도우 로직) ...
+            const marker = new kakao.maps.Marker({
+                map: map,
+                position: position,
+                title: item.상호명
+            });
+
+            const infowindow = new kakao.maps.InfoWindow({
+                content: `<div style="padding:5px;font-size:12px;">${item.상호명}<br>(${item.도로명주소})</div>`
+            });
+
+            kakao.maps.event.addListener(marker, 'click', function() {
+                infowindow.open(map, marker);
+            });
+
+            bounds.extend(position);
+        }
+    });
+
+    if (!bounds.isEmpty()) {
+        map.setBounds(bounds);
+    }
+
+    console.log(`✅ 지도에 ${data.filter(i => i.geocoding_status === 'SUCCESS').length}개의 마커를 표시했습니다.`);
+}
+
+
+// ⭐ 애플리케이션 시작 ⭐
+initMapAndData();
