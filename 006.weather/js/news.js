@@ -1,9 +1,16 @@
-// Node.js v18 이상 기준
-const apiUrl = 'http://localhost:3000/news/search';
-
-async function fetchNewsData() {
+let apiUrl = 'http://localhost:3000/news/dataList';
+let keyword = '';
+async function fetchNewsData(param) {
+    // 1. 파라미터 객체 정의
+    const params = {
+        id: param
+    };
+    //2. URLSearchParams 객체 생성
+    const urlParams = new URLSearchParams(params);
+    // 3. 기존 URL에 쿼리 문자열 추가
+    let apiUrlWithParams = param === undefined ? apiUrl : `${apiUrl}?${urlParams.toString()}`;
     try {
-        const response = await fetch(apiUrl, {
+        const response = await fetch(apiUrlWithParams, {
             method: 'GET',
         });
 
@@ -25,7 +32,7 @@ async function fetchNewsData() {
 
             // `data.items` 배열의 각 항목을 순회합니다.
             data.items.forEach(item => {
-                console.log(`Title: ${item.title}, Link: ${item.link}`);
+                //     console.log(`Title: ${item.title}, Link: ${item.link}`);
 
                 // 📌 반복문 안에서 각 항목별로 새로운 HTML 요소를 생성합니다.
                 const newsItem = document.createElement('div');

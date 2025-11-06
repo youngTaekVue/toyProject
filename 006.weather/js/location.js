@@ -128,8 +128,10 @@ function populateDistricts(selectedCity) {
 
 // 이벤트 리스너 등록
 provinceSelect.addEventListener('change', (event) => {
-    const selectedProvince = event.target.value;
+    let selectedProvince = event.target.value;
+
     populateCities(selectedProvince);
+    keyword = selectedProvince;
 });
 
 citySelect.addEventListener('change', (event) => {
@@ -144,6 +146,7 @@ districtSelect.addEventListener('change', (event) => {
         const selectedNx = locationInfo.nx;
         const selectedNy = locationInfo.ny;
         let defaultLocation = [selectedNx, selectedNy];
-        fetchWeatherData(defaultLocation);
+        fetchWeatherData(defaultLocation); //선택한 지역을 기반으로 날씨 조회
+        fetchNewsData(keyword);
     }
 });

@@ -46,7 +46,7 @@ function getUltraSrtFcstData(location) {
 
 async function getApiCall(name, lodata) {
     let allAverages;
-    const apiUrl = ' http://localhost:3000/weather/search';
+    const apiUrl = ' http://localhost:3000/weather/dataList';
     const dataToSend = {
         name: name,
         numOfRows: '1052',
@@ -71,7 +71,7 @@ async function getApiCall(name, lodata) {
     }
 
     const data = await response.json();
-    console.log('API 호출 성공, 데이터:', data);
+    //console.log('API 호출 성공, 데이터:', data);
     if (data.response.header.resultCode === '00') {
         // 응답 성공 시 items 배열에서 날씨 정보를 추출하여 화면에 표시
         const items = data.response.body.items.item;
@@ -220,12 +220,12 @@ function createElemnt(item) {
 
             if (dailyAverageData.hasOwnProperty('TMX')) {
                 str_tmx = parseFloat(dailyAverageData.TMX).toFixed(1);
-                console.log('str_tmx : ' + str_tmx);
+                //console.log('str_tmx : ' + str_tmx);
             }
 
             if (dailyAverageData.hasOwnProperty('TMN') != null) {
                 str_tmn = parseFloat(dailyAverageData.TMN).toFixed(1);
-                console.log('str_tmn : ' + str_tmn);
+                //console.log('str_tmn : ' + str_tmn);
             }
 
 

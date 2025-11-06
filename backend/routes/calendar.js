@@ -26,10 +26,12 @@ router.use((req, res, next) => {
 // -------------------------------------------------------------
 // GET /api/events/:id : 특정 캘린더 ID(A, B 등)에 따른 일정 조회
 // -------------------------------------------------------------
-router.get('/api/events/:id', async (req, res) => {
-    const calendarIdentifier = req.params.id;
+router.get('/api/events?:id', async (req, res) => {
+    const calendarIdentifier = req.params;
     const timeMin = req.query.start;
     const timeMax = req.query.end;
+
+    console.log(calendarIdentifier)
 
     // 캘린더 식별자(A/B)에 따라 Google Calendar ID 결정
     let searchParam = (calendarIdentifier === "A") ? CALENDAR_ID : (calendarIdentifier === "B") ? KOREA_HOLIDAY_ID : null; // 유효하지 않은 식별자 처리

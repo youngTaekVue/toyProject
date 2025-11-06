@@ -1,48 +1,16 @@
-// 🚨 환경 변수 정의
 const KAKAO_REST_API_KEY = process.env.KAKAO_REST_KEY;
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const fs = require('fs/promises'); // 비동기 파일 처리를 위해 fs/promises 사용
 const {createReadStream} = require('fs'); // 스트림 처리를 위해 fs에서 createReadStream 사용
-const csv = require('csv-parser'); // ⭐ 새로 추가된 CSV 파서
+//const csv = require('csv-parser'); // ⭐ 새로 추가된 CSV 파서
 
 const CSV_FILE_PATH = './files/sample.csv'; // ⭐ CSV 파일 경로 정의
 
-/**
- * CSV 파일을 읽어서 JSON 객체 배열로 변환하는 함수
- * @param {string} filePath - CSV 파일 경로
- * @returns {Promise<Array<Object>>} - JSON 객체 배열
- */
-const readCsvToJson = (filePath) => {
-    const results = [];
-
-    // Promise를 사용하여 비동기 스트림 처리가 완료될 때까지 기다립니다.
-    return new Promise((resolve, reject) => {
-        createReadStream(filePath) // CSV 파일을 읽기 위한 스트림 생성
-            .pipe(csv({
-                // CSV 헤더를 명시적으로 지정하여 예상치 못한 헤더 변경에 대비하거나,
-                // 파일의 첫 행을 헤더로 사용하려면 이 부분을 제거합니다.
-                // headers: ['번호', '상호', '도로명주소', '지번주소']
-            }))
-            .on('data', (data) => {
-                // csv-parser는 기본적으로 첫 행의 헤더를 키(Key)로 사용하여 객체를 생성합니다.
-                // CSV에 '번호', '상호', '도로명주소', '지번주소' 헤더가 있다고 가정합니다.
-                results.push(data);
-            })
-            .on('end', () => {
-                console.log(`✅ CSV 파일에서 ${results.length}개의 항목을 성공적으로 읽었습니다.`);
-                resolve(results);
-            })
-            .on('error', (error) => {
-                console.error(`❌ CSV 파일 읽기 중 오류 발생:`, error.message);
-                reject(error);
-            });
-    });
-};
 
 // 판매점의 주소를 받아 kakao Geocoding API를 통해 좌표를 받아온다.
-router.get('/lottery-locations', async (req, res) => {
+router.get('/locations', async (req, res) => {
 
     const KAKAO_API_URL = 'https://dapi.kakao.com/v2/local/search/address.json';
     const ADDRESS_FIELD_NAME = '도로명주소'; // 사용할 주소 필드 이름
@@ -120,5 +88,40 @@ router.get('/lottery-locations', async (req, res) => {
 
     res.status(200).json(finalResults);
 });
+
+
+
+/**
+ * CSV 파일을 읽어서 JSON 객체 배열로 변환하는 함수
+ * @param {string} filePath - CSV 파일 경로
+ * @returns {Promise<Array<Object>>} - JSON 객체 배열
+ */
+const readCsvToJson = (filePath) => {
+    const results = [];
+
+    // Promise를 사용하여 비동기 스트림 처리가 완료될 때까지 기다립니다.
+    return new Promise((resolve, reject) => {
+        createReadStream(filePath) // CSV 파일을 읽기 위한 스트림 생성
+            .pipe(csv({
+                // CSV 헤더를 명시적으로 지정하여 예상치 못한 헤더 변경에 대비하거나,
+                // 파일의 첫 행을 헤더로 사용하려면 이 부분을 제거합니다.
+                // headers: ['번호', '상호', '도로명주소', '지번주소']
+            }))
+            .on('data', (data) => {
+                // csv-parser는 기본적으로 첫 행의 헤더를 키(Key)로 사용하여 객체를 생성합니다.
+                // CSV에 '번호', '상호', '도로명주소', '지번주소' 헤더가 있다고 가정합니다.
+                results.push(data);
+            })
+            .on('end', () => {
+                console.log(`✅ CSV 파일에서 ${results.length}개의 항목을 성공적으로 읽었습니다.`);
+                resolve(results);
+            })
+            .on('error', (error) => {
+                console.error(`❌ CSV 파일 읽기 중 오류 발생:`, error.message);
+                reject(error);
+            });
+    });
+};
+
 
 module.exports = router;

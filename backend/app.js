@@ -20,12 +20,10 @@ const calendarRouter = require('./routes/calendar');
 const mapkeyRouter = require('./routes/kakao_map');
 
 
-app.use(express.json()); // JSON 형식
+app.use(express.json()); / JSON 형식
 app.use(express.static('public'))
 
 
-
-// /news 경로로 들어오는 모든 요청을 newsRouter로 전달
 app.use('/api', commonRouter);
 app.use('/weather', weatherRouter);
 app.use('/news', newsRouter);
