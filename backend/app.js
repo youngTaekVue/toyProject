@@ -20,7 +20,7 @@ const calendarRouter = require('./routes/calendar');
 const mapkeyRouter = require('./routes/kakao_map');
 
 
-app.use(express.json()); / JSON 형식
+app.use(express.json()); //JSON 형식
 app.use(express.static('public'))
 
 
