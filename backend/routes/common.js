@@ -3,11 +3,21 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const fs = require('fs/promises'); // 비동기 파일 처리를 위해 fs/promises 사용
-const {createReadStream} = require('fs'); // 스트림 처리를 위해 fs에서 createReadStream 사용
-//const csv = require('csv-parser'); // ⭐ 새로 추가된 CSV 파서
+const { createReadStream } = require('fs'); // 스트림 처리를 위해 fs에서 createReadStream 사용
+const path = require('path'); // ⭐ 경로 처리를 위해 path 모듈 추가
+const csv = require('csv-parser');
+const iconv = require('iconv-lite');
 
-const CSV_FILE_PATH = './files/sample.csv'; // ⭐ CSV 파일 경로 정의
+const keyMap = {
+    '번호': 'no',
+    '도로명주소': 'road_address',
+    '지번주소': 'address',
+    '상호': 'name',
+};
 
+
+// 🚨 경로 수정: 라우터 파일이 routes 폴더 안에 있다고 가정하고,
+const CSV_FILE_PATH = './public/files/sample.csv'; // ⭐ CSV 파일 경로 정의
 
 // 판매점의 주소를 받아 kakao Geocoding API를 통해 좌표를 받아온다.
 router.get('/locations', async (req, res) => {
@@ -17,21 +27,23 @@ router.get('/locations', async (req, res) => {
 
     let vendorItems = [];
     try {
-        // 1. ⭐ CSV 파일 읽기 및 JSON으로 변환 ⭐
+        // 1. CSV 파일 읽기 및 JSON으로 변환 (EUC-KR 처리 함수 호출)
         vendorItems = await readCsvToJson(CSV_FILE_PATH);
     } catch (e) {
-        return res.status(500).json({error: "Failed to read or parse CSV file.", detail: e.message});
+        // 에러 로깅 개선
+        console.error("❌ CSV 파일 처리 실패:", e);
+        return res.status(500).json({ error: "Failed to read or parse CSV file.", detail: e.message });
     }
 
+    // ... (중략: 주소 추출 및 Geocoding 로직은 그대로 유지) ...
     const addresses = vendorItems
         .map(item => item[ADDRESS_FIELD_NAME])
         .filter(a => a && a.trim() !== '');
-
     console.log(`Geocoding을 위해 ${addresses.length}개의 주소를 추출했습니다.`);
 
     // --- B. 일괄 Geocoding 처리 (Kakao API 호출 및 결과 취합) ---
     if (!KAKAO_REST_API_KEY) {
-        return res.status(500).json({error: "Server configuration error: Kakao REST API key missing."});
+        return res.status(500).json({ error: "Server configuration error: Kakao REST API key missing." });
     }
 
     const finalResults = [];
@@ -41,46 +53,53 @@ router.get('/locations', async (req, res) => {
         await delay(100); // API 부하를 줄이기 위해 지연
         try {
             const geoResponse = await axios.get(KAKAO_API_URL, {
-                headers: {'Authorization': `KakaoAK ${KAKAO_REST_API_KEY}`},
-                params: {query: address}
+                headers: { 'Authorization': `KakaoAK ${KAKAO_REST_API_KEY}` },
+                params: { query: address }
             });
 
             const documents = geoResponse.data.documents;
             const result = documents.length > 0 ? documents[0] : null;
+
+            // 1. 원본 데이터 가져오기
             const originalVendorData = vendorItems[index];
 
-            finalResults.push({
-                ...originalVendorData,
-                input_address: address,
-                lat: parseFloat(result.y),
-                lng: parseFloat(result.x)
-            });
+            // 2. 💡 keyMap을 사용하여 필드명 변환
+            const translatedVendorData = translateKeys(originalVendorData, keyMap);
 
-            if (result) {
-                finalResults.push({status: 'SUCCESS'});
-            } else {
-                finalResults.push({status: 'NOT_FOUND'});
-            }
+            // console.log(translatedVendorData.no); // '번호' 대신 'no' 사용 가능
+
+            const itemResult = {
+                ...translatedVendorData, // 💡 변환된 데이터 사용
+                lat: result ? parseFloat(result.y) : null,
+                lng: result ? parseFloat(result.x) : null,
+                status: result ? 'SUCCESS' : 'NOT_FOUND',
+            };
+            console.log(itemResult);
+            finalResults.push(itemResult);
 
         } catch (geoError) {
             console.error(`Geocoding failed for ${address}:`, geoError.message);
+
+            // 💡 오류 발생 시에도 원본 데이터에 변환 적용하여 최종 결과에 추가
             finalResults.push({
-                ...vendorItems[index],
-                input_address: address,
+                ...translateKeys(vendorItems[index], keyMap),
                 status: 'API_ERROR',
                 message: geoError.response?.data?.msg || geoError.message
             });
         }
     }
 
-    // --- C. 최종 결과 클라이언트에게 응답 및 파일 저장 ---
-    const outputFilePath = './files/geocoding.json';
+    // --- C. 최종 결과 클라이언트에게 응답 및 파일 저장 (EUC-KR 유지) ---
+    const outputFilePath = './public/files/geocoding.json'; // ⭐ json 파일 경로 정의
     try {
         const jsonContent = JSON.stringify(finalResults, null, 2);
-        // fs/promises의 writeFile 사용
-        await fs.writeFile(outputFilePath, jsonContent, 'utf8');
 
-        console.log(`✅ Geocoding 결과가 ${outputFilePath} 파일에 저장되었습니다.`);
+        // 1. JSON 문자열을 euc-kr 버퍼로 변환합니다.
+        const eucKrBuffer = iconv.encode(jsonContent, 'utf-8');
+
+        // 2. 버퍼를 파일에 씁니다. (인코딩 인수를 생략하여 버퍼 그대로 저장)
+        await fs.writeFile(outputFilePath, eucKrBuffer);
+        console.log(`✅ Geocoding 결과가 ${outputFilePath} 파일에 EUC-KR로 저장되었습니다.`);
 
     } catch (fileError) {
         console.error(`❌ JSON 파일 저장 중 오류 발생:`, fileError.message);
@@ -88,7 +107,6 @@ router.get('/locations', async (req, res) => {
 
     res.status(200).json(finalResults);
 });
-
 
 
 /**
@@ -99,17 +117,17 @@ router.get('/locations', async (req, res) => {
 const readCsvToJson = (filePath) => {
     const results = [];
 
-    // Promise를 사용하여 비동기 스트림 처리가 완료될 때까지 기다립니다.
     return new Promise((resolve, reject) => {
-        createReadStream(filePath) // CSV 파일을 읽기 위한 스트림 생성
+        // 1. ⭐ EUC-KR 디코딩 스트림 추가 (가장 중요한 수정) ⭐
+        const readStream = createReadStream(filePath)
+            .pipe(iconv.decodeStream('euc-kr')); // euc-kr -> UTF-8로 변환
+
+        readStream
             .pipe(csv({
-                // CSV 헤더를 명시적으로 지정하여 예상치 못한 헤더 변경에 대비하거나,
-                // 파일의 첫 행을 헤더로 사용하려면 이 부분을 제거합니다.
                 // headers: ['번호', '상호', '도로명주소', '지번주소']
             }))
             .on('data', (data) => {
-                // csv-parser는 기본적으로 첫 행의 헤더를 키(Key)로 사용하여 객체를 생성합니다.
-                // CSV에 '번호', '상호', '도로명주소', '지번주소' 헤더가 있다고 가정합니다.
+                // csv-parser는 이제 UTF-8로 변환된 데이터를 받으므로 한글이 깨지지 않습니다.
                 results.push(data);
             })
             .on('end', () => {
@@ -117,11 +135,27 @@ const readCsvToJson = (filePath) => {
                 resolve(results);
             })
             .on('error', (error) => {
-                console.error(`❌ CSV 파일 읽기 중 오류 발생:`, error.message);
+                // 스트림 파이프라인에서 발생하는 모든 에러를 처리합니다.
+                console.error(`❌ readCsvToJson 오류:`, error.message);
                 reject(error);
             });
     });
 };
 
+
+/**
+ * 객체의 필드명(Key)을 keyMap에 따라 변환합니다.
+ * @param {Object} originalObject - 변환할 원본 객체
+ * @param {Object} map - { oldKey: newKey } 형태의 매핑 객체
+ * @returns {Object} 필드명이 변환된 새로운 객체
+ */
+function translateKeys(originalObject, map) {
+    return Object.keys(originalObject).reduce((acc, currentKey) => {
+        // 매핑에 있으면 새 키를 사용하고, 없으면 기존 키를 그대로 사용
+        const newKey = map[currentKey] || currentKey;
+        acc[newKey] = originalObject[currentKey];
+        return acc;
+    }, {});
+}
 
 module.exports = router;
