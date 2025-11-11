@@ -1,5 +1,14 @@
+// --- 전역 변수 설정 ---
+// 지도를 저장할 변수
+let map = null;
+// 마커 객체와 해당 데이터(id)를 매핑하여 저장
+const markerMap = new Map();
+// 현재 선택된 카드를 추적
+let activeCardElement = null;
+
+
 // -------------------------------------------------------------
-// ⭐ 통합 함수: 지도 로드, 데이터 로드, 마커 표시를 순차적으로 처리
+// ⭐ 통합 함수: 지도 로드, 데이터 로드, 마커 표시, 카드 생성 순차 처리
 // -------------------------------------------------------------
 async function initMapAndData() {
 
@@ -11,26 +20,33 @@ async function initMapAndData() {
     const locationData = await fetchLocationData();
     if (!locationData || locationData.length === 0) {
         console.warn('표시할 Geocoding 데이터가 없습니다.');
+        document.getElementById('loading-message').textContent = '표시할 데이터가 없습니다.';
         return;
     }
+    document.getElementById('loading-message').style.display = 'none';
 
-    // 3. 카카오맵 SDK 동적 로드 및 초기화
-    await loadKakaoMapSDK(mapConfig, locationData); // mapConfig 객체 전달
+    // 3. 카카오맵 SDK 동적 로드 및 지도 초기화
+    await loadKakaoMapSDK(mapConfig, locationData);
+
+    // 4. 지도 초기화 후, 카드 목록 생성 (새로 추가된 로직)
+    if (map) {
+        createStoreCards(locationData);
+    }
 }
 
 
-// --- A. 서버에서 API 키 설정 가져오기 (수정됨) ---
+// --- A. 서버에서 API 키 설정 가져오기 (제공된 코드와 동일) ---
 async function fetchMapConfig() {
     const apiUrl = 'http://localhost:3000/mapkey/getkey'; // 서버 라우터 경로
 
     try {
         const response = await fetch(apiUrl);
         if (!response.ok) {
-            console.error(`HTTP Error: ${response.status} - ${response.statusText}`);
-            const errorBody = await response.text();
-            throw new Error(`Failed to fetch config. Server response: ${errorBody}`);
+            console.error(`HTTP Error: ${response.status}`);
+
+            throw new Error(`Failed to fetch config.`);
         }
-        // ⭐ 수정: response.json() 호출 ⭐
+
         const config = await response.json();
         return config;
 
@@ -41,7 +57,7 @@ async function fetchMapConfig() {
 }
 
 
-// --- B. 서버의 JSON 파일 데이터를 가져오기 (동일) ---
+// --- B. 서버의 JSON 파일 데이터를 가져오기 (제공된 코드와 동일) ---
 async function fetchLocationData() {
     const tradeUrl = 'http://localhost:3000/files/geocoding.json';
 
@@ -49,8 +65,8 @@ async function fetchLocationData() {
         const response = await fetch(tradeUrl);
 
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`서버 요청 실패: ${response.status} ${response.statusText} - ${errorText}`);
+
+            throw new Error(`서버 요청 실패: ${response.status} ${response.statusText}`);
         }
         const locationData = await response.json();
         console.log('✅ Geocoding 데이터 수신 완료:', locationData.length, '개');
@@ -63,10 +79,11 @@ async function fetchLocationData() {
 }
 
 
-// --- C. 카카오맵 SDK 로드 및 지도/마커 표시 (수정됨) ---
-async function loadKakaoMapSDK(mapConfig, data) { // mapConfig 객체를 인수로 받음
 
-    // ⭐ 수정: mapConfig 객체에서 kakaoMapAppKey 추출 ⭐
+
+
+// --- C. 카카오맵 SDK 로드 및 지도/마커 표시 (글로벌 map 변수 저장 및 마커 로직 수정) ---
+async function loadKakaoMapSDK(mapConfig, data) {
     const apiKey = mapConfig.kakaoMapAppKey;
     if (!apiKey) {
         console.error("카카오맵 API Key가 config 객체에 없습니다.");
@@ -75,24 +92,30 @@ async function loadKakaoMapSDK(mapConfig, data) { // mapConfig 객체를 인수�
 
     return new Promise((resolve) => {
         const script = document.createElement('script');
-        // apiKey 변수를 사용하여 SDK 로드 URL 생성
+
         script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&autoload=false&libraries=clusterer`;
+
+
+
 
         script.onload = () => {
             kakao.maps.load(() => {
                 const container = document.getElementById('map');
 
-                // 데이터의 첫 번째 위치를 지도의 중심으로 설정
+
                 const centerLat = data[0]?.lat || 37.566826;
                 const centerLng = data[0]?.lng || 126.9786567;
 
                 const options = {
-                    center: new kakao.maps.LatLng(centerLat, centerLng)
+                    center: new kakao.maps.LatLng(centerLat, centerLng),
+                    level: 3 // 적절한 초기 줌 레벨 설정
                 };
-                const map = new kakao.maps.Map(container, options);
+
+                // ⭐ 전역 map 변수에 지도 객체 저장 ⭐
+                map = new kakao.maps.Map(container, options);
                 console.log('✅ 카카오맵 초기화 완료!');
 
-                // ⭐ 마커 표시 로직 실행 ⭐
+                // 마커 표시 로직 실행
                 displayMarkers(map, data);
 
                 resolve();
@@ -103,80 +126,155 @@ async function loadKakaoMapSDK(mapConfig, data) { // mapConfig 객체를 인수�
 }
 
 
-// --- D. 마커 표시 함수 (클러스터러 적용) ---
-// --- D. 마커 표시 함수 (클러스터러 적용) ---
-function displayMarkers(map, data) {
+// --- D. 마커 표시 함수 (클러스터러 적용 및 markerMap 업데이트) ---
+function displayMarkers(currentMap, data) {
     let bounds = new kakao.maps.LatLngBounds();
-    const markers = []; // 1. 모든 유효한 마커 객체를 담을 배열을 선언합니다.
+    const markers = [];
+    var imageSize = new kakao.maps.Size(35, 35);
+    // 실제 이미지 경로로 수정하세요
+    var imageUrl = '/images/markers.png';
+    var image = new kakao.maps.MarkerImage(imageUrl, imageSize);
+
+    // markerMap 초기화
+    markerMap.clear();
 
     data.forEach(item => {
-        // 좌표값이 유효하고, Geocoding이 성공한 항목만 처리
+        // 유효한 항목만 처리
         if (item.lat && item.lng && item.status === 'SUCCESS') {
             const position = new kakao.maps.LatLng(item.lat, item.lng);
 
-            // 2. 마커 생성 시 map 속성을 제거합니다.
+
             const marker = new kakao.maps.Marker({
                 position: position,
-                title: item.name
+                title: item.name,
+                image: image
             });
+            console.log(item);
+            // ⭐ markerMap에 마커와 데이터를 연결하여 저장 ⭐
+            // item.id가 유니크한 키라고 가정
+            markerMap.set(item.id, { marker: marker, data: item });
 
-            // 인포윈도우 및 이벤트 로직 (개별 마커에 연결)
+            // 인포윈도우 생성
             const infowindow = new kakao.maps.InfoWindow({
                 content: `<div style="padding:5px;font-size:12px;">${item.name}<br>(${item.road_address})</div>`
             });
 
-            // 마커 클릭 시 인포윈도우 표시
+            // 마커 클릭 시 인포윈도우 표시 및 카드 활성화
             kakao.maps.event.addListener(marker, 'click', function () {
-                infowindow.open(map, marker);
+                infowindow.open(currentMap, marker);
+                // 해당 마커에 연결된 카드를 활성화
+                highlightCard(item.id);
+                // 지도의 중심으로 이동
+                currentMap.panTo(position);
             });
 
-            // 3. 생성된 마커를 배열에 추가합니다.
+
             markers.push(marker);
             bounds.extend(position);
         }
     });
 
-    // 4. 반복문 종료 후, 마커 클러스터러를 생성 및 마커를 추가합니다.
+    // 마커 클러스터러 생성 및 마커 추가
     const clusterer = new kakao.maps.MarkerClusterer({
-        map: map,
+        map: currentMap,
         averageCenter: true,
-        minLevel: 2, // 💡 8,000개에 적합하도록 minLevel을 6으로 조정 (레벨 5부터 개별 마커 표시)
-        markers: markers // 💡 클러스터러 생성 시 마커 배열을 추가
+        minLevel: 6,
+        markers: markers
     });
 
-      clusterer.addMarkers(markers);
-     clusterer.removeMarker(markers);
 
 
-    if (!bounds.isEmpty()) {
-        map.setBounds(bounds);
-    }
+
+
+    // if (!bounds.isEmpty()) {
+    //     currentMap.setBounds(bounds);
+    // }
 
     console.log(`✅ 클러스터러를 사용하여 지도에 ${markers.length}개의 마커를 표시했습니다.`);
 }
 
-// --- A. 서버에서 API 키 설정 가져오기 (수정됨) ---
-async function format() {
-    const apiUrl = 'http://localhost:3000/api/locations'; // 서버 라우터 경로
 
-    try {
-        const response = await fetch(apiUrl);
-        if (!response.ok) {
-            console.error(`HTTP Error: ${response.status} - ${response.statusText}`);
-            const errorBody = await response.text();
-            throw new Error(`Failed to fetch config. Server response: ${errorBody}`);
+
+
+
+// -------------------------------------------------------------
+// ⭐ 카드 목록 생성 및 이벤트 처리 (새로 추가된 로직)
+// -------------------------------------------------------------
+
+function createStoreCards(data) {
+    const cardListContainer = document.getElementById('card-list');
+
+    data.forEach(item => {
+        // 마커가 표시된 항목만 카드로 생성 (status=SUCCESS 가정)
+        if (item.lat && item.lng && item.status === 'SUCCESS') {
+            const card = document.createElement('div');
+            card.className = 'store-card';
+            // ⭐ data-id 속성에 고유 ID 저장 (마커와 연결을 위해 중요) ⭐
+            card.dataset.id = item.id;
+
+            // 카드 내용 구성
+            card.innerHTML = `
+                <h3>${item.name}</h3>
+                <p>📍 ${item.address}</p>
+                <p>도로명: ${item.road_address || '정보 없음'}</p>
+            `;
+
+            // 카드 클릭 이벤트 리스너 추가
+            card.addEventListener('click', () => {
+                // 1. 지도 이동 및 마커 활성화
+                moveToMarker(item.id);
+                // 2. 카드 활성화 상태 업데이트
+                highlightCard(item.id);
+            });
+
+            cardListContainer.appendChild(card);
         }
-        // ⭐ 수정: response.json() 호출 ⭐
-        const config = await response.json();
-        return config;
+    });
+}
 
-    } catch (error) {
-        console.error('❌ API 키 설정을 가져오는 데 실패했습니다:', error.message);
-        return null;
+
+/**
+ * 특정 ID의 카드로 스크롤 이동하고 활성화 클래스를 적용합니다.
+ * @param {string | number} id - 판매점의 고유 ID
+ */
+function highlightCard(id) {
+    // 이전 활성화 카드 비활성화
+    if (activeCardElement) {
+        activeCardElement.classList.remove('active');
+    }
+
+    // 새 카드 찾기 및 활성화
+    const newActiveCard = document.querySelector(`.store-card[data-id="${id}"]`);
+    if (newActiveCard) {
+        newActiveCard.classList.add('active');
+        activeCardElement = newActiveCard;
+
+        // 카드 목록 스크롤을 해당 카드가 보이도록 이동
+        newActiveCard.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest'
+        });
+    }
+}
+
+/**
+ * 특정 ID의 마커 위치로 지도를 이동시키고 마커를 클릭합니다.
+ * @param {string | number} id - 판매점의 고유 ID
+ */
+function moveToMarker(id) {
+    const markerInfo = markerMap.get(id);
+
+    if (map && markerInfo) {
+        const position = markerInfo.marker.getPosition();
+
+        // 지도를 해당 마커 위치로 이동
+        map.panTo(position);
+
+        // 마커 클릭 이벤트 강제 실행 (인포윈도우 표시)
+        kakao.maps.event.trigger(markerInfo.marker, 'click');
     }
 }
 
 
 // ⭐ 애플리케이션 시작 ⭐
 initMapAndData();
-//format();

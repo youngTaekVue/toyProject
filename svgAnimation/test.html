@@ -3,23 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>title</title>
-
-    <style>
-        /* 지도가 표시될 영역의 크기를 반드시 지정해야 합니다. */
-        #map {
-            width: 50%;
-            height: 500px;
-            border: 1px solid #ccc;
-            margin-top: 20px;
-        }
-    </style>
+    <title>목록</title>
+    <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
+<div id="map-container">
+    <div id="map"></div>
 
-<div id="map"></div>
+    <div id="card-list-wrapper">
+        <h2>🏬 판매점 목록</h2>
+        <div id="card-list">
+            <p id="loading-message">데이터를 불러오는 중...</p>
+        </div>
+    </div>
+</div>
 
 <script src="/js/map.js"></script>
-
 </body>
 </html>
