@@ -116,8 +116,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // 🌟 일정 생성 로직 (select)은 그대로 유지
         select: function (info) {
             var title = prompt('새 일정 제목을 입력하세요:');
-            console.log(info)
-            if (title) {
+                        if (title) {
                 // 서버의 POST API로 일정 생성 요청
                 createEventOnServer(title, info.startStr, info.endStr, info.allDay, calendar);
             }
@@ -153,9 +152,50 @@ document.addEventListener('DOMContentLoaded', function () {
 })
 ;
 
-// 서버에 일정 생성 요청을 보내는 함수 (변경 없음)
+// 서버에 일정 생성 요청을 보내는 함수 (구현 예시)
 function createEventOnServer(title, startStr, endStr, allDay, calendar) {
-    // ... 기존 코드 유지 ...
+    // 1. 서버로 보낼 데이터 준비
+    const eventData = {
+        title: title,
+        start: startStr,
+        end: endStr,
+        allDay: allDay,
+        calendarId: calendar // 어떤 캘린더에 추가할지 식별자 (선택 사항)
+    };
+
+    // 2. Fetch API를 사용하여 서버의 엔드포인트로 POST 요청 전송
+    const serverEndpoint = 'http://localhost:3000/calendar/api/insert'; // 실제 서버의 일정 생성 API 경로로 변경하세요.
+
+    fetch(serverEndpoint, {
+        method: 'POST', // 데이터 생성 요청이므로 POST 메서드를 사용합니다.
+        headers: {
+            'Content-Type': 'application/json', // 보내는 데이터 형식은 JSON입니다.
+            // 필요하다면 인증 토큰 등을 추가할 수 있습니다 (예: 'Authorization': 'Bearer YOUR_TOKEN')
+        },
+        body: JSON.stringify(eventData) // JavaScript 객체를 JSON 문자열로 변환하여 전송
+    })
+        .then(response => {
+            // 응답 상태 확인 (HTTP 200-299 코드는 성공으로 간주)
+            if (!response.ok) {
+                // 서버에서 오류 응답이 왔을 경우
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json(); // 서버 응답 본문을 JSON으로 파싱
+        })
+        .then(data => {
+            // 3. 서버 응답 처리
+            console.log('Event created successfully on server:', data);
+            alert('일정이 서버에 성공적으로 저장되었습니다.');
+
+            // 서버에서 반환된 새 이벤트 ID 등으로 캘린더 UI를 업데이트하는 추가 로직이 필요할 수 있습니다.
+            // 예를 들어, data.eventId를 사용하여 프론트엔드 캘린더 요소의 ID를 설정합니다.
+
+        })
+        .catch(error => {
+            // 4. 요청 실패 또는 오류 응답 처리
+            console.error('Error creating event on server:', error);
+            alert('일정 생성 중 오류가 발생했습니다: ' + error.message);
+        });
 }
 
 // 💡 4. setupEventSourceToggles 함수 수정: 배열을 처리할 수 있도록 유지

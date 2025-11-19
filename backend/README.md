@@ -65,3 +65,8 @@ For any inquiries, feel free to reach out:
 - Email: your-email@example.com
 - GitHub: [your-username](https://github.com/your-username)
 
+
+| **공공 데이터** |<br>실시간 날씨 정보 및 예보 데이터 제공 | 대한민국 기상청 공공데이터 포털 |<br><br>
+| **네이버 검색 API**<br>| 통합 검색 기능 구현 | 네이버 개발자 센터 |<br><br>
+| **Google Calendar API**<br>| 사용자 캘린더 접근 및 일정 관리 기능 연동 | Google Cloud Console |<br><br>
+| **카카오 API**<br>| 지도 서비스, 로그인 또는 주소 검색 기능 구현 | 카카오 개발자 센터 |<br><br>

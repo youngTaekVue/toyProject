@@ -26,7 +26,7 @@ router.use((req, res, next) => {
 // -------------------------------------------------------------
 // GET /api/events/:id : 특정 캘린더 ID(A, B 등)에 따른 일정 조회
 // -------------------------------------------------------------
-router.get('/api/events?:id', async (req, res) => {
+router.get('/api/events/:id', async (req, res) => {
     const calendarIdentifier = req.params;
     const timeMin = req.query.start;
     const timeMax = req.query.end;
@@ -34,7 +34,7 @@ router.get('/api/events?:id', async (req, res) => {
     console.log(calendarIdentifier)
 
     // 캘린더 식별자(A/B)에 따라 Google Calendar ID 결정
-    let searchParam = (calendarIdentifier === "A") ? CALENDAR_ID : (calendarIdentifier === "B") ? KOREA_HOLIDAY_ID : null; // 유효하지 않은 식별자 처리
+    let searchParam = (calendarIdentifier.id === "A") ? CALENDAR_ID : (calendarIdentifier.id === "B") ? KOREA_HOLIDAY_ID : null; // 유효하지 않은 식별자 처리
 
     // 유효성 검사
     if (!searchParam) {
@@ -83,7 +83,7 @@ router.post('/api/insert', async (req, res) => {
     const targetCalendarId = CALENDAR_ID;
 
     const {title, start, end, allDay} = req.body;
-
+    console.log({title, start, end, allDay})
     // Google Calendar API 요청 바디 구성
     const eventBody = {
         summary: title,
@@ -112,7 +112,7 @@ router.post('/api/insert', async (req, res) => {
         );
 
         const createdEvent = response.data;
-
+        console.log(createdEvent)
         // FullCalendar 형식에 맞게 응답 (클라이언트에서 addEvent 호출을 위함)
         res.status(201).json({
             id: createdEvent.id,

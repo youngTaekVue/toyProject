@@ -30,7 +30,6 @@ app.use('/news', newsRouter);
 app.use('/calendar', calendarRouter);
 app.use('/mapkey', mapkeyRouter);
 
-
-app.listen(port, () => {
-    console.log(`Server is running on http://localhost:${port}`);
-});
+// app.js (또는 서버 설정 파일)의 맨 마지막에 추가
+// 이렇게 하면 www.js가 이 Express 앱 인스턴스를 가져와 사용할 수 있습니다.
+module.exports = app;

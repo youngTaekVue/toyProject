@@ -6,16 +6,11 @@ const axios = require('axios'); // axios는 이미 정의되어 있으므로 그
 
 // 🚨 환경 변수 정의 (카카오 REST API 키 추가)
 const KAKAO_KEY = process.env.KAKAO_KEY; // GET /getkey 용
-const KAKAO_REST_API_KEY = process.env.KAKAO_REST_API_KEY; // ⭐⭐ Geocoding 용 (새로 정의) ⭐⭐
-const SERVICE_KEY = process.env.NATIONAL_DATA_KEY;
-const API_URL = 'https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev'; // 부동산 API Base URL
-
-// .env 파일 로드는 이미 require("dotenv").config(); 에 의해 처리됨
 
 // -------------------------------------------------------------
 // GET /getkey : 클라이언트에게 카카오맵 JS App Key 제공
 // -------------------------------------------------------------
-router.get('/getkey', (req, res) => {
+router.get('/getKakaoKey', (req, res) => {
     const apiKey = KAKAO_KEY; // mapkeyRouter.js에서는 key_num을 사용했지만, 통일성 위해 변경
 
     if (!apiKey) {
