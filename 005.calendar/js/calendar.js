@@ -159,8 +159,7 @@ function createEventOnServer(title, startStr, endStr, allDay, calendar) {
         title: title,
         start: startStr,
         end: endStr,
-        allDay: allDay,
-        calendarId: calendar // 어떤 캘린더에 추가할지 식별자 (선택 사항)
+        allDay: allDay
     };
 
     // 2. Fetch API를 사용하여 서버의 엔드포인트로 POST 요청 전송

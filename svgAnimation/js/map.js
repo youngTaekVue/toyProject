@@ -100,7 +100,7 @@ async function loadKakaoMapSDK(mapConfig) {
 
                 const options = {
                     center: new kakao.maps.LatLng(centerLat, centerLng),
-                    level: 5
+                    level: 2
                 };
 
                 map = new kakao.maps.Map(container, options);
@@ -218,7 +218,9 @@ function updateStoreCards(data) {
     data.forEach(item => {
         const card = document.createElement('div');
         card.className = 'store-card';
-        card.dataset.id = item.id;
+        card.dataset.lat = item.lat;
+        card.dataset.lng = item.lng;
+        //card.dataset.id = item.id;
 
         card.innerHTML = `
             <h3>${item.name}</h3>
@@ -242,6 +244,8 @@ function highlightCard(id) {
     if (activeCardElement) {
         activeCardElement.classList.remove('active');
     }
+
+    console.log(highlightCard)
 
     const newActiveCard = document.querySelector(`.store-card[data-id="${id}"]`);
     if (newActiveCard) {

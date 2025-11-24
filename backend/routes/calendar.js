@@ -6,7 +6,7 @@ const router = express.Router();
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
 const CALENDAR_ID = process.env.CALENDAR_ID;         // 기본 캘린더 ID
 const KOREA_HOLIDAY_ID = process.env.KOREA_HOLIDAY_ID; // 공휴일 캘린더 ID
-const ACCESS_TOKEN = process.env.GOOGLE_ACCESS_TOKEN;  // POST 요청용 OAuth 2.0 Token
+const ACCESS_TOKEN = process.env.GOOGLE_CLIENT_ID;  // POST 요청용 OAuth 2.0 Token
 
 // API 키 및 인증 토큰 누락 확인 미들웨어
 router.use((req, res, next) => {
@@ -30,8 +30,6 @@ router.get('/api/events/:id', async (req, res) => {
     const calendarIdentifier = req.params;
     const timeMin = req.query.start;
     const timeMax = req.query.end;
-
-    console.log(calendarIdentifier)
 
     // 캘린더 식별자(A/B)에 따라 Google Calendar ID 결정
     let searchParam = (calendarIdentifier.id === "A") ? CALENDAR_ID : (calendarIdentifier.id === "B") ? KOREA_HOLIDAY_ID : null; // 유효하지 않은 식별자 처리
@@ -112,7 +110,6 @@ router.post('/api/insert', async (req, res) => {
         );
 
         const createdEvent = response.data;
-        console.log(createdEvent)
         // FullCalendar 형식에 맞게 응답 (클라이언트에서 addEvent 호출을 위함)
         res.status(201).json({
             id: createdEvent.id,
