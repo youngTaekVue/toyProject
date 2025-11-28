@@ -37,7 +37,7 @@ async function initMapAndData() {
 }
 
 
-// --- A. 서버에서 API 키 설정 가져오기 (이전 코드와 동일) ---
+// --- A. 서버에서 API 키 설정 가져오기 ---
 async function fetchMapConfig() {
     const apiUrl = 'http://localhost:3000/mapkey/getKakaoKey';
 
@@ -57,7 +57,7 @@ async function fetchMapConfig() {
 }
 
 
-// --- B. 서버의 JSON 파일 데이터를 가져오기 (이전 코드와 동일) ---
+// --- B. 서버의 JSON 파일 데이터를 가져오기 ---
 async function fetchLocationData() {
     const tradeUrl = 'http://localhost:3000/files/geocoding.json';
 
@@ -104,6 +104,7 @@ async function loadKakaoMapSDK(mapConfig) {
                 };
 
                 map = new kakao.maps.Map(container, options);
+                map.setMaxLevel(7);
                 console.log('✅ 카카오맵 초기화 완료!');
 
                 // ⭐ 클러스터러 객체 초기화 (전역 변수 저장) ⭐
@@ -127,7 +128,7 @@ async function loadKakaoMapSDK(mapConfig) {
     });
 }
 
-// --- E. 디바운스 함수 (이전 코드와 동일) ---
+// --- E. 디바운스 함수 ---
 function debounce(func, timeout = 300) {
     let timer;
     return (...args) => {
@@ -137,7 +138,7 @@ function debounce(func, timeout = 300) {
 }
 
 
-// --- F. 지도 영역 내 데이터 필터링 (이전 코드와 동일) ---
+// --- F. 지도 영역 내 데이터 필터링 ---
 function filterDataInBounds(currentMap) {
     const bounds = currentMap.getBounds();
     const filteredData = [];
@@ -186,7 +187,7 @@ function updateMarkersAndCards(currentMap) {
 
         // 인포윈도우 생성
         const infowindow = new kakao.maps.InfoWindow({
-            content: `<div style="padding:5px;font-size:12px;">${item.name}<br>(${item.road_address})</div>`
+            content: `<div style="padding:5px;">내용입니다.</div><div style="padding:5px;font-size:12px;">${item.name}<br>(${item.road_address})<button onclick="closeInfowindow(${item.no})">닫기</button></div>`
         });
 
         // 마커 클릭 시 인포윈도우 표시 및 카드 활성화
@@ -203,8 +204,18 @@ function updateMarkersAndCards(currentMap) {
     // 4. 필터링된 데이터로 카드 목록 업데이트
     updateStoreCards(visibleData);
 }
+function closeInfowindow(param) {
+    console.log(param);
+    // 닫고자 하는 인포윈도우 객체의 .close() 메서드를 호출합니다.
+    // ID를 사용하여 저장된 인포윈도우 객체를 가져옵니다.
+    const targetInfowindow = infowindowMap.get(param);
 
-// --- H. 카드 목록 업데이트 함수 (이전 코드와 동일) ---
+    if (targetInfowindow) {
+        targetInfowindow.close();
+        infowindowMap.delete(param); // 닫은 후 맵에서 제거
+    }
+}
+// --- H. 카드 목록 업데이트 함수 (수정됨: 카드 클릭 이벤트 등록) ---
 function updateStoreCards(data) {
     const cardListContainer = document.getElementById('card-list');
 
@@ -220,7 +231,7 @@ function updateStoreCards(data) {
         card.className = 'store-card';
         card.dataset.lat = item.lat;
         card.dataset.lng = item.lng;
-        //card.dataset.id = item.id;
+        card.dataset.id = item.no; // ⭐ ID 설정 (하이라이팅에 필요) ⭐
 
         card.innerHTML = `
             <h3>${item.name}</h3>
@@ -228,9 +239,9 @@ function updateStoreCards(data) {
             <p>도로명: ${item.road_address || '정보 없음'}</p>
         `;
 
+        // ⭐ 카드 클릭 이벤트: 좌표로 이동 및 마커 활성화 ⭐
         card.addEventListener('click', () => {
-            moveToMarker(item.id);
-            highlightCard(item.id);
+            moveToCoords(item.lat, item.lng, item.id);
         });
 
         cardListContainer.appendChild(card);
@@ -239,13 +250,32 @@ function updateStoreCards(data) {
     console.log(`✅ 카드 목록을 ${data.length}개로 업데이트했습니다.`);
 }
 
-// --- I. 마커/카드 상호작용 함수 (이전 코드와 동일) ---
+// --- I. 마커/카드 상호작용 함수 (새로운 함수 추가) ---
+
+// ⭐ 새로 추가된 함수: 좌표로 이동 및 마커/카드 활성화 ⭐
+function moveToCoords(lat, lng, id) {
+    const position = new kakao.maps.LatLng(lat, lng);
+    if (map) {
+        // 1. 지도 중심을 해당 좌표로 부드럽게 이동
+        map.panTo(position);
+
+        // // 2. 해당 ID의 마커가 있다면 클릭 이벤트 발생 (인포윈도우 표시)
+        // const markerInfo = markerMap.get(id);
+        // if (markerInfo) {
+        //     // 마커 클릭 이벤트를 강제로 발생시켜 인포윈도우를 엽니다.
+        //     kakao.maps.event.trigger(markerInfo.marker, 'click');
+        // }
+
+        // 3. 카드 하이라이팅 및 스크롤
+        highlightCard(id);
+    }
+}
+
+
 function highlightCard(id) {
     if (activeCardElement) {
         activeCardElement.classList.remove('active');
     }
-
-    console.log(highlightCard)
 
     const newActiveCard = document.querySelector(`.store-card[data-id="${id}"]`);
     if (newActiveCard) {
@@ -258,87 +288,6 @@ function highlightCard(id) {
         });
     }
 }
-
-function moveToMarker(id) {
-    const markerInfo = markerMap.get(id);
-
-    if (map && markerInfo) {
-        const position = markerInfo.marker.getPosition();
-
-        map.panTo(position);
-
-        kakao.maps.event.trigger(markerInfo.marker, 'click');
-    }
-}
-
-/**
- * 🌐 주소를 서버의 /geocode 엔드포인트로 전송하고,
- * 받은 좌표를 이용해 지도에 마커를 표시하고 지도를 이동시킵니다.
- */
-// async function geocodeAndDisplayMarker() {
-//     // 💡 입력 필드가 'addressInput'이라는 ID를 가진다고 가정합니다.
-//     const addressInput = document.getElementById('addressInput');
-//     const address = addressInput ? addressInput.value : null;
-//
-//     if (!address) {
-//         alert("주소를 입력해 주세요.");
-//         return;
-//     }
-//     if (!currentMap) {
-//         alert("지도가 아직 로드되지 않았습니다.");
-//         return;
-//     }
-//
-//     const geocodeApiUrl = 'http://localhost:3000/api/locations'; // 서버의 주소 변환 엔드포인트
-//
-//     try {
-//         // 1. 서버의 /geocode POST 엔드포인트 호출
-//         const response = await fetch(geocodeApiUrl, {
-//             method: 'POST',
-//             headers: {
-//                 'Content-Type': 'application/json',
-//             },
-//             // 🚨 주소를 JSON Body에 담아 전송
-//             body: JSON.stringify({ address: address })
-//         });
-//
-//         if (!response.ok) {
-//             const errorData = await response.json();
-//             alert(`주소 변환 실패: ${errorData.error || response.statusText}`);
-//             console.error('Geocoding Error:', errorData);
-//             return;
-//         }
-//
-//         // 2. 서버에서 받은 좌표 데이터 파싱
-//         const coordinates = await response.json();
-//         const lat = coordinates.lat; // 위도
-//         const lng = coordinates.lng; // 경도
-//         const moveLatLon = new kakao.maps.LatLng(lat, lng);
-//
-//         // 3. 마커 표시 및 지도 이동
-//
-//         // 기존 마커가 있다면 제거
-//         if (currentMarker) {
-//             currentMarker.setMap(null);
-//         }
-//
-//         // 새 마커 생성
-//         currentMarker = new kakao.maps.Marker({
-//             map: currentMap,
-//             position: moveLatLon,
-//             title: coordinates.address_name || address // 주소명으로 마커 타이틀 설정
-//         });
-//
-//         // 지도의 중심을 결과 좌표로 이동
-//         currentMap.panTo(moveLatLon);
-//
-//         console.log(`마커 표시 완료! [${coordinates.address_name}]`);
-//
-//     } catch (error) {
-//         console.error('주소 변환 및 마커 표시 중 오류 발생:', error);
-//         alert('주소를 좌표로 변환하는 데 실패했습니다. 서버 로그를 확인하세요.');
-//     }
-// }
 
 // ⭐ 애플리케이션 시작 ⭐
 initMapAndData();
