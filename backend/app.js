@@ -17,7 +17,7 @@ const commonRouter = require('./routes/common');
 const weatherRouter = require('./routes/weather');
 const newsRouter = require('./routes/news');
 const calendarRouter = require('./routes/calendar');
-const mapkeyRouter = require('./routes/kakao_map');
+const mapkeyRouter = require('./routes/getmapkey');
 
 
 app.use(express.json()); //JSON 형식

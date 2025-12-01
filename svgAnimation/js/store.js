@@ -11,7 +11,7 @@ let clusterer = null; // ⭐ 클러스터러 객체 전역 변수 추가 ⭐
 // -------------------------------------------------------------
 async function initMapAndData() {
     // 1. 서버에서 카카오맵 API 키 가져오기
-    const mapConfig = await fetchMapConfig();
+    const mapConfig = await fetchKakaMapConfig();
     if (!mapConfig) return;
 
     // 2. Geocoding 결과 JSON 파일 데이터 가져오기
@@ -36,31 +36,10 @@ async function initMapAndData() {
     }
 }
 
-
-// --- A. 서버에서 API 키 설정 가져오기 ---
-async function fetchMapConfig() {
-    const apiUrl = 'http://localhost:3000/mapkey/getKakaoKey';
-
-    try {
-        const response = await fetch(apiUrl);
-        if (!response.ok) {
-            console.error(`HTTP Error: ${response.status}`);
-            throw new Error(`Failed to fetch config.`);
-        }
-        const config = await response.json();
-        return config;
-
-    } catch (error) {
-        console.error('❌ API 키 설정을 가져오는 데 실패했습니다:', error.message);
-        return null;
-    }
-}
-
-
 // --- B. 서버의 JSON 파일 데이터를 가져오기 ---
 async function fetchLocationData() {
     const tradeUrl = 'http://localhost:3000/files/geocoding.json';
-
+    console.log(tradeUrl)
     try {
         const response = await fetch(tradeUrl);
 
@@ -68,6 +47,7 @@ async function fetchLocationData() {
             throw new Error(`서버 요청 실패: ${response.status} ${response.statusText}`);
         }
         const locationData = await response.json();
+        console.log(locationData)
         console.log('✅ Geocoding 데이터 수신 완료:', locationData.length, '개');
         return locationData;
 
@@ -93,10 +73,11 @@ async function loadKakaoMapSDK(mapConfig) {
         script.onload = () => {
             kakao.maps.load(() => {
                 const container = document.getElementById('map');
+                const container1 = document.getElementById('map1');
 
                 const firstData = allStoreData.find(item => item.lat && item.lng && item.status === 'SUCCESS');
-                const centerLat = 37.566826;
-                const centerLng = 126.9786567;
+                const centerLat = 37.269885;
+                const centerLng = 126.956596;
 
                 const options = {
                     center: new kakao.maps.LatLng(centerLat, centerLng),
@@ -104,7 +85,9 @@ async function loadKakaoMapSDK(mapConfig) {
                 };
 
                 map = new kakao.maps.Map(container, options);
+                map1 = new kakao.maps.Map(container1, options);
                 map.setMaxLevel(7);
+                map1.setMaxLevel(7);
                 console.log('✅ 카카오맵 초기화 완료!');
 
                 // ⭐ 클러스터러 객체 초기화 (전역 변수 저장) ⭐
@@ -113,7 +96,6 @@ async function loadKakaoMapSDK(mapConfig) {
                     averageCenter: true,
                     minLevel: 6, // ⭐ 요청하신 레벨 6 설정 ⭐
                 });
-
 
                 // ⭐ 핵심: 지도 이동/줌 이벤트 리스너 등록 ⭐
                 const updateDelayed = debounce(() => updateMarkersAndCards(map), 200);

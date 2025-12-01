@@ -13,14 +13,14 @@ body, html {
 }
 
 /* 지도 및 목록 컨테이너 (Flexbox로 가로 배치) */
-#map-container {
+#map-container, #map-container1 {
     display: flex;
     width: 100%;
     height: 100vh; /* 전체 화면 높이 사용 */
 }
 
 /* 지도 영역 */
-#map {
+#map ,#map1 {
     width: 65%;
     height: 100%;
     border-right: 2px solid #ddd;
@@ -31,7 +31,7 @@ body, html {
     width: 35%;
     display: flex;
     flex-direction: column;
-    padding: 15px;
+    padding: 15px 0 15px 15px;
     background-color: #ffffff;
 }
 
