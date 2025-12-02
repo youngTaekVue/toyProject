@@ -1,3 +1,23 @@
+
+// --- B. 서버의 JSON 파일 데이터를 가져오기 ---
+async function fetchEatateLocationData() {
+    const tradeUrl = 'http://localhost:3000/eatate/trade';
+    console.log(tradeUrl)
+    try {
+        const response = await fetch(tradeUrl);
+
+        if (!response.ok) {
+            throw new Error(`서버 요청 실패: ${response.status} ${response.statusText}`);
+        }
+        const locationData = await response.json();
+        console.log(locationData)
+        return locationData;
+
+    } catch (error) {
+        console.error('❌ Geocoding 데이터를 가져오는 데 실패했습니다:', error.message);
+        return null;
+    }
+}
 // --- 전역 변수 설정 ---
 // 지도를 저장할 변수
 let map = null;
@@ -268,5 +288,7 @@ function highlightCard(id) {
     }
 }
 
-// ⭐ 애플리케이션 시작 ⭐
-initMapAndData();
+
+//initMapAndData();
+
+fetchEatateLocationData();

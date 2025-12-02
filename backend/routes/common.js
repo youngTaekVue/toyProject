@@ -17,7 +17,7 @@ const keyMap = {
 
 
 // 🚨 경로 수정: 라우터 파일이 routes 폴더 안에 있다고 가정하고,
-const CSV_FILE_PATH = './public/files/sample.csv'; // ⭐ CSV 파일 경로 정의
+const CSV_FILE_PATH = './public/files/lotto.csv'; // ⭐ CSV 파일 경로 정의
 
 // 판매점의 주소를 받아 kakao Geocoding API를 통해 좌표를 받아온다.
 // router.get('/locations', async (req, res) => {
@@ -90,7 +90,7 @@ const CSV_FILE_PATH = './public/files/sample.csv'; // ⭐ CSV 파일 경로 정�
 //     }
 //
 //     // --- C. 최종 결과 클라이언트에게 응답 및 파일 저장 (EUC-KR 유지) ---
-//     const outputFilePath = './public/files/geocoding.json'; // ⭐ json 파일 경로 정의
+//     const outputFilePath = './public/files/geocoding_lotto.json'; // ⭐ json 파일 경로 정의
 //     try {
 //         const jsonContent = JSON.stringify(finalResults, null, 2);
 //

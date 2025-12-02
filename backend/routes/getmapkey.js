@@ -57,23 +57,5 @@ router.get('/getKakaoKey', (req, res) => {
         kakaoMapAppKey: apiKey
     });
 });
-// -------------------------------------------------------------
-// GET /trade : 국토교통부 실거래가 정보 조회
-// -------------------------------------------------------------
-// router.get('/trade', async (req, res) => {
-//
-//     // 💡 API URL 수정 (LAWD_CD와 DEAL_YMD 사용): 정확한 엔드포인트 확인 필요
-//     let api_base_url = `https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev?serviceKey=${SERVICE_KEY}&numOfRows=1000&pageNo=1&LAWD_CD=41113&DEAL_YMD=202503`;
-//
-//     try {
-//         const response = await axios.get(api_base_url);
-//         // XML 형식이면 JSON 파싱이 필요 없거나 다른 처리가 필요할 수 있지만,
-//         // 현재 코드가 response.data.response.body.items를 가정하므로 그대로 둡니다.
-//         res.status(200).json(response.data.response.body.items);
-//     } catch (e) {
-//         console.error('부동산 데이터 API 호출 또는 처리 중 오류:', e.message);
-//         res.status(500).send('데이터 처리 중 오류가 발생했습니다.');
-//     }
-// });
 
 module.exports = router;
