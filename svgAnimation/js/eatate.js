@@ -1,7 +1,7 @@
 
 // --- B. 서버의 JSON 파일 데이터를 가져오기 ---
 async function fetchEatateLocationData() {
-    const tradeUrl = 'http://localhost:3000/eatate/trade';
+    const tradeUrl = 'http://localhost:3000/eatate/getBusStationListv2';
     console.log(tradeUrl)
     try {
         const response = await fetch(tradeUrl);
@@ -35,7 +35,7 @@ async function initMapAndData() {
     if (!mapConfig) return;
 
     // 2. Geocoding 결과 JSON 파일 데이터 가져오기
-    const locationData = await fetchLocationData();
+    const locationData = await fetchEatateLocationData();
     if (!locationData || locationData.length === 0) {
         console.warn('표시할 Geocoding 데이터가 없습니다.');
         document.getElementById('loading-message').textContent = '표시할 데이터가 없습니다.';
@@ -90,11 +90,12 @@ async function loadKakaoMapSDK(mapConfig) {
         // ⭐ 클러스터러 라이브러리 다시 포함 ⭐
         script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&autoload=false&libraries=clusterer`;
 
+
         script.onload = () => {
             kakao.maps.load(() => {
                 const container = document.getElementById('map');
 
-                const firstData = allStoreData.find(item => item.lat && item.lng && item.status === 'SUCCESS');
+                const firstData = allStoreData.find(item => item.x && item.y);
                 const centerLat = 37.269885;
                 const centerLng = 126.956596;
 
@@ -141,15 +142,18 @@ function debounce(func, timeout = 300) {
 function filterDataInBounds(currentMap) {
     const bounds = currentMap.getBounds();
     const filteredData = [];
+    console.log(bounds)
     for (const item of allStoreData) {
-        if (item.lat && item.lng && item.status === 'SUCCESS') {
-            const point = new kakao.maps.LatLng(item.lat, item.lng);
 
+        if (item.x && item.y) {
+            const point = new kakao.maps.LatLng(item.x, item.y);
+            console.log(point)
             if (bounds.contain(point)) {
                 filteredData.push(item);
             }
         }
     }
+    console.log(filteredData)
     return filteredData;
 }
 
@@ -161,6 +165,7 @@ function updateMarkersAndCards(currentMap) {
     clusterer.clear();
     markerMap.clear(); // markerMap 초기화 (새로 마커를 생성할 것이므로)
 
+    console.log(currentMap)
     // 2. 지도 영역 내 데이터 필터링
     const visibleData = filterDataInBounds(currentMap);
     console.log(`🔎 지도 영역 내 판매점: ${visibleData.length}개`);
@@ -289,6 +294,6 @@ function highlightCard(id) {
 }
 
 
-//initMapAndData();
+initMapAndData();
 
-fetchEatateLocationData();
+//fetchEatateLocationData();

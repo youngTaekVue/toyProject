@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const request = require('request');
-const apiKey =  process.env.NATIONAL_DATA_KEY;
+const SERVICE_KEY =  process.env.NATIONAL_Encoding_KEY;
 require("dotenv").config();
 
 
@@ -16,7 +16,7 @@ router.post('/dataList', function (req, res) {
         let base_time = receivedData.baseTime;
         let nx = receivedData.nx;
         let ny = receivedData.ny;
-        let api_base_url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/${name}?serviceKey=${apiKey}&numOfRows=1052&pageNo=1&dataType=JSON&base_date=${base_Date}&base_time=${base_time}&nx=${nx}&ny=${ny}`;
+        let api_base_url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/${name}?serviceKey=${SERVICE_KEY}&numOfRows=1052&pageNo=1&dataType=JSON&base_date=${base_Date}&base_time=${base_time}&nx=${nx}&ny=${ny}`;
 
         const options = {
             url: api_base_url
