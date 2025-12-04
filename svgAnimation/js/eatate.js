@@ -1,16 +1,13 @@
 
-// --- B. 서버의 JSON 파일 데이터를 가져오기 ---
-async function fetchEatateLocationData() {
+// --- A. 경기도_정류소 조회 데이터를 가져오기 ---
+async function getBusStationListv2() {
     const tradeUrl = 'http://localhost:3000/eatate/getBusStationListv2';
-    console.log(tradeUrl)
     try {
         const response = await fetch(tradeUrl);
-
         if (!response.ok) {
             throw new Error(`서버 요청 실패: ${response.status} ${response.statusText}`);
         }
         const locationData = await response.json();
-        console.log(locationData)
         return locationData;
 
     } catch (error) {
@@ -18,6 +15,44 @@ async function fetchEatateLocationData() {
         return null;
     }
 }
+
+// --- b. 경기도버스_위치정보 조회 데이터를 가져오기 ---
+async function getBusLocationListv2(stationId) {
+    console.log(stationId)
+    const tradeUrl = `http://localhost:3000/eatate/getBusLocationListv2?stationId=${stationId}`;
+    try {
+        const response = await fetch(tradeUrl);
+        if (!response.ok) {
+            throw new Error(`서버 요청 실패: ${response.status} ${response.statusText}`);
+        }
+        const locationData = await response.json();
+        return locationData;
+
+    } catch (error) {
+        console.error('❌ Geocoding 데이터를 가져오는 데 실패했습니다:', error.message);
+        return null;
+    }
+}
+// --- c. 경기도버스_도착정보 조회 데이터를 가져오기 ---
+async function getBusLocationListv2(stationId) {
+    console.log(stationId)
+    const tradeUrl = `http://localhost:3000/eatate/getBusArrivalListv2?stationId=${stationId}`;
+    try {
+        const response = await fetch(tradeUrl);
+        if (!response.ok) {
+            throw new Error(`서버 요청 실패: ${response.status} ${response.statusText}`);
+        }
+        const locationData = await response.json();
+        return locationData;
+
+    } catch (error) {
+        console.error('❌ Geocoding 데이터를 가져오는 데 실패했습니다:', error.message);
+        return null;
+    }
+}
+
+getBusArrivalListv2
+
 // --- 전역 변수 설정 ---
 // 지도를 저장할 변수
 let map = null;
@@ -35,13 +70,13 @@ async function initMapAndData() {
     if (!mapConfig) return;
 
     // 2. Geocoding 결과 JSON 파일 데이터 가져오기
-    const locationData = await fetchEatateLocationData();
+    const locationData = await getBusStationListv2();
     if (!locationData || locationData.length === 0) {
         console.warn('표시할 Geocoding 데이터가 없습니다.');
         document.getElementById('loading-message').textContent = '표시할 데이터가 없습니다.';
         return;
     }
-    document.getElementById('loading-message').style.display = 'none';
+
 
     // ⭐ 전체 데이터를 전역 변수에 저장
     allStoreData = locationData;
@@ -95,7 +130,6 @@ async function loadKakaoMapSDK(mapConfig) {
             kakao.maps.load(() => {
                 const container = document.getElementById('map');
 
-                const firstData = allStoreData.find(item => item.x && item.y);
                 const centerLat = 37.269885;
                 const centerLng = 126.956596;
 
@@ -119,8 +153,6 @@ async function loadKakaoMapSDK(mapConfig) {
                 const updateDelayed = debounce(() => updateMarkersAndCards(map), 200);
                 kakao.maps.event.addListener(map, 'dragend', updateDelayed);
                 kakao.maps.event.addListener(map, 'zoom_changed', updateDelayed);
-
-
                 resolve();
             });
         };
@@ -133,7 +165,9 @@ function debounce(func, timeout = 300) {
     let timer;
     return (...args) => {
         clearTimeout(timer);
-        timer = setTimeout(() => { func.apply(this, args); }, timeout);
+        timer = setTimeout(() => {
+            func.apply(this, args);
+        }, timeout);
     };
 }
 
@@ -142,18 +176,16 @@ function debounce(func, timeout = 300) {
 function filterDataInBounds(currentMap) {
     const bounds = currentMap.getBounds();
     const filteredData = [];
-    console.log(bounds)
+    //console.log(bounds)
     for (const item of allStoreData) {
-
         if (item.x && item.y) {
-            const point = new kakao.maps.LatLng(item.x, item.y);
-            console.log(point)
-            if (bounds.contain(point)) {
+            const point = new kakao.maps.LatLng(item.y, item.x);
+            // if (bounds.contain(point)) {
+            if (bounds.contain(point) && (item.stationId == '201000093')){
                 filteredData.push(item);
             }
         }
     }
-    console.log(filteredData)
     return filteredData;
 }
 
@@ -161,7 +193,6 @@ function filterDataInBounds(currentMap) {
 // --- G. 마커와 카드 목록을 지도 영역 기반으로 업데이트 (클러스터러 적용) ---
 function updateMarkersAndCards(currentMap) {
     // 1. 기존 클러스터러 마커 모두 제거
-    // clusterer.clear()는 이전에 추가된 모든 마커를 제거합니다.
     clusterer.clear();
     markerMap.clear(); // markerMap 초기화 (새로 마커를 생성할 것이므로)
 
@@ -170,23 +201,24 @@ function updateMarkersAndCards(currentMap) {
     const visibleData = filterDataInBounds(currentMap);
     console.log(`🔎 지도 영역 내 판매점: ${visibleData.length}개`);
 
+    console.log(visibleData)
     // 3. 필터링된 데이터로 마커 생성 및 클러스터러에 추가
     const markersToAdd = [];
-    const imageSize = new kakao.maps.Size(35, 35);
-    var imageUrl = '/images/markers.png';
+    const imageSize = new kakao.maps.Size(48, 48);
+    var imageUrl = '/images/bus_stop.png';
     var image = new kakao.maps.MarkerImage(imageUrl, imageSize);
 
     visibleData.forEach(item => {
-        const position = new kakao.maps.LatLng(item.lat, item.lng);
+        const position = new kakao.maps.LatLng(item.y, item.x);
         const marker = new kakao.maps.Marker({
             position: position,
-            title: item.name,
+            title: item.stationName,
             image: image,
             // map: currentMap 설정은 클러스터러가 대신 처리합니다.
         });
 
         // markerMap에 저장 및 인포윈도우/클릭 이벤트 등록
-        markerMap.set(item.id, { marker: marker, data: item });
+        markerMap.set(item.id, {marker: marker, data: item});
         markersToAdd.push(marker); // 클러스터러에 추가할 배열에 저장
 
         // 인포윈도우 생성
@@ -208,6 +240,7 @@ function updateMarkersAndCards(currentMap) {
     // 4. 필터링된 데이터로 카드 목록 업데이트
     updateStoreCards(visibleData);
 }
+
 function closeInfowindow(param) {
     console.log(param);
     // 닫고자 하는 인포윈도우 객체의 .close() 메서드를 호출합니다.
@@ -219,9 +252,25 @@ function closeInfowindow(param) {
         infowindowMap.delete(param); // 닫은 후 맵에서 제거
     }
 }
+
 // --- H. 카드 목록 업데이트 함수 (수정됨: 카드 클릭 이벤트 등록) ---
 function updateStoreCards(data) {
+
+    const locationData = await getBusStationListv2();
+    if (!locationData || locationData.length === 0) {
+        console.warn('표시할 Geocoding 데이터가 없습니다.');
+        document.getElementById('loading-message').textContent = '표시할 데이터가 없습니다.';
+        return;
+    }
+
+
     const cardListContainer = document.getElementById('card-list');
+
+
+
+    document.getElementById('loading-message').style.display = 'none';
+
+
 
     // 1. 기존 카드 목록 제거
     cardListContainer.innerHTML = '';
@@ -233,19 +282,19 @@ function updateStoreCards(data) {
     data.forEach(item => {
         const card = document.createElement('div');
         card.className = 'store-card';
-        card.dataset.lat = item.lat;
-        card.dataset.lng = item.lng;
-        card.dataset.id = item.no; // ⭐ ID 설정 (하이라이팅에 필요) ⭐
+        card.dataset.lat = item.y;
+        card.dataset.lng = item.x;
+        card.dataset.id = item.stationId; // ⭐ ID 설정 (하이라이팅에 필요) ⭐
 
         card.innerHTML = `
-            <h3>${item.name}</h3>
+            <h3>${item.stationName}</h3>
             <p>📍 ${item.address}</p>
             <p>도로명: ${item.road_address || '정보 없음'}</p>
         `;
 
         // ⭐ 카드 클릭 이벤트: 좌표로 이동 및 마커 활성화 ⭐
         card.addEventListener('click', () => {
-            moveToCoords(item.lat, item.lng, item.id);
+            moveToCoords(item.y, item.x, item.stationId);
         });
 
         cardListContainer.appendChild(card);
