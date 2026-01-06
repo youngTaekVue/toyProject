@@ -8,6 +8,7 @@ async function getBusStationListv2() {
             throw new Error(`서버 요청 실패: ${response.status} ${response.statusText}`);
         }
         const locationData = await response.json();
+
         return locationData;
 
     } catch (error) {
@@ -34,8 +35,9 @@ async function getBusLocationListv2(stationId) {
     }
 }
 // --- c. 경기도버스_도착정보 조회 데이터를 가져오기 ---
-async function getBusLocationListv2(stationId) {
-    console.log(stationId)
+async function getBusArrivalListv2(item) {
+    console.log(item)
+    let stationId = item.stationId;
     const tradeUrl = `http://localhost:3000/eatate/getBusArrivalListv2?stationId=${stationId}`;
     try {
         const response = await fetch(tradeUrl);
@@ -43,6 +45,7 @@ async function getBusLocationListv2(stationId) {
             throw new Error(`서버 요청 실패: ${response.status} ${response.statusText}`);
         }
         const locationData = await response.json();
+        console.log(locationData);
         return locationData;
 
     } catch (error) {
@@ -51,7 +54,7 @@ async function getBusLocationListv2(stationId) {
     }
 }
 
-getBusArrivalListv2
+
 
 // --- 전역 변수 설정 ---
 // 지도를 저장할 변수
@@ -90,28 +93,6 @@ async function initMapAndData() {
         updateMarkersAndCards(map);
     }
 }
-
-// --- B. 서버의 JSON 파일 데이터를 가져오기 ---
-async function fetchLocationData() {
-    const tradeUrl = 'http://localhost:3000/files/geocoding_lotto.json';
-    console.log(tradeUrl)
-    try {
-        const response = await fetch(tradeUrl);
-
-        if (!response.ok) {
-            throw new Error(`서버 요청 실패: ${response.status} ${response.statusText}`);
-        }
-        const locationData = await response.json();
-        console.log(locationData)
-        console.log('✅ Geocoding 데이터 수신 완료:', locationData.length, '개');
-        return locationData;
-
-    } catch (error) {
-        console.error('❌ Geocoding 데이터를 가져오는 데 실패했습니다:', error.message);
-        return null;
-    }
-}
-
 // --- C. 카카오맵 SDK 로드 및 지도/이벤트 리스너 등록 (클러스터러 라이브러리 포함) ---
 async function loadKakaoMapSDK(mapConfig) {
     const apiKey = mapConfig.kakaoMapAppKey;
@@ -123,7 +104,7 @@ async function loadKakaoMapSDK(mapConfig) {
     return new Promise((resolve) => {
         const script = document.createElement('script');
         // ⭐ 클러스터러 라이브러리 다시 포함 ⭐
-        script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&autoload=false&libraries=clusterer`;
+        script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&autoload=false&libraries=clusterer`;
 
 
         script.onload = () => {
@@ -203,8 +184,11 @@ function updateMarkersAndCards(currentMap) {
 
     console.log(visibleData)
     // 3. 필터링된 데이터로 마커 생성 및 클러스터러에 추가
+
+    //getBusArrivalListv2
+
     const markersToAdd = [];
-    const imageSize = new kakao.maps.Size(48, 48);
+    const imageSize = new kakao.maps.Size(28, 28);
     var imageUrl = '/images/bus_stop.png';
     var image = new kakao.maps.MarkerImage(imageUrl, imageSize);
 
@@ -222,14 +206,27 @@ function updateMarkersAndCards(currentMap) {
         markersToAdd.push(marker); // 클러스터러에 추가할 배열에 저장
 
         // 인포윈도우 생성
-        const infowindow = new kakao.maps.InfoWindow({
-            content: `<div style="padding:5px;">내용입니다.</div><div style="padding:5px;font-size:12px;">${item.name}<br>(${item.road_address})<button onclick="closeInfowindow(${item.no})">닫기</button></div>`
-        });
+        // const infowindow = new kakao.maps.InfoWindow({
+        //     content: `<div style="padding:5px;">내용입니다.</div><div style="padding:5px;font-size:12px;">${item.name}<br>(${item.road_address})<button onclick="closeInfowindow(${item.no})">닫기</button></div>`
+        // });
 
         // 마커 클릭 시 인포윈도우 표시 및 카드 활성화
         kakao.maps.event.addListener(marker, 'click', function () {
-            infowindow.open(currentMap, marker);
-            highlightCard(item.id);
+            //infowindow.open(currentMap, marker);
+
+            //highlightCard(item.id);
+            let array = getBusArrivalListv2(item);
+            // <div className="bus-item" data-bus-id="9">
+            //     <span className="bus-number square-blue">9</span>
+            //     <div className="bus-details">
+            //         <p className="destination">호매실입구(탑동) 방면</p>
+            //         <p className="route-info"><span>수원</span> 자목마을입구, 한양수자인파크원아파트</p>
+            //         <p className="arrival-status no-info">도착 예정 정보 없음</p>
+            //     </div>
+            //     <i className="far fa-star favorite-star"></i>
+            // </div>
+            //
+
             currentMap.panTo(position);
         });
     });
@@ -254,7 +251,7 @@ function closeInfowindow(param) {
 }
 
 // --- H. 카드 목록 업데이트 함수 (수정됨: 카드 클릭 이벤트 등록) ---
-function updateStoreCards(data) {
+async function updateStoreCards(data) {
 
     const locationData = await getBusStationListv2();
     if (!locationData || locationData.length === 0) {
@@ -268,7 +265,7 @@ function updateStoreCards(data) {
 
 
 
-    document.getElementById('loading-message').style.display = 'none';
+    //document.getElementById('loading-message').style.display = 'none';
 
 
 

@@ -2,9 +2,9 @@ import pandas as pd
 from openpyxl.styles import Alignment
 
 # CSV 데이터 로드
-df = pd.read_csv('files/sample1.csv', encoding='cp949')
+df = pd.read_csv('files/sample1.csv', encoding='UTF-8')
 
-for i in range(10):
+for i in range(11):
     file_path = f"files/test{i}.xlsx"
 
     # [핵심] pd.ExcelWriter를 사용하여 파일 열기

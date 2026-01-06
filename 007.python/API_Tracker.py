@@ -156,7 +156,7 @@ class ExcelAnalyzer:
                     total_rows += 1
 
                     # 서버구분이 '1'인 데이터 필터링
-                    if str(row[server_idx]) == '01':
+                    if str(row[server_idx]) == '1':
                         filtered_count += 1
                         val = str(row[api_idx]) if row[api_idx] else ""
                         if 'Y' in val:
