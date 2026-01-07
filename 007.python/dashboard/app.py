@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
-from views import DashboardView, UserListView, SettingsView, LogsView
+from views import *
 
 class ComplexLayoutApp:
     def __init__(self, root):
@@ -33,7 +33,7 @@ class ComplexLayoutApp:
         lbl_title = ttk.Label(self.sidebar, text="시스템 메뉴", font=("맑은 고딕", 12, "bold"))
         lbl_title.pack(pady=20)
 
-        menus = ["대시보드", "사용자 관리", "시스템 설정", "로그 조회"]
+        menus = ["대시보드", "환자번호 관리", "진료내역 조회", "시스템 설정", "로그 조회"]
         for i, menu in enumerate(menus):
             btn = ttk.Button(self.sidebar, text=menu, command=lambda idx=i: self.notebook.select(idx))
             btn.pack(fill="x", padx=10, pady=5)
@@ -49,7 +49,10 @@ class ComplexLayoutApp:
         self.notebook.add(self.tab_dashboard, text=" 대시보드 ")
 
         self.tab_data = UserListView(self.notebook)
-        self.notebook.add(self.tab_data, text=" 사용자 관리 ")
+        self.notebook.add(self.tab_data, text=" 환자번호 관리 ")
+
+        self.tab_treatments = TreatListView(self.notebook)
+        self.notebook.add(self.tab_treatments, text=" 진료내역 조회 ")
 
         self.tab_settings = SettingsView(self.notebook)
         self.notebook.add(self.tab_settings, text=" 시스템 설정 ")
