@@ -1,6 +1,11 @@
 import tkinter as tk
 from tkinter import ttk
-from views import *
+
+from ui.DashboardView import DashboardView
+from ui.LogsView import LogsView
+from ui.SettingsView import SettingsView
+from ui.TreatListView import TreatListView
+from ui.UserListView import UserListView
 
 class ComplexLayoutApp:
     def __init__(self, root):
@@ -62,4 +67,5 @@ class ComplexLayoutApp:
 
 if __name__ == "__main__":
     root = tk.Tk()
+    app = ComplexLayoutApp(root)
     root.mainloop()
