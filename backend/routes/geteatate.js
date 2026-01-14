@@ -8,11 +8,11 @@ const SERVICE_DE_KEY = process.env.NATIONAL_Decoding_KEY;
 const SERVICE_EN_KEY = process.env.NATIONAL_Encoding_KEY;
 
 
-
+//=============================
 // -------------- buslocationservice 경기도_정류소 조회 --------------
 router.get('/getBusStationListv2', async (req, res) => {
     // 💡 API URL 수정 (LAWD_CD와 DEAL_YMD 사용): 정확한 엔드포인트 확인 필요
-    let api_base_url = `https://apis.data.go.kr/6410000/busstationservice/v2/getBusStationListv2?serviceKey=${SERVICE_EN_KEY}&keyword=삼익&format=json`;
+    let api_base_url = `https://apis.data.go.kr/6410000/busstationservice/v2/getBusStationListv2?serviceKey=${SERVICE_EN_KEY}&keyword=201000093&format=json`;
     try {
         const response = await axios.get(api_base_url);
         res.status(200).json(response.data.response.msgBody.busStationList);
@@ -52,6 +52,34 @@ router.get('/getBusArrivalListv2', async (req, res) => {
         res.status(500).send('데이터 처리 중 오류가 발생했습니다.');
     }
 });
+
+// =============================
+
+// -------------- getSeoulBusStationListv2 경기도_정류소 조회 --------------
+router.get('/getSeoulBusStationListv2', async (req, res) => {
+    // 💡 API URL 수정 (LAWD_CD와 DEAL_YMD 사용): 정확한 엔드포인트 확인 필요
+    let api_base_url = `https://apis.data.go.kr/6410000/busstationservice/v2/getBusStationListv2?serviceKey=${SERVICE_EN_KEY}&keyword=삼익&format=json`;
+    try {
+        const response = await axios.get(api_base_url);
+        res.status(200).json(response.data.response.msgBody.busStationList);
+    } catch (e) {
+        console.error('서울_정류소 조회 호출 또는 처리 중 오류:', e.message);
+        res.status(500).send('데이터 처리 중 오류가 발생했습니다.');
+    }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 module.exports = router;

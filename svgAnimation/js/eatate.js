@@ -54,6 +54,36 @@ async function getBusArrivalListv2(item) {
     }
 }
 
+// --- A. 경기도_정류소 조회 데이터를 가져오기 ---
+async function getSeoulBusStationListv2() {
+    const tradeUrl = 'http://localhost:3000/eatate/getSeoulBusStationListv2';
+    try {
+        const response = await fetch(tradeUrl);
+        if (!response.ok) {
+            throw new Error(`서버 요청 실패: ${response.status} ${response.statusText}`);
+        }
+        const getSeoulBusData = await response.json();
+
+        return getSeoulBusData;
+
+    } catch (error) {
+        console.error('❌ Geocoding 데이터를 가져오는 데 실패했습니다:', error.message);
+        return null;
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 // --- 전역 변수 설정 ---
@@ -74,6 +104,16 @@ async function initMapAndData() {
 
     // 2. Geocoding 결과 JSON 파일 데이터 가져오기
     const locationData = await getBusStationListv2();
+
+
+
+// 1. 경기도와 서울시 정류장 데이터를 병렬로 가져오기
+//     const [gyeonggiData, seoulData] = await Promise.all([
+//         getBusStationListv2(),
+//         getSeoulBusStationListv2() // 새로 만들 함수
+//     ]);
+
+
     if (!locationData || locationData.length === 0) {
         console.warn('표시할 Geocoding 데이터가 없습니다.');
         document.getElementById('loading-message').textContent = '표시할 데이터가 없습니다.';

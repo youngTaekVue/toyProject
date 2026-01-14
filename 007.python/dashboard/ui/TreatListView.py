@@ -48,7 +48,6 @@ class TreatListView(ttk.Frame):
         columns = ("id", "treatCd", "deptNm", "startDt", "endDt", "billNo", "prescriptionYn")
         self.tree = ttk.Treeview(tree_frame, columns=columns, show="headings",
                                  yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set)
-
         scrollbar_y.config(command=self.tree.yview)
         scrollbar_x.config(command=self.tree.xview)
 
