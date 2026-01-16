@@ -43,178 +43,46 @@ body, html {
     padding-bottom: 8px;
 }
 
-/*!* 기본 리셋 *!*/
-/*body, h1, p, div, input, button {*/
-/*    margin: 0;*/
-/*    padding: 0;*/
-/*    box-sizing: border-box;*/
-/*}*/
+/* 실제 카드들이 들어갈 스크롤 영역 */
+#card-list {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding-right: 5px;
+}
 
-/*body {*/
-/*    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;*/
-/*    background-color: #f8f8f8;*/
-/*}*/
-
-.container {
-    /*max-width: 450px; !* 모바일 화면 크기 제한 *!*/
-    margin: 0 auto;
+/* 개별 판매점 카드 스타일 */
+.store-card {
     background-color: #fff;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-}
-
-/* s */
-
-
-.refresh-icon {
-    font-size: 10px;
-}
-
-/* 4. 버스 목록 영역 */
-.bus-list {
-    padding: 0 15px;
-}
-
-.bus-item {
-    display: flex;
-    align-items: flex-start;
-    padding: 10px 0;
-    border-bottom: 1px solid #eee;
-    position: relative;
+    border: 1px solid #e0e0e0;
+    padding: 12px;
+    margin-bottom: 10px;
+    border-radius: 8px;
     cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-.bus-item:last-child {
-    border-bottom: none;
+.store-card:hover {
+    background-color: #f9f9ff;
+    border-color: #a0c0ff;
 }
 
-/* 버스 번호 스타일 */
-.bus-number {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 35px;
-    height: 35px;
-    font-weight: 700;
-    font-size: 16px;
-    color: #fff;
-    flex-shrink: 0; /* 내용이 길어져도 크기 유지 */
-    margin-top: 2px;
-}
-
-.square-blue {
-    background-color: #007bff; /* 일반 시내버스 (파란색) */
-    border-radius: 4px;
-}
-
-.square-red {
-    background-color: #dc3545; /* 광역/직행 버스 (빨간색) */
-    border-radius: 4px;
-}
-
-/* 61번 고정 도착 정보용 (이미지처럼 원형) */
-.circle-61 {
-    background-color: #dc3545;
-    border-radius: 50%;
-    width: 45px;
-    height: 45px;
-    font-size: 18px;
-    margin-right: 5px;
-    margin-top: 0;
-}
-
-.arrived-bus {
-    background-color: #f7f7f7;
-    padding: 15px;
-    margin: 10px -15px; /* 전체 너비 사용 */
-    border-radius: 5px;
-    border-bottom: 1px solid #eee;
-    align-items: center;
-}
-
-.arrived-bus .bus-details {
-    flex-grow: 1;
-    margin-left: 10px;
-}
-
-.arrived-bus .destination {
-    color: #333;
-    font-weight: 600;
-}
-
-.arrived-bus .arrival-time {
-    color: #dc3545;
-    font-weight: 700;
-    font-size: 20px;
-    flex-shrink: 0;
-}
-
-.arrived-bus .arrived-text {
-    color: #dc3545;
-    font-weight: 700;
-    font-size: 20px;
-}
-
-/* 일반 버스 항목 내용 */
-.bus-details {
-    flex-grow: 1;
-    margin-left: 15px;
-    font-size: 14px;
-}
-
-.destination {
-    color: #777;
-    font-size: 12px;
-    margin-bottom: 3px;
-}
-
-.route-info {
-    color: #333;
+/* 카드 내 요소 */
+.store-card h3 {
+    font-size: 1.1em;
+    color: #007bff;
     margin-bottom: 5px;
 }
 
-.route-info span {
-    font-weight: 600;
-    color: #333;
-    margin-right: 5px;
+.store-card p {
+    font-size: 0.9em;
+    color: #666;
+    margin: 3px 0;
 }
 
-.arrival-status.no-info {
-    color: #999;
-}
-
-.favorite-star {
-    font-size: 20px;
-    color: #ccc;
-    flex-shrink: 0;
-    margin-left: 10px;
-}
-
-/* 도착 시간 칩 스타일 */
-.time-detail {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-}
-
-.time-chip {
-    padding: 2px 5px;
-    border-radius: 4px;
-    font-weight: 600;
-    font-size: 14px;
-}
-
-.chip-red {
-    background-color: #fff0f0;
-    color: #dc3545;
-}
-
-/* 5. 푸터 영역 */
-.footer-info {
-    padding: 15px;
-    text-align: center;
-    font-size: 12px;
-    color: #999;
-    border-top: 1px solid #eee;
-    margin-top: 10px;
+/* 현재 선택된 카드 강조 */
+.store-card.active {
+    background-color: #e6f0ff;
+    border: 2px solid #007bff;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }

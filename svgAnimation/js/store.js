@@ -68,7 +68,7 @@ async function loadKakaoMapSDK(mapConfig) {
     return new Promise((resolve) => {
         const script = document.createElement('script');
         // ⭐ 클러스터러 라이브러리 다시 포함 ⭐
-        script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&autoload=false&libraries=clusterer`;
+        script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&autoload=false&libraries=clusterer`;
 
         script.onload = () => {
             kakao.maps.load(() => {

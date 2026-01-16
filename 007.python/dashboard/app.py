@@ -39,6 +39,9 @@ class ComplexLayoutApp:
         lbl_title = ttk.Label(self.sidebar, text="시스템 메뉴", font=("맑은 고딕", 12, "bold"))
         lbl_title.pack(pady=20)
 
+        # 메뉴 버튼들을 관리할 리스트 (순서 변경용)
+        self.menu_buttons = []
+
         # 메뉴 이름과 뷰 클래스 매핑
         self.menu_map = {
             "대시보드": DashboardView,
@@ -49,8 +52,17 @@ class ComplexLayoutApp:
         }
 
         for title, view_cls in self.menu_map.items():
-            btn = ttk.Button(self.sidebar, text=title, command=lambda t=title, v=view_cls: self.add_tab(t, v))
+            # command 대신 이벤트 바인딩을 사용하기 위해 제거
+            btn = ttk.Button(self.sidebar, text=title)
             btn.pack(fill="x", padx=10, pady=5)
+            
+            # 버튼에 메타데이터 저장 및 이벤트 연결
+            btn.view_info = (title, view_cls)
+            btn.bind("<Button-1>", self.on_drag_start)
+            btn.bind("<B1-Motion>", self.on_drag_motion)
+            btn.bind("<ButtonRelease-1>", self.on_drag_release)
+            
+            self.menu_buttons.append(btn)
 
         ttk.Frame(self.sidebar).pack(fill="both", expand=True)
         ttk.Label(self.sidebar, text="v1.0.0", foreground="gray").pack(side="bottom", pady=10)
@@ -87,6 +99,43 @@ class ComplexLayoutApp:
         self.notebook.add(new_view, text=f" {title} ")
         self.notebook.select(new_view)
 
+    # --- 사이드바 메뉴 Drag & Drop 핸들러 ---
+    def on_drag_start(self, event):
+        """메뉴 드래그 시작"""
+        self.drag_source = event.widget
+        self.drag_start_y = event.y
+        self.is_dragging = False
+
+    def on_drag_motion(self, event):
+        """메뉴 드래그 중 순서 변경"""
+        if abs(event.y - self.drag_start_y) < 5 and not self.is_dragging:
+            return
+        self.is_dragging = True
+        
+        # 마우스 위치의 위젯 찾기
+        target = self.sidebar.winfo_containing(event.x_root, event.y_root)
+        
+        if target in self.menu_buttons and target != self.drag_source:
+            src_idx = self.menu_buttons.index(self.drag_source)
+            dst_idx = self.menu_buttons.index(target)
+            
+            self.menu_buttons.pop(src_idx)
+            self.menu_buttons.insert(dst_idx, self.drag_source)
+            
+            if src_idx < dst_idx:
+                self.drag_source.pack_configure(after=target)
+            else:
+                self.drag_source.pack_configure(before=target)
+
+    def on_drag_release(self, event):
+        """메뉴 드래그 종료 (클릭 동작 처리)"""
+        if not self.is_dragging:
+            title, view_cls = event.widget.view_info
+            self.add_tab(title, view_cls)
+        self.drag_source = None
+        self.is_dragging = False
+
+    # --- 탭 Drag & Drop 핸들러 ---
     def on_tab_drag_start(self, event):
         """탭 드래그 시작"""
         try:

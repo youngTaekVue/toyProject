@@ -4,98 +4,120 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>목록</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
-          integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
 
-    <link rel="stylesheet" href="/css/eatate.css">
+<!--    <link rel="stylesheet" href="/css/eatate.css">-->
+    <style>
+        :root {
+            --primary-color: #3b82f6; /* 세련된 블루 */
+            --text-dark: #1e293b;
+            --text-gray: #64748b;
+            --bg-light: #f8fafc;
+            --card-radius: 12px;
+        }
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden; /* 전체 페이지 스크롤 방지 */
+            font-family: 'Noto Sans KR', sans-serif;
+            color: var(--text-dark);
+            background-color: var(--bg-light);
+        }
+
+        /* 스크롤바 커스텀 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* 목록 영역 스타일 */
+        #list-section {
+            background: white;
+            z-index: 20;
+            box-shadow: 4px 0 20px rgba(0,0,0,0.05);
+        }
+
+        /* 카드 스타일 (JS 생성 요소) */
+        .store-card {
+            background: white;
+            border-radius: var(--card-radius);
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .store-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+            border-color: #bfdbfe;
+        }
+        .store-card.active {
+            border-color: var(--primary-color);
+            background-color: #eff6ff;
+            box-shadow: 0 0 0 1px var(--primary-color);
+        }
+        .store-card h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-dark); }
+        .store-card p { font-size: 0.9rem; color: var(--text-gray); margin: 0; }
+
+        /* 모바일 전용 스타일: 지도가 상단, 목록이 하단 */
+        @media (max-width: 767.98px) {
+            #map-section {
+                height: 45vh; /* 지도 비율 조정 */
+            }
+            #list-section {
+                height: 55vh;
+                border-top-left-radius: 24px;
+                border-top-right-radius: 24px;
+                box-shadow: 0 -8px 24px rgba(0,0,0,0.12);
+                margin-top: -24px; /* 오버랩 효과 */
+                position: relative;
+            }
+            /* 모바일 핸들바 */
+            .mobile-handle-bar {
+                width: 40px; height: 4px; background-color: #e2e8f0;
+                border-radius: 2px; margin: 8px auto 4px auto;
+            }
+        }
+        /* 데스크탑/태블릿: 높이 100% */
+        @media (min-width: 768px) {
+            #map-section, #list-section {
+                height: 100vh;
+            }
+            .mobile-handle-bar { display: none; }
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
 </head>
 <body>
-<div class="container text-center">
-    <div class="row">
-        <div class="col-8 col-xl-12" style="height:100vh">
-            <div class="card h-100">
-                <div class="overflow-auto card-body">
-                    <div class="h-100" id="map-container">
-                        <div id="map"></div>
-                        <div id="card-list-wrapper">
-                            <h2>🏬  </h2>
-                            <div id="card-list">
-                                <div class="container">
-                                    <p id="loading-message">데이터를 불러오는 중...</p>
-                                    <main class="bus-list">
-
-                                        <div class="bus-item" data-bus-id="9">
-                                            <span class="bus-number square-blue">9</span>
-                                            <div class="bus-details">
-                                                <p class="destination">호매실입구(탑동) 방면</p>
-                                                <p class="route-info"><span>수원</span> 자목마을입구, 한양수자인파크원아파트</p>
-                                                <p class="arrival-status no-info">도착 예정 정보 없음</p>
-                                            </div>
-                                            <i class="far fa-star favorite-star"></i>
-                                        </div>
-
-                                        <div class="bus-item" data-bus-id="9-1">
-                                            <span class="bus-number square-blue">9-1</span>
-                                            <div class="bus-details">
-                                                <p class="destination">호매실입구(탑동) 방면</p>
-                                                <p class="route-info"><span>수원</span> 호매실스타힐스, 수원여대입구 ↔ 대주...</p>
-                                                <p class="arrival-status no-info">도착 예정 정보 없음</p>
-                                            </div>
-                                            <i class="far fa-star favorite-star"></i>
-                                        </div>
-
-                                        <div class="bus-item" data-bus-id="13">
-                                            <span class="bus-number square-blue">13</span>
-                                            <div class="bus-details">
-                                                <p class="destination">호매실입구(탑동) 방면</p>
-                                                <p class="route-info"><span>수원</span> 삼광교통종점 ↔ 금곡동강남아파트</p>
-                                                <div class="time-detail">
-                                                    <span class="time-chip chip-red">10분</span> 7정류장
-                                                    <span class="time-chip chip-red">16분</span> 11정류장
-                                                </div>
-                                            </div>
-                                            <i class="far fa-star favorite-star"></i>
-                                        </div>
-
-                                        <div class="bus-item" data-bus-id="61-list">
-                                            <span class="bus-number square-red">61</span>
-                                            <div class="bus-details">
-                                                <p class="destination">호매실입구(탑동) 방면</p>
-                                                <p class="route-info"><span>수원</span> 호매실동차고지 ↔ 청와, 쌍용, 그대가센...</p>
-                                                <div class="time-detail">
-                                                    <span class="time-chip chip-red">곧 도착</span> 1정류장
-                                                </div>
-                                            </div>
-                                            <i class="far fa-star favorite-star"></i>
-                                        </div>
-
-                                        <div class="bus-item" data-bus-id="62-1">
-                                            <span class="bus-number square-red">62-1</span>
-                                            <div class="bus-details">
-                                                <p class="destination">호매실입구(탑동) 방면</p>
-                                                <p class="route-info"><span>수원</span> 동탄차고지 ↔ 금곡LG2.3단지.모아미...</p>
-                                                <div class="time-detail">
-                                                    <span class="time-chip chip-red">7분</span> 5정류장
-                                                    <span class="time-chip chip-red">21분</span> 15정류장
-                                                </div>
-                                            </div>
-                                            <i class="far fa-star favorite-star"></i>
-                                        </div>
-                                    </main>
-
-                                    <footer class="footer-info">
-                                        <p>실시간 정보는 상황에 따라 오차가 발생할 수 있습니다.</p>
-                                    </footer>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+<div class="container-fluid h-100 p-0">
+    <div class="row g-0 h-100">
+        <!-- 목록 영역: 모바일(하단), 태블릿/데스크탑(좌측) -->
+        <div class="col-md-4 col-lg-3 order-2 order-md-1 d-flex flex-column" id="list-section">
+            <div class="px-3 pb-3 pt-2 border-bottom bg-white">
+                <div class="mobile-handle-bar"></div>
+                <h2 class="h5 mb-0 fw-bold text-dark mt-2">🏬 정류장 목록</h2>
+            </div>
+            <div class="flex-grow-1 overflow-auto p-3" style="background-color: var(--bg-light);" id="card-list-wrapper">
+                <div id="card-list">
+                    <p id="loading-message" class="text-center text-muted mt-4">데이터를 불러오는 중...</p>
                 </div>
             </div>
+        </div>
+
+        <!-- 지도 영역: 모바일(상단), 태블릿/데스크탑(우측) -->
+        <div class="col-md-8 col-lg-9 order-1 order-md-2 position-relative" id="map-section">
+            <div id="map"></div>
         </div>
     </div>
 </div>
 <script src="/js/get_key.js"></script>
-<script src="/js/eatate.js"></script>
+<script src="/js/station/eatate.js"></script>
+<script src="/js/getRestApi.js"></script>
 </body>
 </html>

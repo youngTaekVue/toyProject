@@ -12,7 +12,7 @@ const SERVICE_EN_KEY = process.env.NATIONAL_Encoding_KEY;
 // -------------- buslocationservice 경기도_정류소 조회 --------------
 router.get('/getBusStationListv2', async (req, res) => {
     // 💡 API URL 수정 (LAWD_CD와 DEAL_YMD 사용): 정확한 엔드포인트 확인 필요
-    let api_base_url = `https://apis.data.go.kr/6410000/busstationservice/v2/getBusStationListv2?serviceKey=${SERVICE_EN_KEY}&keyword=201000093&format=json`;
+    let api_base_url = `https://apis.data.go.kr/6410000/busstationservice/v2/getBusStationListv2?serviceKey=${SERVICE_EN_KEY}&keyword=22026&format=json`;
     try {
         const response = await axios.get(api_base_url);
         res.status(200).json(response.data.response.msgBody.busStationList);
