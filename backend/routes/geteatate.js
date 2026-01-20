@@ -53,10 +53,28 @@ router.get('/getBusArrivalListv2', async (req, res) => {
     }
 });
 
+// -------------- getBusStationAroundListv2 경기도_버스도착정보 조회 --------------
+router.get('/getBusStationAroundListv2', async (req, res) => {
+    const px = req.query.x === undefined ? '' : req.query.x;
+    const py = req.query.y === undefined ? '' : req.query.y;
+    console.log(px+py);
+    // 💡 API URL 수정 (LAWD_CD와 DEAL_YMD 사용): 정확한 엔드포인트 확인 필요
+    let api_base_url = `https://apis.data.go.kr/6410000/busstationservice/v2/getBusStationAroundListv2?serviceKey=${SERVICE_EN_KEY}&x=${px}&y=${py}&format=json`;
+    // busstationservice (정류소 정보 서비스)로 변경
+
+    try {
+        const response = await axios.get(api_base_url);
+        res.status(200).json(response.data.response.msgBody.busStationAroundList);
+    } catch (e) {
+        console.error('경기도_버스도착정보 조회 호출 또는 처리 중 오류:', e.message);
+        res.status(500).send('데이터 처리 중 오류가 발생했습니다.');
+    }
+});
+
 // =============================
 
 // -------------- getSeoulBusStationListv2 경기도_정류소 조회 --------------
-router.get('/getSeoulBusStationListv2', async (req, res) => {
+router.get('/getBusStationListv2', async (req, res) => {
     // 💡 API URL 수정 (LAWD_CD와 DEAL_YMD 사용): 정확한 엔드포인트 확인 필요
     let api_base_url = `https://apis.data.go.kr/6410000/busstationservice/v2/getBusStationListv2?serviceKey=${SERVICE_EN_KEY}&keyword=삼익&format=json`;
     try {
@@ -67,19 +85,5 @@ router.get('/getSeoulBusStationListv2', async (req, res) => {
         res.status(500).send('데이터 처리 중 오류가 발생했습니다.');
     }
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 module.exports = router;

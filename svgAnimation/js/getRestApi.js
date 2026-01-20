@@ -92,3 +92,22 @@ async function fetchBusSationData() {
         return null;
     }
 }
+
+// --- d. 내 주변 정류장 정보 조회 ---
+async function getBusStationAroundListv2(lat, lng) {
+    const tradeUrl = `http://localhost:3000/eatate/getBusStationAroundListv2?x=${lng}&y=${lat}`;
+    // const tradeUrl = `http://localhost:3000/eatate/getBusStationAroundListv2?x=126.95545&y=37.2771333`;
+
+    try {
+        const response = await fetch(tradeUrl);
+        if (!response.ok) {
+            throw new Error(`서버 요청 실패: ${response.status} ${response.statusText}`);
+        }
+        const locationData = await response.json();
+        return locationData;
+
+    } catch (error) {
+        console.error('❌ 주변 정류장 데이터를 가져오는 데 실패했습니다:', error.message);
+        return null;
+    }
+}
