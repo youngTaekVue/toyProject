@@ -3,26 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>목록</title>
+    <title>경기버스 정류장 찾기</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
           integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Google Fonts (Noto Sans KR) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
 
-<!--    <link rel="stylesheet" href="/css/eatate.css">-->
     <style>
         :root {
-            --primary-color: #3b82f6; /* 세련된 블루 */
-            --text-dark: #1e293b;
-            --text-gray: #64748b;
-            --bg-light: #f8fafc;
-            --card-radius: 12px;
+            --primary-color: #2563eb; /* 더 깊은 블루 */
+            --primary-light: #eff6ff;
+            --text-main: #1e293b;
+            --text-sub: #64748b;
+            --bg-base: #f1f5f9;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+            --radius-lg: 16px;
+            --radius-md: 12px;
         }
+
         html, body {
             height: 100%;
             margin: 0;
-            overflow: hidden; /* 전체 페이지 스크롤 방지 */
+            overflow: hidden;
             font-family: 'Noto Sans KR', sans-serif;
-            color: var(--text-dark);
-            background-color: var(--bg-light);
+            color: var(--text-main);
+            background-color: var(--bg-base);
         }
 
         /* 스크롤바 커스텀 */
@@ -31,86 +43,308 @@
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-        /* 목록 영역 스타일 */
+        /* --- 레이아웃 --- */
         #list-section {
-            background: white;
+            background: var(--bg-base);
             z-index: 20;
             box-shadow: 4px 0 20px rgba(0,0,0,0.05);
+            position: relative;
+            display: flex;
+            flex-direction: column;
         }
 
-        /* 카드 스타일 (JS 생성 요소) */
+        /* --- 헤더 영역 --- */
+        .section-header {
+            background: var(--card-bg);
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0;
+        }
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* --- 목록 뷰 (List View) --- */
+        #list-view {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        #card-list-wrapper {
+            padding: 1rem;
+            background-color: var(--bg-base);
+        }
+
+        /* --- 정류장 카드 스타일 --- */
         .store-card {
-            background: white;
-            border-radius: var(--card-radius);
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
             padding: 1.25rem;
-            margin-bottom: 1rem;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-            transition: all 0.2s ease;
+            margin-bottom: 0.75rem;
+            border: 1px solid transparent;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: pointer;
+            position: relative;
+            overflow: hidden;
         }
         .store-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+            box-shadow: var(--shadow-md);
             border-color: #bfdbfe;
         }
         .store-card.active {
             border-color: var(--primary-color);
-            background-color: #eff6ff;
+            background-color: var(--primary-light);
             box-shadow: 0 0 0 1px var(--primary-color);
         }
-        .store-card h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-dark); }
-        .store-card p { font-size: 0.9rem; color: var(--text-gray); margin: 0; }
+        /* 활성 카드 왼쪽 포인트 라인 */
+        .store-card.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background-color: var(--primary-color);
+        }
 
-        /* 모바일 전용 스타일: 지도가 상단, 목록이 하단 */
+        .store-card h3 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin-bottom: 0.4rem;
+            color: var(--text-main);
+            line-height: 1.4;
+        }
+        .store-card p {
+            font-size: 0.85rem;
+            color: var(--text-sub);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        /* --- 상세 뷰 (Detail View) --- */
+        #detail-view {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-base);
+            z-index: 30;
+            display: flex;
+            flex-direction: column;
+            transform: translateX(100%);
+            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1); /* 부드러운 슬라이드 */
+        }
+        #detail-view.show {
+            transform: translateX(0);
+            box-shadow: -4px 0 20px rgba(0,0,0,0.1);
+        }
+
+        /* 상세 헤더 */
+        .detail-header {
+            background: var(--card-bg);
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+        .btn-back {
+            border: none;
+            background: transparent;
+            color: var(--text-sub);
+            padding: 0.5rem;
+            border-radius: 50%;
+            transition: background 0.2s;
+            margin-right: 0.5rem;
+        }
+        .btn-back:hover {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+        }
+        .station-info h2 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin: 0;
+            color: var(--text-main);
+        }
+        .station-info span {
+            font-size: 0.8rem;
+            color: var(--text-sub);
+            background-color: var(--bg-base);
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-top: 2px;
+            display: inline-block;
+        }
+
+        /* 버스 도착 목록 */
+        #arrival-list {
+            padding: 1rem;
+            overflow-y: auto;
+        }
+        .arrival-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.75rem;
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid transparent; /* 버스 타입별 색상용 */
+        }
+        /* 버스 번호 스타일 */
+        .bus-number {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--text-main);
+            letter-spacing: -0.5px;
+        }
+        .bus-dest {
+            font-size: 0.85rem;
+            color: var(--text-sub);
+            margin-top: 2px;
+        }
+        /* 도착 시간 스타일 */
+        .arrival-time-box {
+            text-align: right;
+        }
+        .arrival-time {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #ef4444; /* 강조색 (빨강) */
+        }
+        .arrival-status {
+            font-size: 0.8rem;
+            color: var(--text-sub);
+        }
+
+        /* 새로고침 버튼 */
+        #btn-refresh {
+            border: 1px solid var(--border-color);
+            background: white;
+            color: var(--primary-color);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            box-shadow: var(--shadow-sm);
+        }
+        #btn-refresh:hover {
+            background-color: var(--primary-light);
+            transform: scale(1.05);
+        }
+        #btn-refresh:active {
+            transform: scale(0.95);
+        }
+        .spin-animation {
+            animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+
+        /* --- 반응형 (모바일) --- */
         @media (max-width: 767.98px) {
             #map-section {
-                height: 45vh; /* 지도 비율 조정 */
+                height: 45vh;
             }
             #list-section {
                 height: 55vh;
                 border-top-left-radius: 24px;
                 border-top-right-radius: 24px;
                 box-shadow: 0 -8px 24px rgba(0,0,0,0.12);
-                margin-top: -24px; /* 오버랩 효과 */
-                position: relative;
+                margin-top: -24px;
+                overflow: hidden;
             }
-            /* 모바일 핸들바 */
             .mobile-handle-bar {
-                width: 40px; height: 4px; background-color: #e2e8f0;
-                border-radius: 2px; margin: 8px auto 4px auto;
+                width: 40px; height: 4px; background-color: #cbd5e1;
+                border-radius: 2px; margin: 8px auto 12px auto;
+            }
+            .section-header {
+                padding-top: 0.5rem; /* 핸들바 공간 확보 */
+            }
+            /* 모바일에서 상세화면은 꽉 차게 */
+            #detail-view {
+                border-top-left-radius: 24px;
+                border-top-right-radius: 24px;
             }
         }
-        /* 데스크탑/태블릿: 높이 100% */
+
+        /* --- 반응형 (데스크탑) --- */
         @media (min-width: 768px) {
             #map-section, #list-section {
                 height: 100vh;
             }
             .mobile-handle-bar { display: none; }
+            /* 데스크탑 스크롤바 스타일 */
+            #card-list-wrapper, #arrival-list {
+                padding-right: 6px; /* 스크롤바 공간 */
+            }
         }
-        #map {
-            width: 100%;
-            height: 100%;
-        }
+        #map { width: 100%; height: 100%; }
     </style>
 </head>
 <body>
 <div class="container-fluid h-100 p-0">
     <div class="row g-0 h-100">
-        <!-- 목록 영역: 모바일(하단), 태블릿/데스크탑(좌측) -->
-        <div class="col-md-4 col-lg-3 order-2 order-md-1 d-flex flex-column" id="list-section">
-            <div class="px-3 pb-3 pt-2 border-bottom bg-white">
-                <div class="mobile-handle-bar"></div>
-                <h2 class="h5 mb-0 fw-bold text-dark mt-2">🏬 정류장 목록</h2>
-            </div>
-            <div class="flex-grow-1 overflow-auto p-3" style="background-color: var(--bg-light);" id="card-list-wrapper">
-                <div id="card-list">
-                    <p id="loading-message" class="text-center text-muted mt-4">데이터를 불러오는 중...</p>
+        <!-- 목록 영역 -->
+        <div class="col-md-4 col-lg-3 order-2 order-md-1 position-relative" id="list-section">
+
+            <!-- 1. 기본 목록 뷰 -->
+            <div id="list-view">
+                <div class="section-header">
+                    <div class="mobile-handle-bar"></div>
+                    <h2 class="section-title"><i class="bi bi-bus-front-fill text-primary"></i> 주변 정류장</h2>
+                </div>
+                <div class="flex-grow-1 overflow-auto" id="card-list-wrapper">
+                    <div id="card-list">
+                        <p id="loading-message" class="text-center text-muted mt-5">
+                            <span class="spinner-border spinner-border-sm text-primary mb-2" role="status"></span><br>
+                            데이터를 불러오는 중...
+                        </p>
+                    </div>
                 </div>
             </div>
+
+            <!-- 2. 상세 정보 뷰 -->
+            <div id="detail-view">
+                <div class="detail-header">
+                    <div class="d-flex align-items-center overflow-hidden">
+                        <button class="btn-back" onclick="closeDetailView()">
+                            <i class="bi bi-arrow-left fs-5"></i>
+                        </button>
+                        <div class="station-info text-truncate ms-1">
+                            <h2 class="text-truncate" id="detail-station-name">정류장 이름</h2>
+                            <span id="detail-station-id">00000</span>
+                        </div>
+                    </div>
+                    <button id="btn-refresh" onclick="refreshArrivalInfo()" title="새로고침">
+                        <i class="bi bi-arrow-clockwise fs-5"></i>
+                    </button>
+                </div>
+                <div id="arrival-list">
+                    <!-- 버스 카드 들어가는 곳 -->
+                </div>
+            </div>
+
         </div>
 
-        <!-- 지도 영역: 모바일(상단), 태블릿/데스크탑(우측) -->
+        <!-- 지도 영역 -->
         <div class="col-md-8 col-lg-9 order-1 order-md-2 position-relative" id="map-section">
             <div id="map"></div>
         </div>
