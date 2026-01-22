@@ -12,9 +12,15 @@ const SERVICE_EN_KEY = process.env.NATIONAL_Encoding_KEY;
 // -------------- buslocationservice 경기도_정류소 조회 --------------
 router.get('/getBusStationListv2', async (req, res) => {
     // 💡 API URL 수정 (LAWD_CD와 DEAL_YMD 사용): 정확한 엔드포인트 확인 필요
-    let api_base_url = `https://apis.data.go.kr/6410000/busstationservice/v2/getBusStationListv2?serviceKey=${SERVICE_EN_KEY}&keyword=22026&format=json`;
+    const url = 'https://apis.data.go.kr/6410000/busstationservice/v2/getBusStationListv2';
     try {
-        const response = await axios.get(api_base_url);
+        const response = await axios.get(url, {
+            params: {
+                serviceKey: SERVICE_DE_KEY, // Decoding Key 사용 권장 (axios가 자동 인코딩)
+                keyword: '22026',
+                format: 'json'
+            }
+        });
         res.status(200).json(response.data.response.msgBody.busStationList);
     } catch (e) {
         console.error('경기도_정류소 조회 호출 또는 처리 중 오류:', e.message);
@@ -27,10 +33,15 @@ router.get('/getBusStationListv2', async (req, res) => {
 router.get('/getBusLocationListv2', async (req, res) => {
 
     // 💡 API URL 수정 (LAWD_CD와 DEAL_YMD 사용): 정확한 엔드포인트 확인 필요
-    let api_base_url = `https://apis.data.go.kr/6410000/busarrivalservice/v2/getBusArrivalListv2?serviceKey=${SERVICE_EN_KEY}&routeId=201000093&format=json`;
+    const url = 'https://apis.data.go.kr/6410000/busarrivalservice/v2/getBusArrivalListv2';
     try {
-        const response = await axios.get(api_base_url);
-        console.log(response);
+        const response = await axios.get(url, {
+            params: {
+                serviceKey: SERVICE_DE_KEY,
+                routeId: '201000093',
+                format: 'json'
+            }
+        });
         res.status(200).json(response.data.response.msgBody.busLocationList);
     } catch (e) {
         console.error('경기도버스_위치정보 조회 호출 또는 처리 중 오류:', e.message);
@@ -42,10 +53,15 @@ router.get('/getBusLocationListv2', async (req, res) => {
 router.get('/getBusArrivalListv2', async (req, res) => {
     const param = req.query.stationId === undefined ? '' : req.query.stationId;
     // 💡 API URL 수정 (LAWD_CD와 DEAL_YMD 사용): 정확한 엔드포인트 확인 필요
-    let api_base_url = `https://apis.data.go.kr/6410000/busarrivalservice/v2/getBusArrivalListv2?serviceKey=${SERVICE_EN_KEY}&stationId=${param}&format=json`;
+    const url = 'https://apis.data.go.kr/6410000/busarrivalservice/v2/getBusArrivalListv2';
     try {
-        const response = await axios.get(api_base_url);
-        console.log(response.data.response.busArrivalList);
+        const response = await axios.get(url, {
+            params: {
+                serviceKey: SERVICE_DE_KEY,
+                stationId: param,
+                format: 'json'
+            }
+        });
         res.status(200).json(response.data.response.msgBody.busArrivalList);
     } catch (e) {
         console.error('경기도_버스도착정보 조회 호출 또는 처리 중 오류:', e.message);
@@ -60,10 +76,17 @@ router.get('/getBusStationAroundListv2', async (req, res) => {
 
     // 서비스 키와 URL이 올바른지 다시 한 번 확인하세요.
     // busstationservice (정류소 정보)가 맞는지 확인 필요
-    let api_base_url = `https://apis.data.go.kr/6410000/busstationservice/v2/getBusStationAroundListv2?serviceKey=${SERVICE_EN_KEY}&x=${px}&y=${py}&format=json`;
+    const url = 'https://apis.data.go.kr/6410000/busstationservice/v2/getBusStationAroundListv2';
 
     try {
-        const response = await axios.get(api_base_url);
+        const response = await axios.get(url, {
+            params: {
+                serviceKey: SERVICE_DE_KEY,
+                x: px,
+                y: py,
+                format: 'json'
+            }
+        });
 
         // ⭐ 안전한 데이터 접근 및 빈 배열 처리 ⭐
         // 1. response.data가 있는지 확인
@@ -84,15 +107,49 @@ router.get('/getBusStationAroundListv2', async (req, res) => {
         res.status(500).send('데이터 처리 중 오류가 발생했습니다.');
     }
 });
+// -------------- getStationByPos 서울_버스정류소정보 조회 (ws.bus.go.kr) --------------
+router.get('/getStationByPos', async (req, res) => {
+    // 파라미터 처리 로직 수정 (tmX가 없으면 x를 사용하도록)
+    const ptmX = req.query.tmX || req.query.x || '';
+    const ptmY = req.query.tmY || req.query.y || '';
 
+    const url = 'http://ws.bus.go.kr/api/rest/stationinfo/getStationByPos';
+    try {
+        const response = await axios.get(url, {
+            params: {
+                serviceKey: SERVICE_DE_KEY, // 서울시 API도 Decoding Key 사용
+                tmX: ptmX,
+                tmY: ptmY,
+                radius: '100',
+                resultType: 'json'
+            }
+        });
+        console.log(response);
+        //const stationList = response.data?.response?.msgBody?.busStationAroundList || [];
+        // const resultList = Array.isArray(stationList) ? stationList : [stationList];
+        // res.status(200).json(resultList);
+
+    } catch (e) {
+        console.error('경기도_버스정류소정보 조회 호출 또는 처리 중 오류:', e.message);
+        // API 호출 자체가 실패했을 때만 500 에러 반환
+        res.status(500).send('데이터 처리 중 오류가 발생했습니다.');
+    }
+});
 // =============================
 
-// -------------- getSeoulBusStationListv2 경기도_정류소 조회 --------------
-router.get('/getBusStationListv2', async (req, res) => {
+// -------------- getBusStationListByKeyword 경기도_정류소 조회 (키워드 검색) --------------
+// 기존 getBusStationListv2와 경로가 겹쳐서 이름 변경
+router.get('/getBusStationListByKeyword', async (req, res) => {
     // 💡 API URL 수정 (LAWD_CD와 DEAL_YMD 사용): 정확한 엔드포인트 확인 필요
-    let api_base_url = `https://apis.data.go.kr/6410000/busstationservice/v2/getBusStationListv2?serviceKey=${SERVICE_EN_KEY}&keyword=삼익&format=json`;
+    const url = 'https://apis.data.go.kr/6410000/busstationservice/v2/getBusStationListv2';
     try {
-        const response = await axios.get(api_base_url);
+        const response = await axios.get(url, {
+            params: {
+                serviceKey: SERVICE_DE_KEY,
+                keyword: '삼익',
+                format: 'json'
+            }
+        });
         res.status(200).json(response.data.response.msgBody.busStationList);
     } catch (e) {
         console.error('서울_정류소 조회 호출 또는 처리 중 오류:', e.message);

@@ -4,16 +4,18 @@ const markerMap = new Map();
 let activeCardElement = null;
 let allStoreData = [];
 let clusterer = null;
-let currentSelectedMarker = null; // 현재 선택된 마커 추적
-let currentInfoWindow = null; // 현재 열린 인포윈도우 추적
-let currentStationId = null; // 현재 상세 화면에 표시 중인 정류장 ID
+let currentSelectedMarker = null;
+let currentInfoWindow = null;
+let currentStationId = null; // API 호출에 사용될 실제 정류장 ID (접두사 없음)
+let currentStationUniqueId = null; // UI 상태 관리에 사용될 고유 ID (접두사 포함)
 
-// 마커 이미지 변수 (초기화는 SDK 로드 후 수행)
 let markerImage = null;
 let selectedMarkerImage = null;
 
+let favoriteRoutes = JSON.parse(localStorage.getItem('favoriteRoutes')) || [];
+
 // -------------------------------------------------------------
-// ⭐ 통합 함수: 지도 로드, 데이터 로드, 마커 표시, 카드 생성 순차 처리
+// ⭐ 통합 함수
 // -------------------------------------------------------------
 async function initMapAndData() {
     const mapConfig = await fetchKakaMapConfig();
@@ -24,7 +26,7 @@ async function initMapAndData() {
     await loadKakaoMapSDK(mapConfig);
 }
 
-// --- C. 카카오맵 SDK 로드 및 지도/이벤트 리스너 등록 (수정됨) ---
+// --- C. 카카오맵 SDK 로드 ---
 async function loadKakaoMapSDK(mapConfig) {
     const apiKey = mapConfig.kakaoMapAppKey;
     if (!apiKey) {
@@ -38,7 +40,6 @@ async function loadKakaoMapSDK(mapConfig) {
 
         script.onload = () => {
             kakao.maps.load(() => {
-                // ⭐ SDK 로드 후 이미지 객체 생성 ⭐
                 markerImage = new kakao.maps.MarkerImage('/images/markers.png', new kakao.maps.Size(15, 25));
                 selectedMarkerImage = new kakao.maps.MarkerImage('/images/marker_selected.png', new kakao.maps.Size(15, 25));
 
@@ -62,21 +63,17 @@ async function loadKakaoMapSDK(mapConfig) {
                     minLevel: 6,
                 });
 
-                // ⭐ 지도 이동/줌 이벤트 리스너 (수정됨) ⭐
                 const updateDelayed = debounce(async () => {
-                    // 마커가 선택되어 있어도 데이터 로드는 계속 진행합니다.
                     await loadAndDisplayStationsAroundCenter();
                 }, 500);
 
                 kakao.maps.event.addListener(map, 'dragend', updateDelayed);
                 kakao.maps.event.addListener(map, 'zoom_changed', updateDelayed);
 
-                // ⭐ 지도 클릭 이벤트: 모든 선택 해제 ⭐
                 kakao.maps.event.addListener(map, 'click', function() {
                     deselectAll();
                 });
 
-                // Geolocation 처리
                 if (navigator.geolocation) {
                     navigator.geolocation.getCurrentPosition(async (position) => {
                         const lat = position.coords.latitude;
@@ -97,6 +94,17 @@ async function loadKakaoMapSDK(mapConfig) {
                     loadAndDisplayStationsAroundCenter();
                 }
 
+                const lastStationId = localStorage.getItem('lastStationId');
+                const lastStationName = localStorage.getItem('lastStationName');
+                const lastStationUniqueId = localStorage.getItem('lastStationUniqueId'); // ⭐ 추가: uniqueId도 저장
+
+                if (lastStationId && lastStationName && lastStationUniqueId) {
+                    setTimeout(() => {
+                        // ⭐ openDetailView에 uniqueId도 전달 ⭐
+                        openDetailView(lastStationId, lastStationName, lastStationUniqueId);
+                    }, 300);
+                }
+
                 resolve();
             });
         };
@@ -104,7 +112,6 @@ async function loadKakaoMapSDK(mapConfig) {
     });
 }
 
-// ⭐ 모든 선택 상태를 해제하는 함수 ⭐
 function deselectAll() {
     if (currentSelectedMarker) {
         currentSelectedMarker.setImage(markerImage);
@@ -118,11 +125,10 @@ function deselectAll() {
         currentInfoWindow.close();
         currentInfoWindow = null;
     }
-    // 상세 화면 닫기
     closeDetailView();
 }
 
-// ⭐ 중심 좌표 기준 데이터 로드 및 마커 업데이트 공통 함수 ⭐
+// ⭐ 중심 좌표 기준 데이터 로드 및 마커 업데이트 (서울 + 경기 병합 및 중복 처리 강화) ⭐
 async function loadAndDisplayStationsAroundCenter() {
     if (!map) return;
     const center = map.getCenter();
@@ -130,22 +136,58 @@ async function loadAndDisplayStationsAroundCenter() {
     const lng = center.getLng();
 
     try {
-        const aroundStations = await getBusStationAroundListv2(lat, lng);
-        if (aroundStations && Array.isArray(aroundStations) && aroundStations.length > 0) {
-            const mappedAroundData = aroundStations.map(item => ({
+        // 1. 경기도 & 서울 API 동시 호출
+        const [gyeonggiData, seoulData] = await Promise.all([
+            getBusStationAroundListv2(lat, lng),
+            getStationByPos(lat, lng)
+        ]);
+
+        let mergedData = [];
+
+        // 2. 경기도 데이터 매핑
+        if (gyeonggiData && Array.isArray(gyeonggiData)) {
+            const mappedGyeonggi = gyeonggiData.map(item => ({
                 ...item,
-                WGS84_LAT: item.y, WGS84_LOGT: item.x,
-                name: item.stationName, STTN_ID: item.stationId,
-                STTN_NM_INFO: item.stationName
+                uniqueId: 'GG_' + item.stationId, // ⭐ 고유 ID 생성 ⭐
+                apiStationId: item.stationId, // ⭐ API 호출용 ID 저장 ⭐
+                WGS84_LAT: item.y, 
+                WGS84_LOGT: item.x,
+                name: item.stationName, 
+                STTN_NM_INFO: item.stationName,
+                source: 'gyeonggi'
             }));
+            mergedData = [...mappedGyeonggi];
+        }
+
+        // 3. 서울 데이터 매핑
+        if (seoulData && Array.isArray(seoulData)) {
+            const mappedSeoul = seoulData.map(item => ({
+                ...item,
+                // ⭐ 서울은 arsId를 우선 사용, 없으면 stationId 폴백 ⭐
+                uniqueId: 'SL_' + (item.arsId || item.stationId), // ⭐ 고유 ID 생성 ⭐
+                apiStationId: item.arsId || item.stationId, // ⭐ API 호출용 ID 저장 ⭐
+                WGS84_LAT: item.gpsY, 
+                WGS84_LOGT: item.gpsX,
+                name: item.stationNm, 
+                STTN_NM_INFO: item.stationNm,
+                source: 'seoul'
+            }));
+            mergedData = [...mergedData, ...mappedSeoul];
+        }
+console.log(mergedData)
+        // 4. 중복 제거 및 기존 데이터 병합
+        if (mergedData.length > 0) {
+            // 기존 데이터의 uniqueId 집합
+            const existingUniqueIds = new Set(allStoreData.map(d => d.uniqueId));
             
-            const existingIds = new Set(allStoreData.map(d => d.STTN_ID || d.id));
-            const newItems = mappedAroundData.filter(d => !existingIds.has(d.STTN_ID));
+            // 새로 받아온 데이터 중 uniqueId 기준으로 중복되지 않는 것만 필터링
+            const newItems = mergedData.filter(d => !existingUniqueIds.has(d.uniqueId));
             
             if (newItems.length > 0) {
                 allStoreData = [...allStoreData, ...newItems];
             }
         }
+
     } catch (error) {
         console.error('❌ 주변 정류장 데이터 로드 실패:', error);
     }
@@ -178,22 +220,22 @@ function filterDataInBounds(currentMap) {
     });
 }
 
-// --- G. 마커와 카드 목록 업데이트 (수정됨) ---
+// ⭐ 마커와 카드 목록 업데이트 (uniqueId 사용) ⭐
 function updateMarkersAndCards(currentMap) {
     clusterer.clear();
     const visibleData = filterDataInBounds(currentMap);
     
     const markersToAdd = [];
     visibleData.forEach(item => {
-        const id = item.STTN_ID || item.id;
+        const uniqueId = item.uniqueId; // ⭐ uniqueId 사용 ⭐
         let marker, infowindow;
         
-        if (markerMap.has(id)) {
-            const storedItem = markerMap.get(id);
+        if (markerMap.has(uniqueId)) {
+            const storedItem = markerMap.get(uniqueId);
             marker = storedItem.marker;
             infowindow = storedItem.infowindow;
             
-            if (currentStationId !== id) {
+            if (currentStationUniqueId !== uniqueId) { // ⭐ currentStationUniqueId와 비교 ⭐
                  marker.setImage(markerImage);
             } else {
                  marker.setImage(selectedMarkerImage);
@@ -206,10 +248,10 @@ function updateMarkersAndCards(currentMap) {
                 content: `<div style="padding:5px;font-size:12px;">${item.name || item.STTN_NM_INFO}</div>`,
                 removable: true
             });
-            markerMap.set(id, { marker, data: item, infowindow });
+            markerMap.set(uniqueId, { marker, data: item, infowindow }); // ⭐ uniqueId로 저장 ⭐
 
             kakao.maps.event.addListener(marker, 'click', function () {
-                selectItem(id);
+                selectItem(uniqueId); // ⭐ uniqueId 전달 ⭐
                 currentMap.panTo(position);
             });
         }
@@ -219,12 +261,12 @@ function updateMarkersAndCards(currentMap) {
     clusterer.addMarkers(markersToAdd);
     updateStoreCards(visibleData);
     
-    if (currentStationId) {
-        highlightCard(currentStationId);
+    if (currentStationUniqueId) { // ⭐ currentStationUniqueId 사용 ⭐
+        highlightCard(currentStationUniqueId);
     }
 }
 
-// --- H. 카드 목록 업데이트 (디자인 수정됨) ---
+// ⭐ 정류장 카드 업데이트 (uniqueId 사용) ⭐
 function updateStoreCards(data) {
     const cardListContainer = document.getElementById('card-list');
     cardListContainer.innerHTML = '';
@@ -232,50 +274,51 @@ function updateStoreCards(data) {
 
     data.forEach(item => {
         const card = document.createElement('div');
-        card.className = 'store-card';
-        const id = item.STTN_ID || item.id;
-        card.dataset.id = id;
+        card.className = 'store-card nes-container is-rounded';
+        const uniqueId = item.uniqueId; // ⭐ uniqueId 사용 ⭐
+        card.dataset.id = uniqueId; // ⭐ uniqueId 사용 ⭐
         
-        // ⭐ 디자인 개선된 카드 HTML ⭐
         card.innerHTML = `
             <h3>${item.STTN_NM_INFO || item.name}</h3>
-            <p><i class="bi bi-geo-alt"></i> ${item.CNTR_CARTRK_DIV || ''}${item.JURISD_INST_NM || ''}</p>
-            <p><i class="bi bi-hash"></i> ${id || '정보 없음'}</p>
+            <p>${item.CNTR_CARTRK_DIV || ''}${item.JURISD_INST_NM || ''}</p>
+            <p>ID: ${item.apiStationId || '정보 없음'}</p> <!-- ⭐ 사용자에게는 apiStationId 표시 ⭐ -->
         `;
         
-        card.addEventListener('click', () => selectItem(id));
+        card.addEventListener('click', () => selectItem(uniqueId)); // ⭐ uniqueId 전달 ⭐
         cardListContainer.appendChild(card);
     });
 
     if (data.length === 0) {
         cardListContainer.innerHTML = `
-            <div class="text-center text-muted mt-5">
-                <i class="bi bi-map fs-1 text-secondary opacity-50"></i>
-                <p class="mt-3">지도 영역에 정류장이 없습니다.<br>지도를 이동해보세요.</p>
+            <div style="text-align: center; margin-top: 2rem;">
+                <i class="nes-icon close is-large"></i>
+                <p class="mt-3">정류장이 없습니다.</p>
             </div>
         `;
     }
 }
 
-// ⭐ 아이템(마커/카드) 선택 로직 공통 함수 ⭐
-function selectItem(id) {
-    if (!markerMap.has(id)) return;
+// ⭐ 아이템(마커/카드) 선택 로직 공통 함수 (uniqueId 사용) ⭐
+function selectItem(uniqueId) {
+    if (!markerMap.has(uniqueId)) return;
 
-    const { marker, data, infowindow } = markerMap.get(id);
+    const { marker, data, infowindow } = markerMap.get(uniqueId);
 
     deselectAll();
 
     marker.setImage(selectedMarkerImage);
     infowindow.open(map, marker);
-    highlightCard(id);
+    highlightCard(uniqueId); // ⭐ uniqueId 전달 ⭐
 
     currentSelectedMarker = marker;
     currentInfoWindow = infowindow;
+    currentStationUniqueId = uniqueId; // ⭐ uniqueId 저장 ⭐
 
-    openDetailView(id, data.name || data.STTN_NM_INFO);
+    // ⭐ openDetailView에는 apiStationId와 name 전달 ⭐
+    openDetailView(data.apiStationId, data.name || data.STTN_NM_INFO, uniqueId);
 }
 
-function moveToCoords(lat, lng, id) {
+function moveToCoords(lat, lng, id) { // 이 함수는 현재 사용되지 않음
     const position = new kakao.maps.LatLng(parseFloat(lat), parseFloat(lng));
     if (map) {
         map.panTo(position);
@@ -283,12 +326,12 @@ function moveToCoords(lat, lng, id) {
     }
 }
 
-function highlightCard(id) {
-    const newActiveCard = document.querySelector(`.store-card[data-id="${id}"]`);
+function highlightCard(uniqueId) { // ⭐ uniqueId 사용 ⭐
+    const newActiveCard = document.querySelector(`.store-card[data-id="${uniqueId}"]`);
     if (newActiveCard) {
         newActiveCard.classList.add('active');
         activeCardElement = newActiveCard;
-        if (!currentStationId) {
+        if (!currentStationUniqueId) { // ⭐ currentStationUniqueId 사용 ⭐
              newActiveCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
     }
@@ -298,8 +341,15 @@ function highlightCard(id) {
 // ⭐ 상세 화면 (버스 도착 정보) 관련 함수 ⭐
 // -------------------------------------------------------------
 
-async function openDetailView(stationId, stationName) {
-    currentStationId = stationId;
+// ⭐ openDetailView 함수 시그니처 변경 (uniqueId 추가) ⭐
+async function openDetailView(apiStationId, stationName, uniqueId) {
+    currentStationId = apiStationId; // API 호출용 ID
+    currentStationUniqueId = uniqueId; // UI 상태 관리용 ID
+    
+    // ⭐ 마지막 상태 저장 (uniqueId도 함께 저장) ⭐
+    localStorage.setItem('lastStationId', apiStationId);
+    localStorage.setItem('lastStationName', stationName);
+    localStorage.setItem('lastStationUniqueId', uniqueId);
 
     const detailView = document.getElementById('detail-view');
     const stationNameEl = document.getElementById('detail-station-name');
@@ -307,41 +357,42 @@ async function openDetailView(stationId, stationName) {
     const arrivalListEl = document.getElementById('arrival-list');
 
     stationNameEl.textContent = stationName;
-    stationIdEl.textContent = stationId;
+    stationIdEl.textContent = apiStationId; // ⭐ 사용자에게는 apiStationId 표시 ⭐
     
-    // ⭐ 로딩 UI 개선 ⭐
     arrivalListEl.innerHTML = `
-        <div class="text-center mt-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-            <p class="mt-3 text-muted small">실시간 도착 정보를 불러오고 있습니다...</p>
+        <div style="text-align: center; margin-top: 2rem;">
+            <i class="nes-octocat animate"></i>
+            <p class="mt-3">로딩중...</p>
         </div>
     `;
     
     detailView.classList.add('show');
 
-    await loadArrivalData(stationId);
+    await loadArrivalData(apiStationId);
 }
 
 async function refreshArrivalInfo() {
     if (!currentStationId) return;
 
     const btnRefresh = document.getElementById('btn-refresh');
-    const icon = btnRefresh.querySelector('i');
     
-    icon.classList.add('spin-animation');
+    const originalText = btnRefresh.innerText;
+    btnRefresh.innerText = '...';
+    btnRefresh.classList.remove('is-warning');
+    btnRefresh.classList.add('is-disabled');
     btnRefresh.disabled = true;
 
     await loadArrivalData(currentStationId);
 
     setTimeout(() => {
-        icon.classList.remove('spin-animation');
+        btnRefresh.innerText = originalText;
+        btnRefresh.classList.remove('is-disabled');
+        btnRefresh.classList.add('is-warning');
         btnRefresh.disabled = false;
     }, 500);
 }
 
-async function loadArrivalData(stationId) {
+async function loadArrivalData(stationId) { // 이 함수는 apiStationId를 받음
     const arrivalListEl = document.getElementById('arrival-list');
     try {
         const arrivalData = await getBusArrivalListv2({ stationId: stationId });
@@ -349,9 +400,8 @@ async function loadArrivalData(stationId) {
     } catch (error) {
         console.error("버스 도착 정보 로드 실패:", error);
         arrivalListEl.innerHTML = `
-            <div class="text-center mt-5">
-                <i class="bi bi-exclamation-circle fs-1 text-danger opacity-50"></i>
-                <p class="mt-3 text-danger">정보를 불러오지 못했습니다.<br>잠시 후 다시 시도해주세요.</p>
+            <div style="text-align: center; margin-top: 2rem;">
+                <p class="nes-text is-error">정보 로드 실패!</p>
             </div>
         `;
     }
@@ -361,33 +411,39 @@ function closeDetailView() {
     const detailView = document.getElementById('detail-view');
     detailView.classList.remove('show');
     currentStationId = null;
+    currentStationUniqueId = null; // ⭐ uniqueId도 초기화 ⭐
+    
+    localStorage.removeItem('lastStationId');
+    localStorage.removeItem('lastStationName');
+    localStorage.removeItem('lastStationUniqueId'); // ⭐ uniqueId도 삭제 ⭐
 }
 
-// ⭐ 도착 정보 렌더링 (색상 매핑 수정됨) ⭐
+function toggleFavorite(routeId) {
+    const id = String(routeId);
+    
+    if (favoriteRoutes.includes(id)) {
+        favoriteRoutes = favoriteRoutes.filter(r => r !== id);
+    } else {
+        favoriteRoutes.push(id);
+    }
+    
+    localStorage.setItem('favoriteRoutes', JSON.stringify(favoriteRoutes));
+    
+    if (currentStationId) {
+        loadArrivalData(currentStationId);
+    }
+}
+
 function renderArrivalList(data) {
     const arrivalListEl = document.getElementById('arrival-list');
     arrivalListEl.innerHTML = '';
 
-    // ⭐ 버스 타입별 색상 정의 (GBIS 코드 기준) ⭐
     const busTypeColors = {
-        '11': '#ef4444', // 직행좌석 (빨강)
-        '12': '#3b82f6', // 좌석 (파랑)
-        '13': '#22c55e', // 일반 (초록)
-        '14': '#a855f7', // 광역급행 (보라)
-        '15': '#8b5cf6', // 따복 (보라 계열)
-        '16': '#ef4444', // 경기순환 (빨강)
-        '20': '#f59e0b', // 마을 (노랑/주황) - 일부 지역 코드
-        '21': '#ef4444', // 서울 직행 (빨강)
-        '22': '#3b82f6', // 서울 좌석 (파랑)
-        '23': '#22c55e', // 서울 일반 (초록)
-        '30': '#f59e0b', // 마을 (노랑/주황)
-        '41': '#3b82f6', // 시외 (파랑)
-        '42': '#3b82f6', // 시외 (파랑)
-        '43': '#3b82f6', // 시외 (파랑)
-        '51': '#0ea5e9', // 공항 (하늘색)
-        '52': '#0ea5e9', // 공항 (하늘색)
-        '53': '#0ea5e9', // 공항 (하늘색)
-        'default': '#64748b' // 기본값 (회색)
+        '11': '#ef4444', '12': '#3b82f6', '13': '#22c55e', '14': '#a855f7',
+        '15': '#8b5cf6', '16': '#ef4444', '20': '#f59e0b', '21': '#ef4444',
+        '22': '#3b82f6', '23': '#22c55e', '30': '#f59e0b', '41': '#3b82f6',
+        '42': '#3b82f6', '43': '#3b82f6', '51': '#0ea5e9', '52': '#0ea5e9',
+        '53': '#0ea5e9', 'default': '#64748b'
     };
 
     let list = [];
@@ -405,13 +461,20 @@ function renderArrivalList(data) {
 
     if (!list || list.length === 0) {
         arrivalListEl.innerHTML = `
-            <div class="text-center text-muted mt-5">
-                <i class="bi bi-clock-history fs-1 opacity-50"></i>
-                <p class="mt-3">도착 예정인 버스가 없습니다.</p>
+            <div style="text-align: center; margin-top: 2rem;">
+                <p>도착 버스 없음</p>
             </div>
         `;
         return;
     }
+
+    list.sort((a, b) => {
+        const isFavA = favoriteRoutes.includes(String(a.routeId));
+        const isFavB = favoriteRoutes.includes(String(b.routeId));
+        if (isFavA && !isFavB) return -1;
+        if (!isFavA && isFavB) return 1;
+        return 0;
+    });
 
     list.forEach(bus => {
         const busNo = bus.routeName || '번호없음';
@@ -419,23 +482,33 @@ function renderArrivalList(data) {
         const locationNo1 = bus.locationNo1 ? `${bus.locationNo1}전` : '';
         const remainSeat = bus.remainSeatCnt1 ? `${bus.remainSeatCnt1}석` : '';
         const destName = bus.routeDestName ? `${bus.routeDestName} 방면` : '';
+        const routeId = bus.routeId;
         
-        // ⭐ routeTypeCd를 사용하여 동적으로 border-left-color 설정 ⭐
         const routeTypeCd = String(bus.routeTypeCd); 
         const borderColor = busTypeColors[routeTypeCd] || busTypeColors['default'];
         
+        const isFavorite = favoriteRoutes.includes(String(routeId));
+        const starIconClass = isFavorite ? 'nes-icon star is-small' : 'nes-icon star is-empty is-small';
+        
         const item = document.createElement('div');
-        item.className = 'arrival-card';
-        item.style.borderLeftColor = borderColor; // 동적 색상 적용
+        item.className = 'arrival-card nes-container is-rounded';
+        if (isFavorite) {
+            item.style.backgroundColor = '#fffbeb';
+        }
         
         item.innerHTML = `
-            <div>
-                <div class="bus-number" style="color: ${borderColor}">${busNo}</div>
-                <div class="bus-dest">${destName}</div>
+            <div style="display: flex; align-items: center;">
+                <button class="btn-favorite ${isFavorite ? 'active' : ''}" onclick="toggleFavorite('${routeId}')">
+                    <i class="${starIconClass}"></i>
+                </button>
+                <div>
+                    <div class="bus-badge" style="background-color: ${borderColor};">${busNo}</div>
+                    <div class="bus-dest" style="font-size: 0.7rem;">${destName}</div>
+                </div>
             </div>
-            <div class="arrival-time-box">
+            <div style="text-align: right;">
                 <div class="arrival-time">${predictTime1}</div>
-                <div class="arrival-status">${locationNo1} ${remainSeat}</div>
+                <div style="font-size: 0.7rem;">${locationNo1} ${remainSeat}</div>
             </div>
         `;
         arrivalListEl.appendChild(item);
@@ -444,5 +517,6 @@ function renderArrivalList(data) {
 
 window.closeDetailView = closeDetailView;
 window.refreshArrivalInfo = refreshArrivalInfo;
+window.toggleFavorite = toggleFavorite;
 
 initMapAndData();

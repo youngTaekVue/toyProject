@@ -93,11 +93,9 @@ async function fetchBusSationData() {
     }
 }
 
-// --- d. 내 주변 정류장 정보 조회 ---
+// --- d. 내 주변 정류장 정보 조회 (경기도) ---
 async function getBusStationAroundListv2(lat, lng) {
     const tradeUrl = `http://localhost:3000/eatate/getBusStationAroundListv2?x=${lng}&y=${lat}`;
-    // const tradeUrl = `http://localhost:3000/eatate/getBusStationAroundListv2?x=126.95545&y=37.2771333`;
-
     try {
         const response = await fetch(tradeUrl);
         if (!response.ok) {
@@ -108,6 +106,26 @@ async function getBusStationAroundListv2(lat, lng) {
 
     } catch (error) {
         console.error('❌ 주변 정류장 데이터를 가져오는 데 실패했습니다:', error.message);
+        return null;
+    }
+}
+
+// --- e. 서울시 좌표기반 정류소 조회 ---
+async function getStationByPos(lat, lng) {
+    // 서울시 API는 tmX, tmY 좌표계를 사용할 수도 있으나, 
+    // 최근 API는 WGS84(gpsX, gpsY)를 지원하는 경우가 많음.
+    // 여기서는 백엔드에서 좌표 변환이나 적절한 파라미터 처리를 한다고 가정하고 lat, lng를 보냄.
+    const tradeUrl = `http://localhost:3000/eatate/getStationByPos?tmX=${lng}&tmY=${lat}`;
+    try {
+        const response = await fetch(tradeUrl);
+        if (!response.ok) {
+            throw new Error(`서버 요청 실패: ${response.status} ${response.statusText}`);
+        }
+        const locationData = await response.json();
+        return locationData;
+
+    } catch (error) {
+        console.error('❌ 서울시 주변 정류장 데이터를 가져오는 데 실패했습니다:', error.message);
         return null;
     }
 }
