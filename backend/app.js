@@ -21,6 +21,9 @@ const calendarRouter = require('./routes/calendar');
 const mapkeyRouter = require('./routes/getmapkey');
 const eatateRouter = require('./routes/geteatate');
 
+// news 라우트 파일 불러오기
+const pythonRouter = require('./routes/python');
+
 
 
 app.use(express.json()); //JSON 형식
@@ -33,6 +36,7 @@ app.use('/news', newsRouter);
 app.use('/calendar', calendarRouter);
 app.use('/mapkey', mapkeyRouter);
 app.use('/eatate', eatateRouter);
+app.use('/python', pythonRouter);
 
 // app.js (또는 서버 설정 파일)의 맨 마지막에 추가
 // 이렇게 하면 www.js가 이 Express 앱 인스턴스를 가져와 사용할 수 있습니다.
