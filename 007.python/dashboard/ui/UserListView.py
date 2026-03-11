@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
-import requests # API 호출을 위한 requests 모듈
+import requests  # API 호출을 위한 requests 모듈
+
 
 class UserListView(ttk.Frame):
     def __init__(self, parent):
@@ -9,7 +10,7 @@ class UserListView(ttk.Frame):
         # API 엔드포인트 설정 (실제 서버 주소로 변경 필요)
         self.api_url = "http://localhost:3000/python/userInfo"
         self.setup_ui()
-        self.load_data_from_api() # UI 생성 후 API에서 데이터 로드
+        self.load_data_from_api()  # UI 생성 후 API에서 데이터 로드
 
     def setup_ui(self):
         # 상단 프레임 (타이틀 + 검색창)
@@ -23,9 +24,8 @@ class UserListView(ttk.Frame):
         ttk.Button(top_frame, text="조회", command=self.search_data).pack(side="right")
         self.ent_search = ttk.Entry(top_frame, width=20)
         self.ent_search.pack(side="right", padx=5)
-        self.ent_search.bind("<Return>", lambda event: self.search_data()) # 엔터키로도 조회 가능
+        self.ent_search.bind("<Return>", lambda event: self.search_data())  # 엔터키로도 조회 가능
         ttk.Label(top_frame, text="검색:").pack(side="right")
-
 
         tree_frame = ttk.Frame(self)
         tree_frame.pack(fill="both", expand=True, padx=10, pady=10)
@@ -64,10 +64,10 @@ class UserListView(ttk.Frame):
 
             # API 호출 (GET 요청)
             # verify=False는 개발 환경에서 SSL 인증서 검증 무시 (필요 시 사용)
-            response = requests.get(self.api_url, params=params)
+            response = requests.get(self.api_url, params=params, verify=False)
             print(f"API 호출 성공: {response.status_code} - {response.text}")
             if response.status_code == 200:
-                self.all_data = response.json() # JSON 응답 파싱
+                self.all_data = response.json()  # JSON 응답 파싱
                 self.update_tree(self.all_data)
             else:
                 print(f"API 호출 실패: {response.status_code} - {response.text}")
@@ -95,7 +95,6 @@ class UserListView(ttk.Frame):
             user_id = user.get("id", "")
             name = user.get("userId", "")
             email = user.get("userNm", "")
-            date = user.get("content", "") # 또는 user.get("joinDate")
+            date = user.get("content", "")  # 또는 user.get("joinDate")
 
             self.tree.insert("", "end", values=(user_id, name, email, date))
-
