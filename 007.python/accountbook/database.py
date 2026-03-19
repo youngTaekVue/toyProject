@@ -17,11 +17,11 @@ def init_db_pool():
 
     # .env 파일의 정보로 db_config 딕셔너리 채우기
     db_config = {
-        'host': os.getenv("DB_HOST", "localhost"),
+        'host': os.getenv("DB_ACCOUNT_HOST", "localhost"),
         'port': int(os.getenv("DB_PORT", 3306)),
-        'user': os.getenv("DB_USER"),
-        'password': os.getenv("DB_PASSWORD"),
-        'db': os.getenv("DB_NAME"),
+        'user': os.getenv("DB_ACCOUNT_USER"),
+        'password': os.getenv("DB_ACCOUNT_PASSWORD"),
+        'db': os.getenv("DB_ACCOUNT_NAME"),
         'charset': 'utf8mb4',
         'cursorclass': pymysql.cursors.DictCursor
     }

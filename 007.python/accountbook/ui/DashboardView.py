@@ -18,6 +18,7 @@ class DashboardView(ttk.Frame):
 
         self.df = None
         self.mapping_rules = []
+        self.selected_column = None
 
         # 스타일 설정
         self.style = ttk.Style()
@@ -31,7 +32,7 @@ class DashboardView(ttk.Frame):
         self.load_data_from_db()
 
     def load_rules(self):
-        """DB에서 카테고리 분류 규칙을 불러옵니다. (엑셀 업로드 시 미리보기용)"""
+        """DB에서 카테고리 분류 규칙을 불러옵니다."""
         try:
             with database.get_db_connection() as conn:
                 with conn.cursor() as cursor:
@@ -47,6 +48,7 @@ class DashboardView(ttk.Frame):
         top_bar.pack(fill=tk.X)
 
         ttk.Button(top_bar, text="엑셀 업로드", command=self.upload_file).pack(side=tk.LEFT, padx=5)
+        ttk.Button(top_bar, text="카테고리 관리", command=self.open_category_manager).pack(side=tk.LEFT, padx=5)
 
         ttk.Label(top_bar, text="조회 월:").pack(side=tk.LEFT, padx=(30, 5))
         self.shared_month_var = tk.StringVar()
@@ -104,8 +106,13 @@ class DashboardView(ttk.Frame):
         self.setup_dup_tab_ui()
 
     def setup_main_tab_ui(self):
-        filter_frame = ttk.Frame(self.tab_main)
-        filter_frame.pack(fill=tk.X, pady=5)
+        # 월 전체 요약
+        self.summary_label = ttk.Label(self.tab_main, text="", font=("Malgun Gothic", 11, "bold"))
+        self.summary_label.pack(pady=5, fill=tk.X, padx=10)
+
+        # 상세 필터
+        filter_frame = ttk.LabelFrame(self.tab_main, text="상세 필터", padding=5)
+        filter_frame.pack(fill=tk.X, padx=10, pady=5)
 
         self.type_var, self.cat_var = tk.StringVar(), tk.StringVar()
         ttk.Label(filter_frame, text="타입:").pack(side=tk.LEFT, padx=5)
@@ -119,11 +126,15 @@ class DashboardView(ttk.Frame):
 
         for cb in [self.cb_t, self.cb_c]:
             cb.bind("<<ComboboxSelected>>", lambda e: self.update_main_tab())
+
+        # [추가] 필터링된 결과 요약 레이블
+        self.filtered_summary_label = ttk.Label(self.tab_main, text="", font=("Malgun Gothic", 10))
+        self.filtered_summary_label.pack(pady=(5,0), fill=tk.X, padx=10)
+
+        # 트리뷰
         self.tree_main = self.create_treeview(self.tab_main)
 
-        # [추가] 클릭 이벤트 바인딩 (컬럼 감지용)
         self.tree_main.bind("<Button-1>", self.on_tree_click)
-        # [추가] 복사 기능 바인딩 (Ctrl+C)
         self.tree_main.bind("<Control-c>", self.copy_selection_to_clipboard)
 
     def setup_dup_tab_ui(self):
@@ -131,7 +142,6 @@ class DashboardView(ttk.Frame):
         lbl_info.pack(pady=5)
         self.tree_dup = self.create_treeview(self.tab_dup)
 
-        # [추가] 클릭 이벤트 및 복사 기능 바인딩
         self.tree_dup.bind("<Button-1>", self.on_tree_click)
         self.tree_dup.bind("<Control-c>", self.copy_selection_to_clipboard)
 
@@ -139,14 +149,12 @@ class DashboardView(ttk.Frame):
         cols = ("ID", "일시", "상태", "타입", "대분류", "소분류", "내용", "금액", "결제수단")
         tree = ttk.Treeview(parent_frame, columns=cols, show='headings', height=10)
 
-        # ID 컬럼은 숨김 처리
         tree.column("ID", width=0, stretch=tk.NO)
 
         for c in cols:
             if c == "ID": continue
 
             width = {'내용': 250, '일시': 140, '상태': 80}.get(c, 90)
-            # 내용과 금액은 오른쪽 정렬
             anchor_pos = "e" if c in ['내용', '금액'] else "center"
             tree.column(c, width=width, anchor=anchor_pos)
             tree.heading(c, text=c, anchor="center")
@@ -157,8 +165,8 @@ class DashboardView(ttk.Frame):
 
         sc = ttk.Scrollbar(parent_frame, orient=tk.VERTICAL, command=tree.yview)
         tree.configure(yscroll=sc.set)
-        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        sc.pack(side=tk.RIGHT, fill=tk.Y)
+        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=(5,10))
+        sc.pack(side=tk.RIGHT, fill=tk.Y, pady=(5,10))
         return tree
 
     def on_tree_click(self, event):
@@ -179,9 +187,7 @@ class DashboardView(ttk.Frame):
             self.selected_column = None
 
     def copy_selection_to_clipboard(self, event):
-        """
-        선택된 행들 중에서, 마지막으로 클릭한 '컬럼'의 값만 복사합니다.
-        """
+        """선택된 행들 중에서, 마지막으로 클릭한 '컬럼'의 값만 복사합니다."""
         tree = event.widget
         selection = tree.selection()
         if not selection: return
@@ -347,20 +353,15 @@ class DashboardView(ttk.Frame):
         return pd.Series({'대분류': '기타', '소분류': '미분류'})
 
     def save_df_to_db(self, df_to_save, progress_callback=None):
-        """
-        기존 데이터를 모두 삭제하고, 새로운 데이터프레임을 DB에 저장합니다.
-        """
+        """기존 데이터를 모두 삭제하고, 새로운 데이터프레임을 DB에 저장합니다."""
         try:
-            # NaN 값을 None으로 변환
             df_to_save = df_to_save.where(pd.notnull(df_to_save), None)
             total_rows = len(df_to_save)
 
             with database.get_db_connection() as conn:
                 with conn.cursor() as cursor:
-                    # 1. 기존 데이터 전체 삭제
                     cursor.execute("TRUNCATE TABLE transactions")
 
-                    # 2. 데이터 삽입
                     sql = """
                           INSERT INTO transactions
                           (transaction_date, transaction_type, description, amount, payment_method)
@@ -377,11 +378,7 @@ class DashboardView(ttk.Frame):
                                 trans_type = '수입' if row['금액'] > 0 else '지출'
 
                             cursor.execute(sql, (
-                                row['DT'],
-                                trans_type,
-                                row['내용'],
-                                row['금액'],
-                                row['결제수단']
+                                row['DT'], trans_type, row['내용'], row['금액'], row['결제수단']
                             ))
 
                         if progress_callback:
@@ -394,19 +391,14 @@ class DashboardView(ttk.Frame):
             raise e
 
     def load_data_from_db(self):
-        """
-        DB에서 거래 내역을 불러오고, 파이썬 로직으로 카테고리를 매칭합니다.
-        (SQL JOIN 대신 Python에서 처리하여 중복 매칭 문제 해결)
-        """
+        """DB에서 거래 내역을 불러오고, 파이썬 로직으로 카테고리를 매칭합니다."""
         try:
             with database.get_db_connection() as conn:
                 with conn.cursor() as cursor:
-                    # 1. 거래 내역 가져오기
                     sql_trans = "SELECT * FROM transactions"
                     cursor.execute(sql_trans)
                     trans_result = cursor.fetchall()
 
-                    # 2. 카테고리 규칙 가져오기
                     sql_rules = "SELECT merchant, category, sub_category FROM category"
                     cursor.execute(sql_rules)
                     rules_result = cursor.fetchall()
@@ -415,26 +407,18 @@ class DashboardView(ttk.Frame):
                     self.df = pd.DataFrame()
                     return
 
-                # DataFrame 변환
                 self.df = pd.DataFrame(trans_result)
 
-                # 컬럼명 매핑 (DB 컬럼명 -> 내부 사용 컬럼명)
                 self.df.rename(columns={
-                    'transaction_date': 'DT',
-                    'transaction_type': '타입',
-                    'description': '내용',
-                    'amount': '금액',
-                    'payment_method': '결제수단'
+                    'transaction_date': 'DT', 'transaction_type': '타입',
+                    'description': '내용', 'amount': '금액', 'payment_method': '결제수단'
                 }, inplace=True)
 
-                # 날짜/시간 포맷팅
                 self.df['DT'] = pd.to_datetime(self.df['DT'])
                 self.df['일시'] = self.df['DT'].dt.strftime('%Y-%m-%d %H:%M')
                 self.df['월'] = self.df['DT'].dt.strftime('%Y-%m')
                 self.df['금액'] = self.df['금액'].astype(int)
 
-                # 3. 카테고리 매칭 로직 (Python)
-                # 규칙을 키워드 길이 순으로 정렬 (긴 키워드 우선 매칭)
                 sorted_rules = sorted(rules_result, key=lambda x: len(x['merchant']), reverse=True)
 
                 def match_category(description):
@@ -443,12 +427,10 @@ class DashboardView(ttk.Frame):
                             return pd.Series({'대분류': rule['category'], '소분류': rule['sub_category']})
                     return pd.Series({'대분류': '기타', '소분류': '미분류'})
 
-                # 매칭 적용
                 cats = self.df['내용'].apply(match_category)
                 self.df['대분류'] = cats['대분류']
                 self.df['소분류'] = cats['소분류']
 
-                # 취소/선승인 로직
                 self.df['abs_amt'] = self.df['금액'].abs()
                 self.df['is_cancel'] = self.df.groupby([self.df['DT'].dt.date, '내용', 'abs_amt'])['금액'].transform('sum') == 0
                 self.df['is_pre_auth'] = self.df['내용'].str.contains('선승인|가결제', na=False)
@@ -506,14 +488,30 @@ class DashboardView(ttk.Frame):
         valid_trans = month_df[~month_df.get('is_cancel', False) & ~month_df.get('is_pre_auth', False)]
         pure_income = valid_trans[valid_trans['타입'] == '수입']['금액'].sum()
         pure_expense = valid_trans[valid_trans['타입'] == '지출']['금액'].sum()
-        self.lbl_income.config(text=f"{pure_income:,} 원")
-        self.lbl_expense.config(text=f"{abs(pure_expense):,} 원")
+        #self.lbl_income.config(text=f"{pure_income:,} 원")
+        #self.lbl_expense.config(text=f"{abs(pure_expense):,} 원")
 
     def update_main_tab(self):
         if self.df is None or self.df.empty: return
-        f_df = self.df[self.df['월'] == self.shared_month_var.get()].copy()
+
+        # 월 전체 요약 업데이트
+        month_df = self.df[self.df['월'] == self.shared_month_var.get()]
+        valid_trans = month_df[~month_df.get('is_cancel', False) & ~month_df.get('is_pre_auth', False)]
+        pure_income = valid_trans[valid_trans['타입'] == '수입']['금액'].sum()
+        pure_expense = valid_trans[valid_trans['타입'] == '지출']['금액'].sum()
+        #self.summary_label.config(text=f"[{self.shared_month_var.get()}]  실질 수입: {pure_income:,}원  |  실질 지출: {abs(pure_expense):,}원")
+
+        # 필터링 적용
+        f_df = month_df.copy()
         if self.type_var.get() != "전체": f_df = f_df[f_df['타입'] == self.type_var.get()]
         if self.cat_var.get() != "전체": f_df = f_df[f_df['대분류'] == self.cat_var.get()]
+
+        # [수정] 필터링된 결과 요약 업데이트
+        filtered_sum = f_df['금액'].sum()
+        filtered_count = len(f_df)
+        self.filtered_summary_label.config(text=f"조회된 내역: {filtered_count}건  |  합계: {filtered_sum:,}원")
+
+        # 트리뷰 업데이트
         self.insert_data_to_tree(self.tree_main, f_df.sort_values(by=['DT', '내용']))
 
     def update_dup_tab(self):
@@ -539,3 +537,149 @@ class DashboardView(ttk.Frame):
             for t in autotexts: t.set_fontsize(8)
             self.ax.set_title(f'{self.shared_month_var.get()} 지출 비율', fontsize=12)
         self.canvas.draw()
+
+    def open_category_manager(self):
+        """카테고리 매핑 규칙을 등록/삭제하는 윈도우를 엽니다."""
+        mgr_win = tk.Toplevel(self)
+        mgr_win.title("카테고리 분류 규칙 관리")
+        mgr_win.geometry("600x450")
+
+        # 입력 프레임
+        input_frame = ttk.LabelFrame(mgr_win, text="새 규칙 추가", padding=10)
+        input_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        ttk.Label(input_frame, text="가맹점(키워드):").grid(row=0, column=0, padx=5, sticky='w')
+        entry_merchant = ttk.Entry(input_frame, width=20)
+        entry_merchant.grid(row=0, column=1, padx=5)
+
+        ttk.Label(input_frame, text="대분류:").grid(row=0, column=2, padx=5, sticky='w')
+        entry_cat = ttk.Entry(input_frame, width=15)
+        entry_cat.grid(row=0, column=3, padx=5)
+
+        ttk.Label(input_frame, text="소분류:").grid(row=0, column=4, padx=5, sticky='w')
+        entry_sub = ttk.Entry(input_frame, width=15)
+        entry_sub.grid(row=0, column=5, padx=5)
+
+        # 목록 프레임
+        list_frame = ttk.Frame(mgr_win, padding=10)
+        list_frame.pack(fill=tk.BOTH, expand=True)
+
+        cols = ("merchant", "category", "sub_category")
+        tree = ttk.Treeview(list_frame, columns=cols, show='headings', selectmode='extended')
+        tree.heading("merchant", text="가맹점 키워드")
+        tree.heading("category", text="대분류")
+        tree.heading("sub_category", text="소분류")
+        
+        tree.column("merchant", width=200)
+        tree.column("category", width=100)
+        tree.column("sub_category", width=100)
+
+        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=tree.yview)
+        tree.configure(yscroll=scrollbar.set)
+        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        def load_list():
+            tree.delete(*tree.get_children())
+            try:
+                with database.get_db_connection() as conn:
+                    with conn.cursor() as cursor:
+                        cursor.execute("SELECT merchant, category, sub_category FROM category ORDER BY category, merchant")
+                        for row in cursor.fetchall():
+                            tree.insert("", tk.END, values=(row['merchant'], row['category'], row['sub_category']))
+                # 메인 뷰의 규칙도 갱신
+                self.load_rules()
+            except Exception as e:
+                messagebox.showerror("오류", f"목록 로드 실패: {e}", parent=mgr_win)
+
+        def add_rule():
+            m, c, s = entry_merchant.get().strip(), entry_cat.get().strip(), entry_sub.get().strip()
+            if not m or not c:
+                messagebox.showwarning("입력 오류", "가맹점과 대분류는 필수입니다.", parent=mgr_win)
+                return
+            try:
+                with database.get_db_connection() as conn:
+                    with conn.cursor() as cursor:
+                        sql = "INSERT INTO category (merchant, category, sub_category) VALUES (%s, %s, %s)"
+                        cursor.execute(sql, (m, c, s))
+                    conn.commit()
+                entry_merchant.delete(0, tk.END)
+                entry_cat.delete(0, tk.END)
+                entry_sub.delete(0, tk.END)
+                load_list()
+            except Exception as e:
+                messagebox.showerror("오류", f"추가 실패: {e}", parent=mgr_win)
+
+        def delete_rule():
+            selected = tree.selection()
+            if not selected: return
+            if not messagebox.askyesno("삭제 확인", "선택한 규칙을 삭제하시겠습니까?", parent=mgr_win): return
+            
+            try:
+                with database.get_db_connection() as conn:
+                    with conn.cursor() as cursor:
+                        for item in selected:
+                            vals = tree.item(item, 'values')
+                            # 가맹점 키워드 기준으로 삭제
+                            cursor.execute("DELETE FROM category WHERE merchant = %s", (vals[0],))
+                    conn.commit()
+                load_list()
+            except Exception as e:
+                messagebox.showerror("오류", f"삭제 실패: {e}", parent=mgr_win)
+
+        def edit_rule(event):
+            selected = tree.selection()
+            if not selected: return
+            item = selected[0]
+            vals = tree.item(item, 'values')
+            old_merchant = vals[0] # 수정 전 가맹점명 (Key 역할)
+
+            # 수정 팝업창 생성
+            edit_win = tk.Toplevel(mgr_win)
+            edit_win.title("규칙 수정")
+            edit_win.geometry("300x180")
+
+            ttk.Label(edit_win, text="가맹점:").pack(pady=(10,0))
+            e_m = ttk.Entry(edit_win, width=30)
+            e_m.pack(pady=2)
+            e_m.insert(0, vals[0])
+
+            ttk.Label(edit_win, text="대분류:").pack(pady=(5,0))
+            e_c = ttk.Entry(edit_win, width=30)
+            e_c.pack(pady=2)
+            e_c.insert(0, vals[1])
+
+            ttk.Label(edit_win, text="소분류:").pack(pady=(5,0))
+            e_s = ttk.Entry(edit_win, width=30)
+            e_s.pack(pady=2)
+            e_s.insert(0, vals[2])
+
+            def save_edit():
+                try:
+                    with database.get_db_connection() as conn:
+                        with conn.cursor() as cursor:
+                            sql = "UPDATE category SET merchant=%s, category=%s, sub_category=%s WHERE merchant=%s"
+                            cursor.execute(sql, (e_m.get(), e_c.get(), e_s.get(), old_merchant))
+                        conn.commit()
+                    load_list()
+                    edit_win.destroy()
+                except Exception as e:
+                    messagebox.showerror("오류", f"수정 실패: {e}", parent=edit_win)
+
+            ttk.Button(edit_win, text="저장", command=save_edit).pack(pady=15)
+
+        # 버튼 배치
+        btn_frame = ttk.Frame(mgr_win, padding=5)
+        btn_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=5)
+        
+        ttk.Button(input_frame, text="추가", command=add_rule).grid(row=0, column=6, padx=5)
+        
+        # 하단 버튼 그룹 (새로고침, 삭제)
+        ttk.Button(btn_frame, text="새로고침", command=load_list).pack(side=tk.LEFT)
+        ttk.Button(btn_frame, text="선택 삭제", command=delete_rule).pack(side=tk.RIGHT)
+
+        # 더블 클릭 이벤트 바인딩
+        tree.bind("<Double-1>", edit_rule)
+        
+        # 초기 로드
+        load_list()
