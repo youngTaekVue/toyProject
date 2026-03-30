@@ -1,11 +1,17 @@
 import os
+import io
+import requests
+import webbrowser
+import json
 import pandas as pd
+from dotenv import load_dotenv
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 # main.py에서 실행 시 프로젝트 루트가 sys.path에 있으므로 바로 임포트 가능
+from utils.KakaoNotifier import KakaoNotifier
 import database
 
 # 한글 폰트 설정
@@ -48,7 +54,8 @@ class DashboardView(ttk.Frame):
         top_bar.pack(fill=tk.X)
 
         ttk.Button(top_bar, text="엑셀 업로드", command=self.upload_file).pack(side=tk.LEFT, padx=5)
-        ttk.Button(top_bar, text="카테고리 관리", command=self.open_category_manager).pack(side=tk.LEFT, padx=5)
+        ttk.Button(top_bar, text="공유 (카카오톡)", command=self.share_to_kakao).pack(side=tk.LEFT, padx=5)
+        ttk.Button(top_bar, text="카카오 인증", command=self.authenticate_kakao).pack(side=tk.LEFT, padx=5)
 
         ttk.Label(top_bar, text="조회 월:").pack(side=tk.LEFT, padx=(30, 5))
         self.shared_month_var = tk.StringVar()
@@ -83,11 +90,11 @@ class DashboardView(ttk.Frame):
 
         ttk.Label(summary_inner, text="총 수입", style="Mid.TLabel", foreground="gray").pack(anchor="w")
         self.lbl_income = ttk.Label(summary_inner, text="0 원", style="Big.TLabel", foreground="blue")
-        self.lbl_income.pack(anchor="w", pady=(0, 20))
+        # self.lbl_income.pack(anchor="w", pady=(0, 20))
 
         ttk.Label(summary_inner, text="총 지출", style="Mid.TLabel", foreground="gray").pack(anchor="w")
         self.lbl_expense = ttk.Label(summary_inner, text="0 원", style="Big.TLabel", foreground="red")
-        self.lbl_expense.pack(anchor="w")
+        # self.lbl_expense.pack(anchor="w")
 
         # --- [카드 3: 하단 전체] 상세 내역 ---
         card_list = ttk.LabelFrame(main_frame, text="상세 내역")
@@ -106,7 +113,7 @@ class DashboardView(ttk.Frame):
         self.setup_dup_tab_ui()
 
     def setup_main_tab_ui(self):
-        # 월 전체 요약
+        # 상단 요약 (실질 수입/지출)
         self.summary_label = ttk.Label(self.tab_main, text="", font=("Malgun Gothic", 11, "bold"))
         self.summary_label.pack(pady=5, fill=tk.X, padx=10)
 
@@ -127,13 +134,12 @@ class DashboardView(ttk.Frame):
         for cb in [self.cb_t, self.cb_c]:
             cb.bind("<<ComboboxSelected>>", lambda e: self.update_main_tab())
 
-        # [추가] 필터링된 결과 요약 레이블
+        # 필터링된 결과 요약
         self.filtered_summary_label = ttk.Label(self.tab_main, text="", font=("Malgun Gothic", 10))
         self.filtered_summary_label.pack(pady=(5,0), fill=tk.X, padx=10)
 
         # 트리뷰
         self.tree_main = self.create_treeview(self.tab_main)
-
         self.tree_main.bind("<Button-1>", self.on_tree_click)
         self.tree_main.bind("<Control-c>", self.copy_selection_to_clipboard)
 
@@ -141,19 +147,16 @@ class DashboardView(ttk.Frame):
         lbl_info = ttk.Label(self.tab_dup, text="※ 날짜, 금액, 내용, 타입이 모두 동일한 내역을 표시합니다.", foreground="gray")
         lbl_info.pack(pady=5)
         self.tree_dup = self.create_treeview(self.tab_dup)
-
         self.tree_dup.bind("<Button-1>", self.on_tree_click)
         self.tree_dup.bind("<Control-c>", self.copy_selection_to_clipboard)
 
     def create_treeview(self, parent_frame):
         cols = ("ID", "일시", "상태", "타입", "대분류", "소분류", "내용", "금액", "결제수단")
         tree = ttk.Treeview(parent_frame, columns=cols, show='headings', height=10)
-
         tree.column("ID", width=0, stretch=tk.NO)
 
         for c in cols:
             if c == "ID": continue
-
             width = {'내용': 250, '일시': 140, '상태': 80}.get(c, 90)
             anchor_pos = "e" if c in ['내용', '금액'] else "center"
             tree.column(c, width=width, anchor=anchor_pos)
@@ -170,15 +173,12 @@ class DashboardView(ttk.Frame):
         return tree
 
     def on_tree_click(self, event):
-        """트리뷰 클릭 시 어떤 컬럼을 클릭했는지 저장합니다."""
         tree = event.widget
         region = tree.identify("region", event.x, event.y)
-
         if region == "cell":
             col_id = tree.identify_column(event.x)
             col_idx = int(col_id.replace('#', '')) - 1
             columns = tree['columns']
-
             if 0 <= col_idx < len(columns):
                 self.selected_column = columns[col_idx]
             else:
@@ -187,7 +187,6 @@ class DashboardView(ttk.Frame):
             self.selected_column = None
 
     def copy_selection_to_clipboard(self, event):
-        """선택된 행들 중에서, 마지막으로 클릭한 '컬럼'의 값만 복사합니다."""
         tree = event.widget
         selection = tree.selection()
         if not selection: return
@@ -195,29 +194,26 @@ class DashboardView(ttk.Frame):
         if not self.selected_column:
             rows_text = []
             for item in selection:
-                values = tree.item(item, 'values')[1:] # ID 제외
+                values = tree.item(item, 'values')[1:]
                 rows_text.append("\t".join(map(str, values)))
             clipboard_text = "\n".join(rows_text)
         else:
-            col_idx = tree['columns'].index(self.selected_column)
+            col_idx = list(tree['columns']).index(self.selected_column)
             col_values = []
             for item in selection:
                 values = tree.item(item, 'values')
                 if col_idx < len(values):
                     col_values.append(str(values[col_idx]))
-
             clipboard_text = "\n".join(col_values)
 
         self.clipboard_clear()
         self.clipboard_append(clipboard_text)
 
     def show_loading_window(self, title="처리 중..."):
-        """로딩 윈도우 생성 및 반환"""
         loading_win = tk.Toplevel(self)
         loading_win.title(title)
         loading_win.geometry("300x100")
         loading_win.resizable(False, False)
-
         loading_win.transient(self)
         loading_win.grab_set()
 
@@ -226,10 +222,8 @@ class DashboardView(ttk.Frame):
         loading_win.geometry(f"+{x}+{y}")
 
         ttk.Label(loading_win, text="데이터를 처리하고 있습니다.\n잠시만 기다려주세요...", anchor="center").pack(pady=10)
-
         progress = ttk.Progressbar(loading_win, mode='determinate', length=250)
         progress.pack(pady=5)
-
         return loading_win, progress
 
     def upload_file(self):
@@ -241,7 +235,6 @@ class DashboardView(ttk.Frame):
 
         try:
             self.load_rules()
-
             progress['value'] = 10
             loading_win.update()
 
@@ -262,9 +255,7 @@ class DashboardView(ttk.Frame):
 
             progress['value'] = 95
             loading_win.update()
-
             self.load_data_from_db()
-
             progress['value'] = 100
             loading_win.update()
 
@@ -272,13 +263,12 @@ class DashboardView(ttk.Frame):
             messagebox.showinfo("성공", f"총 {len(processed_df)}개의 데이터를 성공적으로 업로드했습니다.")
 
         except Exception as e:
-            loading_win.destroy()
+            if loading_win.winfo_exists(): loading_win.destroy()
             import traceback
             traceback.print_exc()
             messagebox.showerror("오류", f"파일 처리 중 에러 발생:\n{e}")
 
     def process_data(self, df):
-        # 헤더 찾기
         header_row_idx = -1
         current_columns = [str(c).replace(" ", "") for c in df.columns]
         if not any("날짜" in c or "일자" in c for c in current_columns):
@@ -297,7 +287,6 @@ class DashboardView(ttk.Frame):
 
         df.columns = [str(col).strip().replace(" ", "") for col in df.columns]
 
-        # 컬럼 매핑
         col_map = {
             'date': next((c for c in df.columns if '날짜' in c or '일자' in c), None),
             'time': next((c for c in df.columns if '시간' in c), None),
@@ -311,7 +300,6 @@ class DashboardView(ttk.Frame):
         if not col_map['date'] or not col_map['amount']:
             raise ValueError("'날짜'와 '금액' 컬럼은 필수입니다.")
 
-        # 데이터 정제
         df['temp_dt'] = df[col_map['date']].astype(str).str.strip()
         if col_map['time']:
             df['temp_dt'] += " " + df[col_map['time']].astype(str).str.strip()
@@ -324,7 +312,6 @@ class DashboardView(ttk.Frame):
             return cleaned if cleaned else '0'
         df['금액'] = pd.to_numeric(df[col_map['amount']].apply(clean_amount), errors='coerce').fillna(0)
 
-        # 최종 DataFrame 생성
         final_df = pd.DataFrame()
         final_df['DT'] = df['DT']
         final_df['금액'] = df['금액'].astype(int)
@@ -334,7 +321,6 @@ class DashboardView(ttk.Frame):
         final_df['대분류'] = df[col_map['cat']] if col_map['cat'] else ""
         final_df['소분류'] = df[col_map['subcat']] if col_map['subcat'] else ""
 
-        # 자동 분류 적용
         temp_cat = final_df.apply(self.auto_classify, axis=1)
         final_df['대분류'] = temp_cat['대분류']
         final_df['소분류'] = temp_cat['소분류']
@@ -346,14 +332,11 @@ class DashboardView(ttk.Frame):
         for merchant_kw, db_cat, db_sub in self.mapping_rules:
             if str(merchant_kw) in content:
                 return pd.Series({'대분류': db_cat, '소분류': db_sub})
-
         if row.get('대분류') and pd.notna(row.get('대분류')):
             return pd.Series({'대분류': row['대분류'], '소분류': row.get('소분류', '미분류')})
-
         return pd.Series({'대분류': '기타', '소분류': '미분류'})
 
     def save_df_to_db(self, df_to_save, progress_callback=None):
-        """기존 데이터를 모두 삭제하고, 새로운 데이터프레임을 DB에 저장합니다."""
         try:
             df_to_save = df_to_save.where(pd.notnull(df_to_save), None)
             total_rows = len(df_to_save)
@@ -361,46 +344,32 @@ class DashboardView(ttk.Frame):
             with database.get_db_connection() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute("TRUNCATE TABLE transactions")
-
-                    sql = """
-                          INSERT INTO transactions
-                          (transaction_date, transaction_type, description, amount, payment_method)
-                          VALUES (%s, %s, %s, %s, %s) \
-                          """
+                    sql = "INSERT INTO transactions (transaction_date, transaction_type, description, amount, payment_method) VALUES (%s, %s, %s, %s, %s)"
 
                     batch_size = 100
                     for i in range(0, total_rows, batch_size):
                         batch = df_to_save.iloc[i:i+batch_size]
-
                         for _, row in batch.iterrows():
                             trans_type = row['타입']
                             if not trans_type:
                                 trans_type = '수입' if row['금액'] > 0 else '지출'
-
-                            cursor.execute(sql, (
-                                row['DT'], trans_type, row['내용'], row['금액'], row['결제수단']
-                            ))
+                            cursor.execute(sql, (row['DT'], trans_type, row['내용'], row['금액'], row['결제수단']))
 
                         if progress_callback:
                             percent = min(100, int((i + batch_size) / total_rows * 100))
                             progress_callback(percent)
-
                 conn.commit()
-
         except Exception as e:
             raise e
 
     def load_data_from_db(self):
-        """DB에서 거래 내역을 불러오고, 파이썬 로직으로 카테고리를 매칭합니다."""
+        """DB에서 거래 내역을 불러오고 카테고리 및 제외(이중지출) 처리를 수행합니다."""
         try:
             with database.get_db_connection() as conn:
                 with conn.cursor() as cursor:
-                    sql_trans = "SELECT * FROM transactions"
-                    cursor.execute(sql_trans)
+                    cursor.execute("SELECT * FROM transactions")
                     trans_result = cursor.fetchall()
-
-                    sql_rules = "SELECT merchant, category, sub_category FROM category"
-                    cursor.execute(sql_rules)
+                    cursor.execute("SELECT merchant, category, sub_category FROM category")
                     rules_result = cursor.fetchall()
 
                 if not trans_result:
@@ -408,7 +377,6 @@ class DashboardView(ttk.Frame):
                     return
 
                 self.df = pd.DataFrame(trans_result)
-
                 self.df.rename(columns={
                     'transaction_date': 'DT', 'transaction_type': '타입',
                     'description': '내용', 'amount': '금액', 'payment_method': '결제수단'
@@ -419,8 +387,11 @@ class DashboardView(ttk.Frame):
                 self.df['월'] = self.df['DT'].dt.strftime('%Y-%m')
                 self.df['금액'] = self.df['금액'].astype(int)
 
-                sorted_rules = sorted(rules_result, key=lambda x: len(x['merchant']), reverse=True)
+                # [중요] '우리카드결제대금' 이중지출 감지 로직
+                self.df['is_double_count'] = self.df['내용'].str.contains('우리카드결제대금', na=False)
 
+                # 카테고리 매칭 (긴 키워드 우선)
+                sorted_rules = sorted(rules_result, key=lambda x: len(x['merchant']), reverse=True)
                 def match_category(description):
                     for rule in sorted_rules:
                         if rule['merchant'] in str(description):
@@ -428,9 +399,9 @@ class DashboardView(ttk.Frame):
                     return pd.Series({'대분류': '기타', '소분류': '미분류'})
 
                 cats = self.df['내용'].apply(match_category)
-                self.df['대분류'] = cats['대분류']
-                self.df['소분류'] = cats['소분류']
+                self.df['대분류'], self.df['소분류'] = cats['대분류'], cats['소분류']
 
+                # 취소/선승인/가결제 로직
                 self.df['abs_amt'] = self.df['금액'].abs()
                 self.df['is_cancel'] = self.df.groupby([self.df['DT'].dt.date, '내용', 'abs_amt'])['금액'].transform('sum') == 0
                 self.df['is_pre_auth'] = self.df['내용'].str.contains('선승인|가결제', na=False)
@@ -469,9 +440,15 @@ class DashboardView(ttk.Frame):
     def insert_data_to_tree(self, tree, data_df):
         tree.delete(*tree.get_children())
         for _, r in data_df.iterrows():
-            status, tag = ("취소됨", 'muted') if r.get('is_cancel', False) else \
-                (("선승인", 'muted') if r.get('is_pre_auth', False) else \
-                     (("정상", 'income') if r['금액'] > 0 else ("정상", 'expense')))
+            # [중요] 상태 및 태그 결정 로직 (이중지출 우선 적용)
+            if r.get('is_double_count', False):
+                status, tag = ("이중지출", 'muted')
+            elif r.get('is_cancel', False):
+                status, tag = ("취소됨", 'muted')
+            elif r.get('is_pre_auth', False):
+                status, tag = ("선승인", 'muted')
+            else:
+                status, tag = ("정상", 'income' if r['금액'] > 0 else 'expense')
 
             tree.insert("", tk.END, values=(
                 r['id'], r['일시'], status, r['타입'], r['대분류'], r['소분류'],
@@ -485,33 +462,44 @@ class DashboardView(ttk.Frame):
             return
 
         month_df = self.df[self.df['월'] == self.shared_month_var.get()]
-        valid_trans = month_df[~month_df.get('is_cancel', False) & ~month_df.get('is_pre_auth', False)]
+
+        # [중요] 실질 지출 계산 시 이중지출(카드대금) 제외
+        valid_trans = month_df[
+            ~month_df.get('is_cancel', False) &
+            ~month_df.get('is_pre_auth', False) &
+            ~month_df.get('is_double_count', False)
+            ]
+
         pure_income = valid_trans[valid_trans['타입'] == '수입']['금액'].sum()
         pure_expense = valid_trans[valid_trans['타입'] == '지출']['금액'].sum()
-        #self.lbl_income.config(text=f"{pure_income:,} 원")
-        #self.lbl_expense.config(text=f"{abs(pure_expense):,} 원")
+        self.lbl_income.config(text=f"{pure_income:,} 원")
+        self.lbl_expense.config(text=f"{abs(pure_expense):,} 원")
 
     def update_main_tab(self):
         if self.df is None or self.df.empty: return
 
-        # 월 전체 요약 업데이트
         month_df = self.df[self.df['월'] == self.shared_month_var.get()]
-        valid_trans = month_df[~month_df.get('is_cancel', False) & ~month_df.get('is_pre_auth', False)]
+
+        # 실질 수입/지출 합계 (이중지출 제외)
+        valid_trans = month_df[
+            ~month_df.get('is_cancel', False) &
+            ~month_df.get('is_pre_auth', False) &
+            ~month_df.get('is_double_count', False)
+            ]
         pure_income = valid_trans[valid_trans['타입'] == '수입']['금액'].sum()
         pure_expense = valid_trans[valid_trans['타입'] == '지출']['금액'].sum()
-        #self.summary_label.config(text=f"[{self.shared_month_var.get()}]  실질 수입: {pure_income:,}원  |  실질 지출: {abs(pure_expense):,}원")
+        self.summary_label.config(text=f"[{self.shared_month_var.get()}]  실질 수입: {pure_income:,}원  |  실질 지출: {abs(pure_expense):,}원")
 
         # 필터링 적용
         f_df = month_df.copy()
         if self.type_var.get() != "전체": f_df = f_df[f_df['타입'] == self.type_var.get()]
         if self.cat_var.get() != "전체": f_df = f_df[f_df['대분류'] == self.cat_var.get()]
 
-        # [수정] 필터링된 결과 요약 업데이트
+        # [중요] 필터 결과 합계 (이중지출을 포함하여 현재 보이는 그대로의 합계 표시)
         filtered_sum = f_df['금액'].sum()
         filtered_count = len(f_df)
         self.filtered_summary_label.config(text=f"조회된 내역: {filtered_count}건  |  합계: {filtered_sum:,}원")
 
-        # 트리뷰 업데이트
         self.insert_data_to_tree(self.tree_main, f_df.sort_values(by=['DT', '내용']))
 
     def update_dup_tab(self):
@@ -527,7 +515,15 @@ class DashboardView(ttk.Frame):
             return
 
         self.ax.clear()
-        expense_df = self.df[(self.df['월'] == self.shared_month_var.get()) & (self.df['타입'] == '지출') & ~self.df.get('is_cancel', False) & ~self.df.get('is_pre_auth', False)]
+        # [중요] 차트에서도 이중지출 제외
+        expense_df = self.df[
+            (self.df['월'] == self.shared_month_var.get()) &
+            (self.df['타입'] == '지출') &
+            ~self.df.get('is_cancel', False) &
+            ~self.df.get('is_pre_auth', False) &
+            ~self.df.get('is_double_count', False)
+            ]
+
         if expense_df.empty:
             self.ax.text(0.5, 0.5, '지출 내역 없음', ha='center', va='center')
         else:
@@ -538,148 +534,113 @@ class DashboardView(ttk.Frame):
             self.ax.set_title(f'{self.shared_month_var.get()} 지출 비율', fontsize=12)
         self.canvas.draw()
 
-    def open_category_manager(self):
-        """카테고리 매핑 규칙을 등록/삭제하는 윈도우를 엽니다."""
-        mgr_win = tk.Toplevel(self)
-        mgr_win.title("카테고리 분류 규칙 관리")
-        mgr_win.geometry("600x450")
+    def authenticate_kakao(self):
+        """test.py의 기능을 대체하여 브라우저를 통해 카카오 토큰을 갱신합니다."""
+        rest_api_key = os.getenv("KAKAO_REST_API_KEY")
+        redirect_uri = os.getenv("KAKAO_REDIRECT_URI", "http://localhost:5000")
 
-        # 입력 프레임
-        input_frame = ttk.LabelFrame(mgr_win, text="새 규칙 추가", padding=10)
-        input_frame.pack(fill=tk.X, padx=10, pady=5)
+        if not rest_api_key:
+            messagebox.showerror("오류", ".env 파일에 KAKAO_REST_API_KEY가 없습니다.")
+            return
 
-        ttk.Label(input_frame, text="가맹점(키워드):").grid(row=0, column=0, padx=5, sticky='w')
-        entry_merchant = ttk.Entry(input_frame, width=20)
-        entry_merchant.grid(row=0, column=1, padx=5)
+        # 1. 카카오 로그인 페이지 오픈
+        auth_url = f"https://kauth.kakao.com/oauth/authorize?client_id={rest_api_key}&redirect_uri={redirect_uri}&response_type=code"
+        webbrowser.open(auth_url)
 
-        ttk.Label(input_frame, text="대분류:").grid(row=0, column=2, padx=5, sticky='w')
-        entry_cat = ttk.Entry(input_frame, width=15)
-        entry_cat.grid(row=0, column=3, padx=5)
+        # 2. 사용자로부터 인증 코드 입력 받기 (브라우저 주소창의 code=... 부분)
+        code = simpledialog.askstring("카카오 인증", "로그인 후 브라우저 주소창의 'code=' 뒷부분을 복사해서 입력하세요:")
+        if not code: return
 
-        ttk.Label(input_frame, text="소분류:").grid(row=0, column=4, padx=5, sticky='w')
-        entry_sub = ttk.Entry(input_frame, width=15)
-        entry_sub.grid(row=0, column=5, padx=5)
+        # 3. 토큰 발급 요청
+        token_url = "https://kauth.kakao.com/oauth/token"
+        data = {
+            "grant_type": "authorization_code",
+            "client_id": rest_api_key,
+            "redirect_uri": redirect_uri,
+            "code": code
+        }
 
-        # 목록 프레임
-        list_frame = ttk.Frame(mgr_win, padding=10)
-        list_frame.pack(fill=tk.BOTH, expand=True)
-
-        cols = ("merchant", "category", "sub_category")
-        tree = ttk.Treeview(list_frame, columns=cols, show='headings', selectmode='extended')
-        tree.heading("merchant", text="가맹점 키워드")
-        tree.heading("category", text="대분류")
-        tree.heading("sub_category", text="소분류")
-        
-        tree.column("merchant", width=200)
-        tree.column("category", width=100)
-        tree.column("sub_category", width=100)
-
-        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=tree.yview)
-        tree.configure(yscroll=scrollbar.set)
-        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-        def load_list():
-            tree.delete(*tree.get_children())
-            try:
-                with database.get_db_connection() as conn:
-                    with conn.cursor() as cursor:
-                        cursor.execute("SELECT merchant, category, sub_category FROM category ORDER BY category, merchant")
-                        for row in cursor.fetchall():
-                            tree.insert("", tk.END, values=(row['merchant'], row['category'], row['sub_category']))
-                # 메인 뷰의 규칙도 갱신
-                self.load_rules()
-            except Exception as e:
-                messagebox.showerror("오류", f"목록 로드 실패: {e}", parent=mgr_win)
-
-        def add_rule():
-            m, c, s = entry_merchant.get().strip(), entry_cat.get().strip(), entry_sub.get().strip()
-            if not m or not c:
-                messagebox.showwarning("입력 오류", "가맹점과 대분류는 필수입니다.", parent=mgr_win)
-                return
-            try:
-                with database.get_db_connection() as conn:
-                    with conn.cursor() as cursor:
-                        sql = "INSERT INTO category (merchant, category, sub_category) VALUES (%s, %s, %s)"
-                        cursor.execute(sql, (m, c, s))
-                    conn.commit()
-                entry_merchant.delete(0, tk.END)
-                entry_cat.delete(0, tk.END)
-                entry_sub.delete(0, tk.END)
-                load_list()
-            except Exception as e:
-                messagebox.showerror("오류", f"추가 실패: {e}", parent=mgr_win)
-
-        def delete_rule():
-            selected = tree.selection()
-            if not selected: return
-            if not messagebox.askyesno("삭제 확인", "선택한 규칙을 삭제하시겠습니까?", parent=mgr_win): return
+        try:
+            response = requests.post(token_url, data=data)
+            tokens = response.json()
             
-            try:
-                with database.get_db_connection() as conn:
-                    with conn.cursor() as cursor:
-                        for item in selected:
-                            vals = tree.item(item, 'values')
-                            # 가맹점 키워드 기준으로 삭제
-                            cursor.execute("DELETE FROM category WHERE merchant = %s", (vals[0],))
-                    conn.commit()
-                load_list()
-            except Exception as e:
-                messagebox.showerror("오류", f"삭제 실패: {e}", parent=mgr_win)
+            if 'access_token' in tokens:
+                new_access_token = tokens['access_token']
+                # 메모리 내 환경변수 업데이트
+                os.environ["DB_ACCOUNT_KAKAO_ACCESS_TOKEN"] = new_access_token
+                
+                # 공유 버튼 클릭 시 바로 반영되도록 설정
+                messagebox.showinfo("성공", "카카오 인증에 성공했습니다!\n이제 '공유' 버튼을 사용할 수 있습니다.")
+                print(f"DEBUG: 새 토큰 발급 완료: {new_access_token[:10]}...")
+            else:
+                messagebox.showerror("오류", f"토큰 발급 실패: {tokens.get('error_description', '알 수 없는 오류')}")
+        except Exception as e:
+            messagebox.showerror("오류", f"인증 처리 중 에러 발생: {e}")
 
-        def edit_rule(event):
-            selected = tree.selection()
-            if not selected: return
-            item = selected[0]
-            vals = tree.item(item, 'values')
-            old_merchant = vals[0] # 수정 전 가맹점명 (Key 역할)
+    def share_to_kakao(self):
+        """현재 대시보드 요약 내용과 차트를 카카오톡으로 공유합니다."""
+        if self.df is None or self.df.empty:
+            messagebox.showwarning("경고", "공유할 데이터가 없습니다.")
+            return
 
-            # 수정 팝업창 생성
-            edit_win = tk.Toplevel(mgr_win)
-            edit_win.title("규칙 수정")
-            edit_win.geometry("300x180")
-
-            ttk.Label(edit_win, text="가맹점:").pack(pady=(10,0))
-            e_m = ttk.Entry(edit_win, width=30)
-            e_m.pack(pady=2)
-            e_m.insert(0, vals[0])
-
-            ttk.Label(edit_win, text="대분류:").pack(pady=(5,0))
-            e_c = ttk.Entry(edit_win, width=30)
-            e_c.pack(pady=2)
-            e_c.insert(0, vals[1])
-
-            ttk.Label(edit_win, text="소분류:").pack(pady=(5,0))
-            e_s = ttk.Entry(edit_win, width=30)
-            e_s.pack(pady=2)
-            e_s.insert(0, vals[2])
-
-            def save_edit():
-                try:
-                    with database.get_db_connection() as conn:
-                        with conn.cursor() as cursor:
-                            sql = "UPDATE category SET merchant=%s, category=%s, sub_category=%s WHERE merchant=%s"
-                            cursor.execute(sql, (e_m.get(), e_c.get(), e_s.get(), old_merchant))
-                        conn.commit()
-                    load_list()
-                    edit_win.destroy()
-                except Exception as e:
-                    messagebox.showerror("오류", f"수정 실패: {e}", parent=edit_win)
-
-            ttk.Button(edit_win, text="저장", command=save_edit).pack(pady=15)
-
-        # 버튼 배치
-        btn_frame = ttk.Frame(mgr_win, padding=5)
-        btn_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=5)
+        current_month = self.shared_month_var.get()
+        month_df = self.df[self.df['월'] == current_month]
         
-        ttk.Button(input_frame, text="추가", command=add_rule).grid(row=0, column=6, padx=5)
+        # 1. 텍스트 내역 정리
+        valid_trans = month_df[
+            ~month_df.get('is_cancel', False) &
+            ~month_df.get('is_pre_auth', False) &
+            ~month_df.get('is_double_count', False)
+        ]
         
-        # 하단 버튼 그룹 (새로고침, 삭제)
-        ttk.Button(btn_frame, text="새로고침", command=load_list).pack(side=tk.LEFT)
-        ttk.Button(btn_frame, text="선택 삭제", command=delete_rule).pack(side=tk.RIGHT)
+        pure_income = valid_trans[valid_trans['타입'] == '수입']['금액'].sum()
+        pure_expense = valid_trans[valid_trans['타입'] == '지출']['금액'].sum()
+        
+        category_summary = valid_trans[valid_trans['타입'] == '지출'].groupby('대분류')['금액'].sum().abs()
+        
+        summary_text = f"[{current_month} 가계부 요약]\n"
+        summary_text += f"💰 총 수입: {pure_income:,}원\n"
+        summary_text += f"💸 총 지출: {abs(pure_expense):,}원\n"
+        summary_text += "--------------------\n"
+        summary_text += "[카테고리별 지출]\n"
+        for cat, amt in category_summary.items():
+            summary_text += f"• {cat}: {amt:,}원\n"
 
-        # 더블 클릭 이벤트 바인딩
-        tree.bind("<Double-1>", edit_rule)
+        # 2. 이미지 캡처 (텍스트 테스트 시 무시)
+        image_path = "temp_chart.png"
+        try:
+            if os.path.exists(image_path): os.remove(image_path)
+        except:
+            pass
+
+        load_dotenv()
+        access_token = os.getenv("DB_ACCOUNT_KAKAO_ACCESS_TOKEN")
         
-        # 초기 로드
-        load_list()
+        # 디버깅을 위해 토큰 상태를 출력합니다 (보안을 위해 앞 5자리만 출력)
+        if access_token:
+            print(f"DEBUG: 토큰 로드 성공 (길이: {len(access_token)}, 시작값: {access_token[:5]}...)")
+        else:
+            print("DEBUG: .env 파일에서 토큰을 찾을 수 없습니다.")
+
+        if not access_token or access_token.strip() == "":
+            self.clipboard_clear()
+            self.clipboard_append(summary_text)
+            messagebox.showinfo("안내", "API 토큰이 설정되지 않았습니다.\n요약 텍스트를 클립보드에 복사했습니다.\n카카오톡에 붙여넣기(Ctrl+V) 하세요.")
+            return
+
+        # 외부 모듈을 사용하여 전송
+        notifier = KakaoNotifier(access_token)
+        
+        # [테스트 모드] 이미지 없이 텍스트만 전송
+        image_url = None
+        success, error_msg = notifier.send_report(summary_text, image_url)
+        
+        if success:
+            messagebox.showinfo("성공", "카카오톡으로 리포트를 성공적으로 보냈습니다.")
+            # 전송 성공 후 임시 이미지 삭제 (선택 사항)
+            if os.path.exists(image_path):
+                try: os.remove(image_path)
+                except: pass
+        else:
+            # 에러 메시지를 사용자에게 알림
+            messagebox.showerror("전송 실패", f"카카오톡 전송에 실패했습니다.\n상태 코드: {error_msg}")
