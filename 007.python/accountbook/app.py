@@ -5,7 +5,7 @@ from tkinter import messagebox
 from ui.DashboardView import DashboardView
 from ui.LogsView import LogsView
 from ui.SettingsView import SettingsView
-from ui.TreatListView import TreatListView
+from ui.FinancialStatus import FinancialStatus
 from ui.SpendingManagement import SpendingManagement
 
 class ComplexLayoutApp:
@@ -46,7 +46,7 @@ class ComplexLayoutApp:
         self.menu_map = {
             "대시보드": DashboardView,
             "월별 지출 관리": SpendingManagement,
-            "진료내역 조회": TreatListView,
+            "자산 조회": FinancialStatus,
             "시스템 설정": SettingsView,
             "로그 조회": LogsView
         }

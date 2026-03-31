@@ -4,6 +4,7 @@ from tkinter import messagebox
 
 from ui.DashboardView import DashboardView
 from ui.LogsView import LogsView
+from ui.OcrDataView import OcrDataView
 from ui.SettingsView import SettingsView
 from ui.TreatListView import TreatListView
 from ui.UserListView import UserListView
@@ -45,6 +46,7 @@ class ComplexLayoutApp:
         # 메뉴 이름과 뷰 클래스 매핑
         self.menu_map = {
             "대시보드": DashboardView,
+            "OCR 관리": OcrDataView,
             "환자번호 관리": UserListView,
             "진료내역 조회": TreatListView,
             "시스템 설정": SettingsView,
