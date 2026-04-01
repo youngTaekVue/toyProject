@@ -97,7 +97,7 @@ class SpendingManagement(ttk.Frame):
                 for rule in sorted_rules:
                     if rule['merchant'] in str(description):
                         return rule['category']
-                return '기타'
+                return '미분류'
 
             self.df['category'] = self.df['description'].apply(match_category)
 

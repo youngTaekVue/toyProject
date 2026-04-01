@@ -5,19 +5,29 @@ class DashboardUtil:
     """가계부 요약 및 엑셀 데이터 처리를 담당하는 유틸리티 클래스"""
     
     def __init__(self, mapping_rules=None):
+        # 규칙 초기화 시 글자수가 긴 키워드부터 매칭되도록 정렬
         self.mapping_rules = mapping_rules or []
 
-    def get_summary_data(self, df):
-        """데이터프레임에서 실질 수입, 지출 및 카테고리별 합계를 계산합니다."""
-        if df is None or df.empty:
-            return 0, 0, {}
+    def _get_valid_df(self, df):
+        """취소, 선승인 등을 제외한 유효 데이터프레임 반환"""
+        valid_df = df.copy()
+        # 필요한 컬럼이 없을 경우 기본값 생성 (에러 방지)
+        for col in ['is_cancel', 'is_pre_auth', 'is_double_count']:
+            if col not in valid_df.columns:
+                valid_df[col] = False
+        
+        valid_df = valid_df[~(valid_df['is_cancel'] | valid_df['is_pre_auth'] | valid_df['is_double_count'])]
+        valid_df['타입'] = valid_df['타입'].fillna('지출').astype(str).str.strip()
+        valid_df['대분류'] = valid_df['대분류'].fillna('미분류').astype(str).str.strip().replace(['None', 'nan', ''], '미분류')
+        return valid_df
 
+    def get_summary_data(self, df):
+        if df is None or df.empty: return 0, 0, {}
         valid_df = self._get_valid_df(df)
         
         income = valid_df[valid_df['타입'] == '수입']['금액'].abs().sum()
         expense = valid_df[valid_df['타입'] == '지출']['금액'].abs().sum()
         
-        # 카테고리별 지출 요약
         expense_df = valid_df[valid_df['타입'] == '지출']
         cat_summary = {}
         if not expense_df.empty:
@@ -27,51 +37,37 @@ class DashboardUtil:
         return int(income), int(expense), cat_summary
 
     def get_sub_category_summary(self, df, target_category):
-        """특정 대분류 내의 소분류별 지출 통계를 반환합니다."""
-        if df is None or df.empty:
-            return {}
-
+        if df is None or df.empty: return {}
         valid_df = self._get_valid_df(df)
-        # 해당 카테고리의 지출 내역만 필터링
-        sub_df = valid_df[(valid_df['대분류'] == target_category) & (valid_df['타입'] == '지출')]
+        sub_df = valid_df[(valid_df['대분류'] == target_category) & (valid_df['타입'] == '지출')].copy()
         
-        if sub_df.empty:
-            return {}
-            
+        if sub_df.empty: return {}
         sub_df['소분류'] = sub_df['소분류'].fillna('미분류').astype(str).str.strip().replace(['None', 'nan', ''], '미분류')
         sub_group = sub_df.groupby('소분류')['금액'].sum().abs()
         return sub_group[sub_group > 0].sort_values(ascending=False).to_dict()
 
-    def _get_valid_df(self, df):
-        """취소, 선승인 등을 제외한 유효 데이터프레임 반환"""
-        valid_df = df.copy()
-        for col in ['is_cancel', 'is_pre_auth', 'is_double_count']:
-            if col not in valid_df.columns:
-                valid_df[col] = False
-        
-        valid_df = valid_df[~(valid_df['is_cancel'] | valid_df['is_pre_auth'] | valid_df['is_double_count'])]
-        valid_df['타입'] = valid_df['타입'].astype(str).str.strip()
-        valid_df['대분류'] = valid_df['대분류'].fillna('미분류').astype(str).str.strip().replace(['None', 'nan', ''], '미분류')
-        return valid_df
-
     def auto_classify(self, row):
-        """설정된 규칙에 따라 거래 내역의 카테고리를 자동 분류합니다."""
-        content = str(row.get('내용', ''))
+        """내용(content)을 분석하여 카테고리 자동 분류 (대소문자 무시 및 포함 검사)"""
+        content = str(row.get('내용', '')).strip().lower() # 소문자로 변환하여 비교
+        
         for rule in self.mapping_rules:
             if isinstance(rule, dict):
                 kw, cat, sub = rule.get('merchant'), rule.get('category'), rule.get('sub_category')
             else:
                 kw, cat, sub = rule[0], rule[1], rule[2]
-            if kw and str(kw) in content:
-                return pd.Series({'대분류': cat, '소분류': sub})
+            
+            # 키워드도 소문자로 변환하여 비교 (대소문자 구분 없이 매칭)
+            if kw and str(kw).strip().lower() in content:
+                return pd.Series({'대분류': str(cat or '기타').strip(), '소분류': str(sub or '미분류').strip()})
         
+        # 매칭되는 규칙이 없을 경우 기존 값 유지 시도
         exist_cat = str(row.get('대분류', '')).strip()
-        if exist_cat and exist_cat not in ['None', 'nan', '']:
+        if exist_cat and exist_cat not in ['None', 'nan', '', '미분류']:
             return pd.Series({'대분류': exist_cat, '소분류': row.get('소분류', '미분류')})
-        return pd.Series({'대분류': '기타', '소분류': '미분류'})
+            
+        return pd.Series({'대분류': '미분류', '소분류': '미분류'})
 
     def process_excel_data(self, df):
-        """엑셀 데이터를 가공합니다."""
         alias_map = {
             'date': ['날짜', '일자', '거래일시'],
             'amount': ['금액', '거래금액', '지출'],
@@ -90,4 +86,7 @@ class DashboardUtil:
         final_df['내용'] = df['desc'].fillna("") if 'desc' in df.columns else ""
         final_df['결제수단'] = df['payment'].fillna("") if 'payment' in df.columns else ""
         final_df['타입'] = df['type'].fillna("") if 'type' in df.columns else ""
+        # 엑셀에 분류가 이미 있는 경우를 위해 보존
+        final_df['대분류'] = df['cat'].fillna("") if 'cat' in df.columns else ""
+        final_df['소분류'] = df['subcat'].fillna("") if 'subcat' in df.columns else ""
         return final_df
