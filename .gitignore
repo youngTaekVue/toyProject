@@ -1,2 +1,8 @@
 .idea/
-006.weather/file
+.gitignore
+# 모든 하위 폴더 내의 __pycache__ 폴더를 제외
+
+
+ 
+007.python/.gitignore
+007.python/**/.pyc

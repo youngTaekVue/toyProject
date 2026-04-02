@@ -104,6 +104,59 @@ class KakaoNotifier:
             return res.status_code == 200, res.text
         except Exception as e: return False, str(e)
 
+    def send_report_with_images(self, title, description, image_urls):
+        """
+        나에게 전송(이미지 포함).
+        KakaoTalk Message REST API는 로컬 파일 첨부를 지원하지 않으므로,
+        image_urls는 외부에서 접근 가능한 공개 URL이어야 합니다.
+        """
+        headers = self.get_valid_headers()
+        if not headers:
+            return False, "인증 필요"
+
+        safe_urls = [u for u in (image_urls or []) if isinstance(u, str) and u.strip()]
+        if not safe_urls:
+            return False, "image_urls가 비어 있습니다(공개 URL 필요)"
+
+        # list 템플릿으로 여러 이미지를 카드 형태로 전송
+        contents = []
+        for i, url in enumerate(safe_urls[:5]):  # 카카오 템플릿/화면상 과도한 길이 방지
+            contents.append(
+                {
+                    "title": f"차트 {i+1}",
+                    "description": "",
+                    "image_url": url,
+                    "image_width": 640,
+                    "image_height": 640,
+                    "link": {"web_url": "http://localhost"},
+                }
+            )
+
+        template = {
+            "object_type": "list",
+            "header_title": title or "가계부 리포트",
+            "header_link": {"web_url": "http://localhost"},
+            "contents": contents,
+            "buttons": [
+                {"title": "열기", "link": {"web_url": "http://localhost"}},
+            ],
+        }
+
+        # description은 list 템플릿 구조상 별도 영역이 없어 text 템플릿로 추가 전송(2회 전송)
+        # - 1) 이미지 리스트
+        try:
+            payload = {"template_object": json.dumps(template, ensure_ascii=False)}
+            res = requests.post(self.send_url, headers=headers, data=payload, verify=False)
+            ok = res.status_code == 200
+            if not ok:
+                return False, res.text
+        except Exception as e:
+            return False, str(e)
+
+        if description:
+            self.send_report(description)
+        return True, "OK"
+
     def send_to_friend(self, friend_uuid, text):
         """특정 친구(uuid)에게 전송"""
         headers = self.get_valid_headers()

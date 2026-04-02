@@ -157,20 +157,129 @@ class TransactionView(ttk.Frame):
 
     def share_to_kakao(self):
         """나에게 공유하기"""
-        if self.df is None or self.df.empty: return
-        cur_m = self.shared_month_var.get(); m_df = self.df[self.df['월'] == cur_m]
-        inc, exp, cat_s = self.dashboard_util.get_summary_data(m_df)
-        txt = f"[{cur_m} 가계부 요약]\n💰 총 수입: {inc:,}원\n💸 총 지출: {exp:,}원\n--------------------\n[카테고리별 지출]\n"
-        if not cat_s: txt += "• 지출 내역 없음\n"
-        else:
-            for c, a in cat_s.items(): txt += f"• {c}: {a:,}원\n"
+        if self.df is None or self.df.empty:
+            return
 
-        succ, err = self.notifier.send_report(txt)
+        cur_m = self.shared_month_var.get()
+        m_df = self.df[self.df["월"] == cur_m]
+        inc, exp, cat_s = self.dashboard_util.get_summary_data(m_df)
+
+        txt = (
+            f"[{cur_m} 가계부 요약]\n"
+            f"💰 총 수입: {inc:,}원\n"
+            f"💸 총 지출: {exp:,}원\n"
+            "--------------------\n"
+            "[카테고리별 지출]\n"
+        )
+        if not cat_s:
+            txt += "• 지출 내역 없음\n"
+        else:
+            for c, a in cat_s.items():
+                txt += f"• {c}: {a:,}원\n"
+
+        # 차트 이미지는 로컬 파일 첨부가 불가하므로 "공개 URL"이 있을 때만 카카오로 이미지 전송 가능
+        export_dir = os.path.join(os.getcwd(), "exports", "kakao")
+        os.makedirs(export_dir, exist_ok=True)
+
+        # 캡처 저장 전, 기존 이미지 전부 삭제
+        try:
+            for name in os.listdir(export_dir):
+                p = os.path.join(export_dir, name)
+                if os.path.isfile(p):
+                    os.remove(p)
+        except Exception:
+            traceback.print_exc()
+
+        ts = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+        paths = []
+
+        # 1) 지출현황 상세(현재 화면 차트)
+        p_main = os.path.join(export_dir, f"{ts}_지출현황_상세.png")
+        try:
+            self.fig.savefig(p_main, dpi=150, bbox_inches="tight")
+            paths.append(p_main)
+        except Exception:
+            traceback.print_exc()
+
+        # 2) 각 카테고리(대분류)별 소분류 도표를 모두 캡처
+        def _safe_name(s):
+            s = str(s)
+            for ch in '\\/:*?"<>|':
+                s = s.replace(ch, "_")
+            return s.strip() or "미분류"
+
+        for cat in list(cat_s.keys()):
+            sub = self.dashboard_util.get_sub_category_summary(m_df, cat)
+            if not sub:
+                continue
+
+            fig2 = Figure(figsize=(4, 4), dpi=100)
+            ax2 = fig2.add_subplot(111)
+            labels = list(sub.keys())
+            values = list(sub.values())
+            total = sum(values) or 1
+            legend_labels = [
+                f"{label} ({(val / total * 100.0):.1f}% / {val:,.0f}원)"
+                for label, val in zip(labels, values)
+            ]
+            wedges, texts, autotexts = ax2.pie(
+                values,
+                autopct="%1.1f%%",
+                startangle=90,
+                counterclock=False,
+                wedgeprops={"width": 0.4, "edgecolor": "w"},
+                pctdistance=0.75,
+            )
+            ax2.legend(
+                wedges,
+                legend_labels,
+                title=f"[{cat}] 소분류 (% / 금액)",
+                loc="upper left",
+                bbox_to_anchor=(1, 1),
+                fontsize=8,
+                frameon=False,
+            )
+            plt.setp(autotexts, size=8, weight="bold", color="black")
+            fig2.subplots_adjust(left=0.05, right=0.65, top=0.9, bottom=0.1)
+
+            p_sub = os.path.join(export_dir, f"{ts}_카테고리_{_safe_name(cat)}.png")
+            try:
+                fig2.savefig(p_sub, dpi=150, bbox_inches="tight")
+                paths.append(p_sub)
+            except Exception:
+                traceback.print_exc()
+
+        public_base = os.getenv("KAKAO_PUBLIC_IMAGE_BASE_URL", "").strip().rstrip("/")
+        image_urls = []
+        if public_base and paths:
+            image_urls = [f"{public_base}/{os.path.basename(p)}" for p in paths]
+
+        if image_urls:
+            succ, err = self.notifier.send_report_with_images(
+                title=f"{cur_m} 지출 도표",
+                description=txt,
+                image_urls=image_urls,
+            )
+        else:
+            succ, err = self.notifier.send_report(txt)
+
         if not succ and ("유효한 토큰" in err or "인증" in err):
             if messagebox.askyesno("인증 필요", "카카오 인증 정보가 만료되었습니다. 인증하시겠습니까?"):
-                if self.authenticate_kakao(): self.notifier.send_report(txt)
-        elif succ: messagebox.showinfo("성공", "카카오톡 전송 완료!")
-        else: messagebox.showerror("실패", f"사유: {err}")
+                if self.authenticate_kakao():
+                    self.notifier.send_report(txt)
+        elif succ:
+            if image_urls:
+                messagebox.showinfo("성공", f"카카오톡 전송 완료!\n(차트 이미지 {len(image_urls)}장 포함)")
+            else:
+                messagebox.showinfo(
+                    "성공",
+                    "카카오톡 전송 완료!\n"
+                    "※ 차트 이미지는 로컬에 저장만 했습니다.\n"
+                    f"- 저장 위치: {export_dir}\n"
+                    "※ 이미지까지 보내려면 KAKAO_PUBLIC_IMAGE_BASE_URL(공개 URL) 설정이 필요합니다.",
+                )
+        else:
+            messagebox.showerror("실패", f"사유: {err}")
 
     # --- 기존 차트 및 데이터 로드 로직 유지 ---
     def update_dashboard_chart(self):
