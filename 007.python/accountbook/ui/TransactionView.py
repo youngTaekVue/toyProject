@@ -21,7 +21,7 @@ import database
 import matplotlib.pyplot as plt
 plt.rcParams['font.family'] = 'Malgun Gothic'
 
-class DashboardView(ttk.Frame):
+class TransactionView(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent)
 
@@ -108,7 +108,7 @@ class DashboardView(ttk.Frame):
     def share_to_friend(self):
         """카카오톡 친구 목록을 가져와서 선택한 친구에게 전송합니다."""
         friends = self.notifier.get_friends()
-        
+
         if friends is None:
             if messagebox.askyesno("권한 필요", "친구 목록을 가져올 수 없습니다. 다시 인증하시겠습니까? (friends 권한 필요)"):
                 self.authenticate_kakao()
@@ -125,10 +125,10 @@ class DashboardView(ttk.Frame):
         win.transient(self); win.grab_set()
 
         ttk.Label(win, text="리포트를 보낼 친구를 선택하세요:", padding=10).pack()
-        
+
         lb = tk.Listbox(win)
         lb.pack(fill="both", expand=True, padx=10, pady=5)
-        
+
         # 친구 이름 표시
         for f in friends:
             lb.insert("end", f.get('profile_nickname', '알 수 없음'))
@@ -164,7 +164,7 @@ class DashboardView(ttk.Frame):
         if not cat_s: txt += "• 지출 내역 없음\n"
         else:
             for c, a in cat_s.items(): txt += f"• {c}: {a:,}원\n"
-        
+
         succ, err = self.notifier.send_report(txt)
         if not succ and ("유효한 토큰" in err or "인증" in err):
             if messagebox.askyesno("인증 필요", "카카오 인증 정보가 만료되었습니다. 인증하시겠습니까?"):
@@ -268,7 +268,7 @@ class DashboardView(ttk.Frame):
             self.df['대분류'] = classified_data['대분류']
             self.df['소분류'] = classified_data['소분류']
             self.df['타입'] = classified_data['타입'] # '타입' 컬럼 업데이트
-            
+
             self.df['abs_amt'] = self.df['금액'].abs()
             self.df['is_cancel'] = self.df.groupby([self.df['DT'].dt.date, '내용', 'abs_amt'])['금액'].transform('sum') == 0
             self.df['is_pre_auth'] = self.df['내용'].str.contains('선승인|가결제', na=False)
@@ -475,9 +475,9 @@ class DashboardView(ttk.Frame):
                         acc_progress['value'] = 90
                         self.update_idletasks()
                         insert_sql = """
-                            INSERT INTO transactions (transaction_date, transaction_type, description, amount, payment_method)
-                            VALUES (%s, %s, %s, %s, %s)
-                        """
+                                     INSERT INTO transactions (transaction_date, transaction_type, description, amount, payment_method)
+                                     VALUES (%s, %s, %s, %s, %s) \
+                                     """
                         cursor.executemany(insert_sql, new_records_to_insert)
                         saved_count = cursor.rowcount # 실제로 삽입된 행의 수
 
@@ -494,7 +494,7 @@ class DashboardView(ttk.Frame):
 
         loading_win, bs_progress, bs_label, acc_progress, acc_label, final_status_label = self.show_loading_window()
         self.update_idletasks() # Update the UI to show the loading window
-        
+
         try:
             # 초기 상태 설정
             bs_progress['value'] = 0; bs_label.config(text="0% - 대기 중...")

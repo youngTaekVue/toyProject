@@ -3,6 +3,7 @@ from tkinter import ttk
 from tkinter import messagebox
 
 from ui.DashboardView import DashboardView
+from ui.TransactionView import TransactionView
 from ui.LogsView import LogsView
 from ui.SettingsView import SettingsView
 from ui.FinancialStatus import FinancialStatus
@@ -45,6 +46,7 @@ class ComplexLayoutApp:
         # 메뉴 이름과 뷰 클래스 매핑
         self.menu_map = {
             "대시보드": DashboardView,
+            "가계": TransactionView,
             "월별 지출 관리": SpendingManagement,
             "자산 조회": FinancialStatus,
             "시스템 설정": SettingsView,
@@ -80,7 +82,7 @@ class ComplexLayoutApp:
         self.notebook.bind("<ButtonRelease-1>", self.on_tab_drag_release)
 
         # 초기 화면으로 대시보드 열기
-        self.add_tab("대시보드", DashboardView)
+        self.add_tab("가계", TransactionView)
 
     def add_tab(self, title, view_cls):
         # 1. 이미 열려있는 탭인지 확인 (텍스트로 비교)
