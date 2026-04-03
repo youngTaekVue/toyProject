@@ -8,40 +8,35 @@ const pool = mysql.createPool({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
+
+
     database: process.env.DB_DATABASE,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
 });
 
-/**
- * @swagger
- * /python/data:
- *   get:
- *     summary: DB에서 데이터 조회
- *     description: 데이터베이스에 연결하여 쿼리를 실행하고 결과를 반환합니다.
- *     responses:
- *       200:
- *         description: 성공적으로 데이터를 조회함
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 type: object
- *       500:
- *         description: 서버 오류
- */
+
 router.get('/userInfo', async (req, res) => {
     let connection;
     try {
+        // 쿼리 파라미터에서 userId 가져오기 (예: /userInfo?userId=some_user)
+        const { userId } = req.query;
+        
         // 1. DB 커넥션 풀에서 커넥션 가져오기
         connection = await pool.getConnection();
         console.log('✅ 데이터베이스에 성공적으로 연결되었습니다.');
 
-        // 2. 쿼리 실행
-        // TODO: 실제 사용할 테이블명으로 'lotto_data'을 변경하세요.
-        const [rows, fields] = await connection.execute('select id,userId, userNm,content ,insertDate from userInfo');
+        // 2. 쿼리 실행 (userId가 있을 경우 필터링 추가)
+        let query = 'SELECT id, userId, userNm, content, insertDate FROM userInfo';
+        let params = [];
+
+        if (userId) {
+            query += ' WHERE userId = ?';
+            params.push(userId);
+        }
+
+        const [rows] = await connection.execute(query, params);
         console.log('✅ 쿼리를 성공적으로 실행했습니다.');
 
         // 3. 응답 결과 전송

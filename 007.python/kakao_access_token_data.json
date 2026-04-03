@@ -1,0 +1,9 @@
+{
+  "access_token": "vEQy8oL7xpTesODu5VVYbGU8IWbBiDTXAAAAAQoXElUAAAGdTquV8c6SpOckXrb0",
+  "token_type": "bearer",
+  "refresh_token": "3czSfW42byZgcdi07fUi5xhQUmOjVeXsAAAAAgoXElUAAAGdTquV686SpOckXrb0",
+  "expires_in": 21599,
+  "scope": "talk_message friends",
+  "refresh_token_expires_in": 5183999,
+  "access_token_expires_at": "2026-04-03T05:49:27.097102"
+}
