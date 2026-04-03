@@ -11,7 +11,7 @@ let clusterer = null; // ⭐ 클러스터러 객체 전역 변수 추가 ⭐
 // -------------------------------------------------------------
 async function initMapAndData() {
     // 1. 서버에서 카카오맵 API 키 가져오기
-    const mapConfig = await fetchKakaMapConfig();
+    const mapConfig = await fetchKakaoMapConfig();
     if (!mapConfig) return;
 
     // 2. Geocoding 결과 JSON 파일 데이터 가져오기

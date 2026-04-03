@@ -13,7 +13,7 @@ def init_db_pool():
     global db_config
 
     # .env 파일에서 환경 변수 로드
-    load_dotenv()
+    #load_dotenv()
 
     # .env 파일의 정보로 db_config 딕셔너리 채우기
     db_config = {
