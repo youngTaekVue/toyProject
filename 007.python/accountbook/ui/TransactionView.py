@@ -31,7 +31,7 @@ class TransactionView(ttk.Frame):
         self.notifier = KakaoNotifier(rest_api_key=self.rest_api_key)
         self.dashboard_util = TransactionUtil()
 
-        self.df = pd.DataFrame() # None 대신 빈 DF로 초기화
+        self.df = pd.DataFrame() 
         self.mapping_rules = []
         self.selected_column = None
         self.current_chart_category = None
@@ -44,32 +44,31 @@ class TransactionView(ttk.Frame):
         self.load_data_from_db()
 
     def setup_ui(self):
-        # 1. 상단 바
-        top_bar = ttk.Frame(self, padding=10)
-        top_bar.pack(fill=tk.X)
+        # 1. 상단 바 (인스턴스 변수로 저장)
+        self.top_bar = ttk.Frame(self, padding=10)
+        self.top_bar.pack(fill=tk.X)
 
-        ttk.Button(top_bar, text="엑셀 통합 업로드", command=self.upload_file).pack(side=tk.LEFT, padx=5)
-        ttk.Button(top_bar, text="나에게 공유", command=self.share_to_kakao).pack(side=tk.LEFT, padx=5)
-        ttk.Button(top_bar, text="친구에게 공유", command=self.share_to_friend).pack(side=tk.LEFT, padx=5)
+        ttk.Button(self.top_bar, text="엑셀 통합 업로드", command=self.upload_file).pack(side=tk.LEFT, padx=5)
+        ttk.Button(self.top_bar, text="나에게 공유", command=self.share_to_kakao).pack(side=tk.LEFT, padx=5)
+        ttk.Button(self.top_bar, text="친구에게 공유", command=self.share_to_friend).pack(side=tk.LEFT, padx=5)
 
-        ttk.Label(top_bar, text="조회 월:").pack(side=tk.LEFT, padx=(30, 5))
+        ttk.Label(self.top_bar, text="조회 월:").pack(side=tk.LEFT, padx=(30, 5))
         self.shared_month_var = tk.StringVar()
-        self.cb_shared_month = ttk.Combobox(top_bar, textvariable=self.shared_month_var, width=12, state="readonly")
+        self.cb_shared_month = ttk.Combobox(self.top_bar, textvariable=self.shared_month_var, width=12, state="readonly")
         self.cb_shared_month.pack(side=tk.LEFT, padx=5)
         self.cb_shared_month.bind("<<ComboboxSelected>>", self.on_month_change)
 
         # 2. 메인 영역
-        main_frame = ttk.Frame(self, padding=10)
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        self.main_frame = ttk.Frame(self, padding=10)
+        self.main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # [수정] 차트(0)와 요약(1)의 너비 비율 조정 (2:3)
-        main_frame.columnconfigure(0, weight=2)
-        main_frame.columnconfigure(1, weight=3)
-        main_frame.rowconfigure(0, weight=1)
-        main_frame.rowconfigure(1, weight=2)
+        self.main_frame.columnconfigure(0, weight=2)
+        self.main_frame.columnconfigure(1, weight=3)
+        self.main_frame.rowconfigure(0, weight=1)
+        self.main_frame.rowconfigure(1, weight=2)
 
-        # --- [카드 1] 차트 영역 ---
-        self.card_chart = ttk.LabelFrame(main_frame, text="지출 현황 상세")
+        # --- [카드 1] 차트 영역 (인스턴스 변수로 저장) ---
+        self.card_chart = ttk.LabelFrame(self.main_frame, text="지출 현황 상세")
         self.card_chart.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
 
         chart_ctrl = ttk.Frame(self.card_chart); chart_ctrl.pack(fill=tk.X, padx=5, pady=2)
@@ -78,28 +77,28 @@ class TransactionView(ttk.Frame):
         self.lbl_chart_title = ttk.Label(chart_ctrl, text="월간 카테고리별 지출", font=("맑은 고딕", 10, "bold"))
         self.lbl_chart_title.pack(side=tk.LEFT, padx=10)
 
-        self.fig = Figure(figsize=(4, 3), dpi=100) # [수정] 피규어 기본 사이즈 살짝 축소
+        self.fig = Figure(figsize=(4, 3), dpi=100)
         self.fig.patch.set_facecolor('#f0f0f0')
         self.ax = self.fig.add_subplot(111)
-        self.ax.axis('off') # 초기 상태에서 축 숨기기
+        self.ax.axis('off')
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.card_chart)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         self.canvas.mpl_connect('button_press_event', self.on_chart_click)
 
         # --- [카드 2] 요약 정보 ---
-        card_summary = ttk.LabelFrame(main_frame, text="이달의 요약")
-        card_summary.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
-        inner = ttk.Frame(card_summary); inner.pack(expand=True, fill=tk.BOTH, padx=20, pady=20)
+        self.card_summary = ttk.LabelFrame(self.main_frame, text="이달의 요약")
+        self.card_summary.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+        inner = ttk.Frame(self.card_summary); inner.pack(expand=True, fill=tk.BOTH, padx=20, pady=20)
         ttk.Label(inner, text="총 수입", style="Mid.TLabel", foreground="#888888").pack(anchor="w")
         self.lbl_income = ttk.Label(inner, text="***,*** 원", style="Big.TLabel", foreground="#2196F3"); self.lbl_income.pack(anchor="w", pady=(0, 15))
         ttk.Label(inner, text="총 지출", style="Mid.TLabel", foreground="#888888").pack(anchor="w")
         self.lbl_expense = ttk.Label(inner, text="***,*** 원", style="Big.TLabel", foreground="#F44336"); self.lbl_expense.pack(anchor="w")
 
         # --- [카드 3] 리스트 내역 ---
-        card_list = ttk.LabelFrame(main_frame)
-        card_list.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=5, pady=5)
-        self.notebook = ttk.Notebook(card_list); self.notebook.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.card_list = ttk.LabelFrame(self.main_frame)
+        self.card_list.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=5, pady=5)
+        self.notebook = ttk.Notebook(self.card_list); self.notebook.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         self.tab_main = ttk.Frame(self.notebook); self.notebook.add(self.tab_main, text="가계부 내역")
         self.tab_dup = ttk.Frame(self.notebook); self.notebook.add(self.tab_dup, text="중복 의심 내역")
         self.notebook.bind("<<NotebookTabChanged>>", self.on_tab_change)
@@ -286,19 +285,14 @@ class TransactionView(ttk.Frame):
         self.ax.clear() # 항상 차트 내용 초기화
         self.ax.axis('off') # 기본적으로 축을 끈 상태로 시작
 
-        # 데이터 확인을 위한 디버깅 출력
-        print("\n--- [update_dashboard_chart] 데이터 확인 ---")
         if self.df is None or self.df.empty:
-            print("상태: self.df가 비어 있음")
             self.ax.text(0.5, 0.5, '데이터가 없습니다', ha='center', va='center', fontsize=12, color='gray')
             self.canvas.draw()
             return
 
         selected_month = self.shared_month_var.get()
         m_df = self.df[self.df['월'] == selected_month]
-        print(f"조회 월: {selected_month}")
 
-        # 선택된 월에 데이터가 없는 경우
         if m_df.empty:
             msg = f"{selected_month}월 데이터가 없습니다" if selected_month else "조회할 월을 선택하세요"
             self.ax.text(0.5, 0.5, msg, ha='center', va='center', fontsize=12, color='gray')
@@ -307,19 +301,14 @@ class TransactionView(ttk.Frame):
 
         if self.current_chart_category is None:
             _, _, data_dict = self.dashboard_util.get_summary_data(m_df)
-            print(f"차트 데이터 (대분류): {data_dict}")
         else:
             data_dict = self.dashboard_util.get_sub_category_summary(m_df, self.current_chart_category)
-            print(f"차트 데이터 (소분류 - {self.current_chart_category}): {data_dict}")
 
-        # 특정 카테고리에 대한 세부 내역이 없는 경우
         if not data_dict:
-            print("상태: 표시할 차트 데이터(지출)가 없음")
             self.ax.text(0.5, 0.5, '내역 없음', ha='center', va='center', fontsize=12, color='gray')
             self.canvas.draw()
             return
         else:
-            # 데이터가 있을 경우에만 축을 다시 켜고 차트 그리기
             self.ax.axis('on')
             self.labels_in_chart = list(data_dict.keys())
             values = list(data_dict.values())
@@ -338,7 +327,7 @@ class TransactionView(ttk.Frame):
             )
             self.ax.legend(self.wedges, legend_labels, title="지출 항목 (% / 금액)", loc="upper left", bbox_to_anchor=(1, 1), fontsize=8, frameon=False)
             plt.setp(autotexts, size=8, weight="bold", color="black")
-            self.fig.subplots_adjust(left=0.05, right=0.65, top=0.9, bottom=0.1) # 범례 공간 확보
+            self.fig.subplots_adjust(left=0.05, right=0.65, top=0.9, bottom=0.1)
             self.canvas.draw()
 
     def reset_chart_view(self):
@@ -359,7 +348,6 @@ class TransactionView(ttk.Frame):
 
     def load_data_from_db(self):
         try:
-            print("\n--- [load_data_from_db] DB에서 데이터 로드 시작 ---")
             with database.get_db_connection() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute("SELECT merchant, category, sub_category FROM category")
@@ -370,9 +358,7 @@ class TransactionView(ttk.Frame):
             self.mapping_rules = rules; self.dashboard_util.mapping_rules = sorted(rules, key=lambda x: len(x['merchant']), reverse=True) if rules else []
 
             if not res:
-                print("상태: DB에 거래 내역(transactions) 데이터가 없음")
                 self.df = pd.DataFrame()
-                # 데이터가 없어도 UI 갱신을 위해 on_month_change 호출
                 self.update_filter_options()
                 self.on_month_change(None)
                 return
@@ -382,56 +368,21 @@ class TransactionView(ttk.Frame):
             self.df['DT'] = pd.to_datetime(self.df['DT'])
             self.df['일시'] = self.df['DT'].dt.strftime('%Y-%m-%d %H:%M'); self.df['월'] = self.df['DT'].dt.strftime('%Y-%m')
 
-            # auto_classify 결과에서 '타입'도 함께 받아와 할당
             classified_data = self.df.apply(lambda r: self.dashboard_util.auto_classify(r), axis=1)
             self.df['대분류'] = classified_data['대분류']
             self.df['소분류'] = classified_data['소분류']
-            self.df['타입'] = classified_data['타입'] # '타입' 컬럼 업데이트
+            self.df['타입'] = classified_data['타입']
 
             self.df['abs_amt'] = self.df['금액'].abs()
-            # 취소(환불) 판정:
-            # - 기존 로직: 같은 날짜 + 같은 내용 + 같은 금액(절대값)인 거래의 합이 0이면 취소쌍으로 간주
-            # - KTX처럼 발매/취소가 다른 날짜에 발생하면 위 로직으로는 잡히지 않아서,
-            #   같은 '월' 단위에서도 (내용/금액/결제수단 기준) 합이 0인 경우를 추가로 취소로 간주
             cancel_key_base = ['내용', 'abs_amt']
             cancel_key_strict = [self.df['DT'].dt.date] + cancel_key_base
-            cancel_key_monthly = ['월'] + cancel_key_base + (['결제수단'] if '결제수단' in self.df.columns else [])
-
             is_cancel_strict = self.df.groupby(cancel_key_strict)['금액'].transform('sum') == 0
-            is_cancel_monthly = self.df.groupby(cancel_key_monthly)['금액'].transform('sum') == 0
-            self.df['is_cancel'] = is_cancel_strict | is_cancel_monthly
+            self.df['is_cancel'] = is_cancel_strict
             self.df['is_pre_auth'] = self.df['내용'].str.contains('선승인|가결제', na=False)
-            # 이중집계(중복 업로드) 판정:
-            # 엑셀 통합 업로드 과정에서 동일 거래가 2번 들어오되 결제수단만 다르게 들어오는 케이스가 있어,
-            # 중복 판정에서는 결제수단을 제외하고 DT/내용/금액이 같은 "추가 중복분"만 제외(첫 건은 유지)한다.
-            # 단, DB/엑셀 처리 과정에서 DT(초/밀리초)나 내용(공백)이 미세하게 달라 중복이 안 잡힐 수 있어
-            # DT는 '날짜'로 내리고, 내용은 공백을 정규화해서 비교한다.
-            dedup_dt = self.df['DT'].dt.date
-            dedup_type = (
-                self.df['타입']
-                .fillna("")
-                .astype(str)
-                .str.strip()
-            )
-            dedup_desc = (
-                self.df['내용']
-                .fillna("")
-                .astype(str)
-                .str.strip()
-                .str.replace(r"\s+", " ", regex=True)
-            )
-            # abs_amt를 쓰면 지출(-) / 수입(+)이 섞일 수 있어 원본 금액을 사용
-            dedup_amt = self.df['금액']
-            is_dup_uploaded = pd.DataFrame(
-                {"d": dedup_dt, "t": dedup_type, "c": dedup_desc, "a": dedup_amt}
-            ).duplicated(subset=["d", "t", "c", "a"], keep="first")
+            
+            is_dup_uploaded = self.df.duplicated(subset=['DT', '타입', '내용', '금액'], keep="first")
             self.df['is_double_count'] = self.df['내용'].str.contains('우리카드결제대금', na=False) | is_dup_uploaded
 
-            dup_cnt = int(is_dup_uploaded.sum()) if hasattr(is_dup_uploaded, "sum") else 0
-            if dup_cnt:
-                print(f"[중복 업로드 제외] 추가 중복 {dup_cnt}건 감지 (기준=날짜/타입/내용/금액)")
-
-            print(f"로드된 전체 데이터 건수: {len(self.df)}")
             self.update_filter_options(); self.on_month_change(None)
         except Exception: traceback.print_exc(); self.df = pd.DataFrame(); self.on_month_change(None)
 
@@ -447,7 +398,6 @@ class TransactionView(ttk.Frame):
         self.lbl_expense.config(text=f"{exp:,} 원")
 
     def on_month_change(self, event):
-        # 데이터가 없어도 차트와 요약을 갱신하도록 수정 (return 제거)
         self.update_dashboard_chart()
         self.update_summary_card()
         self.on_tab_change(None)
@@ -470,11 +420,19 @@ class TransactionView(ttk.Frame):
         self.summary_label.config(text=f"[{cur_m}] 실질 수입: {inc:,}원 | 실질 지출: {exp:,}원")
 
         f_df = m_df.copy()
-        if self.type_var.get() != "전체": f_df = f_df[f_df['타입'] == self.type_var.get()]
-        if self.cat_var.get() != "전체": f_df = f_df[f_df['대분류'] == self.cat_var.get()]
+        selected_type = self.type_var.get()
+        selected_cat = self.cat_var.get()
+        
+        if selected_type != "전체": f_df = f_df[f_df['타입'] == selected_type]
+        if selected_cat != "전체": f_df = f_df[f_df['대분류'] == selected_cat]
 
-        total_amt = f_df['금액'].sum()
-        self.filtered_summary_label.config(text=f"조회된 내역: {len(f_df)}건 | 합계: {total_amt:,}원")
+        f_inc, f_exp, _ = self.dashboard_util.get_summary_data(f_df)
+        summary_text = f"조회된 내역: {len(f_df)}건"
+        if selected_type == "수입": summary_text += f" | 실질 수입 합계: {f_inc:,}원"
+        elif selected_type == "지출": summary_text += f" | 실질 지출 합계: {f_exp:,}원"
+        else: summary_text += f" | 실질 수입: {f_inc:,}원 | 실질 지출: {f_exp:,}원"
+
+        self.filtered_summary_label.config(text=summary_text)
         self.insert_data_to_tree(self.tree_main, f_df.sort_values(by=['DT', '내용']))
 
     def update_dup_tab(self):
@@ -554,181 +512,45 @@ class TransactionView(ttk.Frame):
             else: rows.append("\t".join(map(str, values[1:])))
         self.clipboard_clear(); self.clipboard_append("\n".join(rows))
 
-    def show_loading_window(self, title="통합 업로드 진행 상황"):
-        win = tk.Toplevel(self); win.title(title); win.geometry("350x250"); win.resizable(False, False); win.transient(self); win.grab_set()
-        x = self.winfo_rootx() + (self.winfo_width() // 2) - 175; y = self.winfo_rooty() + (self.winfo_height() // 2) - 125; win.geometry(f"+{x}+{y}")
-
-        ttk.Label(win, text="엑셀 파일 처리 중...", font=("맑은 고딕", 10, "bold")).pack(pady=5)
-
-        # 뱅크샐러드 현황 프로그레스바
-        bs_frame = ttk.LabelFrame(win, text="뱅크샐러드 현황", padding=5)
-        bs_frame.pack(fill="x", padx=10, pady=5)
-        bs_label = ttk.Label(bs_frame, text="준비 중...", anchor="w")
-        bs_label.pack(fill="x")
-        bs_progress = ttk.Progressbar(bs_frame, mode='determinate', length=250)
-        bs_progress.pack(fill="x")
-
-        # 가계부 내역 프로그레스바
-        acc_frame = ttk.LabelFrame(win, text="가계부 내역", padding=5)
-        acc_frame.pack(fill="x", padx=10, pady=5)
-        acc_label = ttk.Label(acc_frame, text="준비 중...", anchor="w")
-        acc_label.pack(fill="x")
-        acc_progress = ttk.Progressbar(acc_frame, mode='determinate', length=250)
-        acc_progress.pack(fill="x")
-
-        # 최종 상태 메시지
-        final_status_label = ttk.Label(win, text="", anchor="center", font=("맑은 고딕", 9))
-        final_status_label.pack(pady=(5,0))
-
-        return win, bs_progress, bs_label, acc_progress, acc_label, final_status_label
-
-    def save_df_to_db(self, df_to_save, acc_progress, acc_label):
-        """기존과 동일 (중복 체크 및 저장 로직)"""
-        if df_to_save is None or df_to_save.empty:
-            return 0
-        saved_count = 0
-        try:
-            with database.get_db_connection() as conn:
-                with conn.cursor() as cursor:
-                    acc_label.config(text="15% - DB 대조 중...")
-                    acc_progress['value'] = 15
-                    self.update_idletasks()
-                    
-                    cursor.execute("SELECT transaction_date, amount, description, transaction_type FROM transactions")
-                    existing_records = {
-                        (row['transaction_date'].strftime('%Y-%m-%d %H:%M:%S'), 
-                         int(row['amount']), 
-                         str(row['description']).strip(), 
-                         row['transaction_type']) 
-                        for row in cursor.fetchall()
-                    }
-
-                    new_records_to_insert = []
-                    for i, row in df_to_save.iterrows():
-                        # NaN 처리 및 데이터 정제
-                        desc = str(row['내용']).strip() if pd.notna(row['내용']) else ""
-                        if not desc or pd.isna(row['DT']): continue
-                        
-                        record_key = (row['DT'].strftime('%Y-%m-%d %H:%M:%S'), int(row['금액']), desc, row['타입'])
-                        
-                        if record_key not in existing_records:
-                            new_records_to_insert.append((row['DT'], row['타입'], desc, row['금액'], row.get('결제수단', '')))
-
-                    if new_records_to_insert:
-                        cursor.executemany("""
-                            INSERT INTO transactions (transaction_date, transaction_type, description, amount, payment_method)
-                            VALUES (%s, %s, %s, %s, %s)
-                        """, new_records_to_insert)
-                        saved_count = len(new_records_to_insert)
-                    conn.commit()
-            return saved_count
-        except Exception as e:
-            traceback.print_exc()
-            return -1
-
     def upload_file(self):
         path = filedialog.askopenfilename(filetypes=[("Excel Files", "*.xlsx *.xls")])
-        if not path:
-            return
-        (
-            loading_win,
-            bs_progress,
-            bs_label,
-            acc_progress,
-            acc_label,
-            final_status_label,
-        ) = self.show_loading_window()
-        self.update_idletasks()  # Update the UI to show the loading window
+        if not path: return
         try:
-            # 초기 상태 설정
-            bs_progress["value"] = 0
-            bs_label.config(text="0% - 대기 중...")
-            acc_progress["value"] = 0
-            acc_label.config(text="0% - 대기 중...")
-            final_status_label.config(text="엑셀 파일 읽는 중...")
-            self.update_idletasks()
             excel_data = pd.read_excel(path, sheet_name=None, header=None)
             sheet_names = list(excel_data.keys())
-            summary_msgs = []
-            final_status_label.config(text="엑셀 파일 읽기 완료. 데이터 처리 시작...")
-            self.update_idletasks()
-            def get_sheet(kw):
-                return next((s for s in sheet_names if kw in str(s).strip()), None)
-            # 뱅크샐러드 현황 처리 (0-100%)
+            def get_sheet(kw): return next((s for s in sheet_names if kw in str(s).strip()), None)
+            
             bs_sheet = get_sheet("뱅샐현황")
             if bs_sheet:
-                bs_label.config(text="5% - 뱅크샐러드 현황 (자산) 추출 중...")
-                bs_progress["value"] = 5
-                self.update_idletasks()
                 full_df = excel_data[bs_sheet]
                 assets = FinancialUtil.extract_section(full_df, "자산", 1, 4)
-                bs_label.config(text="25% - 뱅크샐러드 현황 (부채) 추출 중...")
-                bs_progress["value"] = 25
-                self.update_idletasks()
                 debts = FinancialUtil.extract_section(full_df, "부채", 5, 7)
-                bs_label.config(text="50% - 뱅크샐러드 현황 (재무 데이터) 저장 중...")
-                bs_progress["value"] = 50
-                self.update_idletasks()
                 FinancialUtil.save_financial_data([(assets, "자산"), (debts, "부채")])
-                bs_label.config(
-                    text="75% - 뱅크샐러드 현황 (보험/투자) 추출 및 저장 중..."
-                )
-                bs_progress["value"] = 75
-                self.update_idletasks()
                 ins = FinancialUtil.extract_section(full_df, "보험현황")
                 FinancialUtil.save_insurance_data(ins)
                 inv = FinancialUtil.extract_section(full_df, "투자현황")
                 FinancialUtil.save_investment_data(inv)
-                summary_msgs.append("• 뱅크샐러드 현황 업로드 완료")
-                bs_progress["value"] = 100
-                bs_label.config(text="100% - 뱅크샐러드 현황 처리 완료")
-                self.update_idletasks()
-            else:
-                bs_progress["value"] = 100
-                bs_label.config(text="100% - 뱅크샐러드 시트 없음")
-                self.update_idletasks()
-            # 가계부 내역 처리 (0-100%)
+
             acc_sheet = get_sheet("가계부 내역")
             if acc_sheet:
-                acc_label.config(text="10% - 가계부 내역 데이터 전처리 중...")
-                acc_progress["value"] = 10
-                self.update_idletasks()
                 df = self.dashboard_util.process_excel_data(excel_data[acc_sheet])
-                # save_df_to_db 함수에 프로그레스바 위젯 전달
-                num_saved = self.save_df_to_db(df, acc_progress, acc_label)
-                if num_saved > 0:
-                    summary_msgs.append(f"• 가계부: {num_saved}건 저장 완료")
-                elif num_saved == 0:
-                    summary_msgs.append("• 가계부: 새로운 내역 없음 (중복 제외)")
-                else:
-                    summary_msgs.append("• 가계부: 저장 중 오류 발생")
-                acc_progress["value"] = 100
-                acc_label.config(text="100% - 가계부 내역 데이터베이스 저장 완료")
-                self.update_idletasks()
-            else:
-                acc_progress["value"] = 100
-                acc_label.config(text="100% - 가계부 시트 없음")
-                self.update_idletasks()
-            # 최종 데이터 로드 및 완료
-            final_status_label.config(text="최신 데이터 불러오는 중...")
-            self.update_idletasks()
+                with database.get_db_connection() as conn:
+                    with conn.cursor() as cursor:
+                        cursor.execute("SELECT transaction_date, amount, description, transaction_type FROM transactions")
+                        existing = {(r['transaction_date'].strftime('%Y-%m-%d %H:%M:%S'), int(r['amount']), str(r['description']).strip(), r['transaction_type']) for r in cursor.fetchall()}
+                        new_recs = []
+                        for _, row in df.iterrows():
+                            desc = str(row['내용']).strip()
+                            if not desc or pd.isna(row['DT']): continue
+                            if (row['DT'].strftime('%Y-%m-%d %H:%M:%S'), int(row['금액']), desc, row['타입']) not in existing:
+                                new_recs.append((row['DT'], row['타입'], desc, row['금액'], row.get('결제수단', '')))
+                        if new_recs:
+                            cursor.executemany("INSERT INTO transactions (transaction_date, transaction_type, description, amount, payment_method) VALUES (%s, %s, %s, %s, %s)", new_recs)
+                            conn.commit()
             self.load_data_from_db()
-            final_status_label.config(text="모든 작업 완료!")
-            self.update_idletasks()
-            loading_win.destroy()
-            messagebox.showinfo(
-                "완료",
-                (
-                    "\n".join(summary_msgs)
-                    if summary_msgs
-                    else "인식된 데이터가 없습니다."
-                ),
-            )
+            messagebox.showinfo("완료", "데이터 업로드 및 DB 저장이 완료되었습니다.")
         except Exception as e:
-            if loading_win.winfo_exists():
-                loading_win.destroy()
-            traceback.print_exc()
-            messagebox.showerror("오류", str(e))
+            traceback.print_exc(); messagebox.showerror("오류", str(e))
 
     def authenticate_kakao(self):
         uri = os.getenv("KAKAO_REDIRECT_URI", "http://localhost:5000")

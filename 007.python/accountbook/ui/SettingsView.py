@@ -1,22 +1,38 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import database
+import os
+from dotenv import load_dotenv
 
 class SettingsView(ttk.Frame):
-    def __init__(self, parent):
+    def __init__(self, parent, main_app=None):
         super().__init__(parent)
-        
-        self.setup_ui()
+        self.main_app = main_app # 메인 애플리케이션 인스턴스 참조
+
+        # 탭 컨트롤 생성
+        self.notebook = ttk.Notebook(self)
+        self.notebook.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # 탭 1: 자동 분류 규칙 설정
+        self.category_tab = ttk.Frame(self.notebook)
+        self.notebook.add(self.category_tab, text="자동 분류 규칙")
+        self.setup_category_ui()
+
+        # 탭 2: 시스템 환경 설정
+        self.system_tab = ttk.Frame(self.notebook)
+        self.notebook.add(self.system_tab, text="시스템 환경 설정")
+        self.setup_system_ui()
+
         self.load_categories()
+        self.load_system_settings()
 
-    def setup_ui(self):
-        # 전체 레이아웃 (좌우 분할)
-        self.columnconfigure(0, weight=1)
-        self.columnconfigure(1, weight=3)
-        self.rowconfigure(0, weight=1)
+    def setup_category_ui(self):
+        # (기존 코드와 동일)
+        self.category_tab.columnconfigure(0, weight=1)
+        self.category_tab.columnconfigure(1, weight=3)
+        self.category_tab.rowconfigure(0, weight=1)
 
-        # --- [좌측: 입력 폼] ---
-        form_frame = ttk.LabelFrame(self, text="규칙 추가/수정", padding=15)
+        form_frame = ttk.LabelFrame(self.category_tab, text="규칙 추가/수정", padding=15)
         form_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
 
         ttk.Label(form_frame, text="내용 키워드:").pack(anchor="w", pady=(0, 5))
@@ -33,131 +49,137 @@ class SettingsView(ttk.Frame):
 
         btn_frame = ttk.Frame(form_frame)
         btn_frame.pack(fill="x", pady=10)
-        
         ttk.Button(btn_frame, text="저장", command=self.save_rule).pack(side="left", expand=True, fill="x", padx=2)
         ttk.Button(btn_frame, text="초기화", command=self.clear_form).pack(side="left", expand=True, fill="x", padx=2)
 
-        ttk.Label(form_frame, text="※ 내용에 키워드가 포함되면\n해당 카테고리로 자동 분류됩니다.", 
-                  foreground="gray", font=("맑은 고딕", 9)).pack(side="bottom", pady=10)
-
-        # --- [우측: 규칙 목록] ---
-        list_frame = ttk.LabelFrame(self, text="등록된 자동 분류 규칙", padding=10)
+        list_frame = ttk.LabelFrame(self.category_tab, text="등록된 자동 분류 규칙", padding=10)
         list_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
 
-        # 트리뷰 (목록)
         cols = ("ID", "키워드", "대분류", "소분류")
         self.tree = ttk.Treeview(list_frame, columns=cols, show="headings", selectmode="browse")
-        
-        self.tree.heading("ID", text="ID")
-        self.tree.heading("키워드", text="키워드 (내용 포함)")
-        self.tree.heading("대분류", text="대분류")
-        self.tree.heading("소분류", text="소분류")
-
+        for col in cols: self.tree.heading(col, text=col)
         self.tree.column("ID", width=50, anchor="center")
-        self.tree.column("키워드", width=150)
-        self.tree.column("대분류", width=100, anchor="center")
-        self.tree.column("소분류", width=100, anchor="center")
-
-        # 스크롤바
+        
         sb = ttk.Scrollbar(list_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscroll=sb.set)
-
         self.tree.pack(side="left", fill="both", expand=True)
         sb.pack(side="right", fill="y")
 
-        # 하단 버튼
         bottom_btn_frame = ttk.Frame(list_frame)
         bottom_btn_frame.pack(side="bottom", fill="x", pady=(10, 0))
-        
         ttk.Button(bottom_btn_frame, text="선택 삭제", command=self.delete_rule).pack(side="right", padx=5)
         ttk.Button(bottom_btn_frame, text="새로고침", command=self.load_categories).pack(side="right", padx=5)
 
-        # 선택 시 폼에 채우기
         self.tree.bind("<<TreeviewSelect>>", self.on_tree_select)
 
-    def load_categories(self):
-        """DB에서 규칙 목록을 불러와 트리뷰를 갱신합니다."""
-        for item in self.tree.get_children():
-            self.tree.delete(item)
+    def setup_system_ui(self):
+        container = ttk.Frame(self.system_tab, padding=20)
+        container.pack(fill="both", expand=True)
+
+        app_frame = ttk.LabelFrame(container, text="애플리케이션 기본 설정", padding=15)
+        app_frame.pack(fill="x", pady=(0, 20))
+
+        ttk.Label(app_frame, text="사용자 이름:").grid(row=0, column=0, sticky="w", pady=5)
+        self.ent_username = ttk.Entry(app_frame)
+        self.ent_username.grid(row=0, column=1, sticky="ew", padx=(10, 0), pady=5)
+
+        ttk.Label(app_frame, text="폰트 크기:").grid(row=1, column=0, sticky="w", pady=5)
+        self.font_size_var = tk.StringVar()
+        self.font_size_combo = ttk.Combobox(app_frame, textvariable=self.font_size_var,
+                                            values=["9", "10", "11", "12", "14", "16"], state="readonly")
+        self.font_size_combo.grid(row=1, column=1, sticky="ew", padx=(10, 0), pady=5)
+
+        ttk.Label(app_frame, text="테마:").grid(row=2, column=0, sticky="w", pady=5)
+        self.theme_var = tk.StringVar()
+        self.theme_combo = ttk.Combobox(app_frame, textvariable=self.theme_var,
+                                        values=["clam", "alt", "default", "classic"], state="readonly")
+        self.theme_combo.grid(row=2, column=1, sticky="ew", padx=(10, 0), pady=5)
+
+        app_frame.columnconfigure(1, weight=1)
+
+        btn_save_sys = ttk.Button(container, text="설정 즉시 적용 및 저장", command=self.save_system_settings)
+        btn_save_sys.pack(pady=20, side="bottom", anchor="e")
+
+    def load_system_settings(self):
+        load_dotenv(override=True)
+        self.ent_username.insert(0, os.getenv("APP_USER_NAME", "User"))
+        self.font_size_var.set(os.getenv("APP_FONT_SIZE", "10"))
+
+
+    def save_system_settings(self):
+        try:
+            env_path = ".env"
+            current_env_vars = {}
+            if os.path.exists(env_path):
+                with open(env_path, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        if '=' in line:
+                            key, value = line.strip().split('=', 1)
+                            current_env_vars[key] = value
+
+            current_env_vars["APP_USER_NAME"] = self.ent_username.get()
+            current_env_vars["APP_FONT_SIZE"] = self.font_size_var.get()
+
+
+            with open(env_path, 'w', encoding='utf-8') as f:
+                for key, value in current_env_vars.items():
+                    f.write(f"{key}={value}\n")
             
+            # 메인 앱의 갱신 메서드 호출 (실시간 적용)
+            if self.main_app:
+                self.main_app.update_settings()
+                messagebox.showinfo("성공", "설정이 즉시 적용되었습니다.")
+            else:
+                messagebox.showinfo("성공", "설정이 저장되었습니다. 적용을 위해 재시작이 필요할 수 있습니다.")
+
+        except Exception as e:
+            messagebox.showerror("오류", f"설정 저장 중 에러 발생: {e}")
+
+    def load_categories(self):
+        for item in self.tree.get_children(): self.tree.delete(item)
         try:
             with database.get_db_connection() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute("SELECT id, merchant, category, sub_category FROM category ORDER BY category, merchant")
                     for row in cursor.fetchall():
                         self.tree.insert("", "end", values=(row['id'], row['merchant'], row['category'], row['sub_category']))
-        except Exception as e:
-            print(f"Error loading categories: {e}")
+        except Exception as e: print(f"Error: {e}")
 
     def save_rule(self):
-        """입력된 내용을 DB에 저장(추가/수정)합니다."""
-        merchant = self.ent_merchant.get().strip()
-        category = self.ent_category.get().strip()
-        sub_category = self.ent_sub_category.get().strip()
-
-        if not merchant or not category:
-            messagebox.showwarning("경고", "키워드와 대분류는 필수 입력 사항입니다.")
-            return
-
+        merchant, category, sub_category = self.ent_merchant.get().strip(), self.ent_category.get().strip(), self.ent_sub_category.get().strip()
+        if not merchant or not category: return
         selected = self.tree.selection()
         try:
             with database.get_db_connection() as conn:
                 with conn.cursor() as cursor:
                     if selected:
-                        # 수정
                         rule_id = self.tree.item(selected[0], 'values')[0]
-                        sql = "UPDATE category SET merchant=%s, category=%s, sub_category=%s WHERE id=%s"
-                        cursor.execute(sql, (merchant, category, sub_category, rule_id))
+                        cursor.execute("UPDATE category SET merchant=%s, category=%s, sub_category=%s WHERE id=%s", (merchant, category, sub_category, rule_id))
                     else:
-                        # 신규 추가
-                        sql = "INSERT INTO category (merchant, category, sub_category) VALUES (%s, %s, %s)"
-                        cursor.execute(sql, (merchant, category, sub_category))
+                        cursor.execute("INSERT INTO category (merchant, category, sub_category) VALUES (%s, %s, %s)", (merchant, category, sub_category))
                 conn.commit()
-            
-            messagebox.showinfo("성공", "규칙이 저장되었습니다.")
-            self.clear_form()
-            self.load_categories()
-        except Exception as e:
-            messagebox.showerror("오류", f"저장 중 에러 발생: {e}")
+            self.clear_form(); self.load_categories()
+        except Exception as e: messagebox.showerror("오류", str(e))
 
     def delete_rule(self):
-        """선택된 규칙을 삭제합니다."""
         selected = self.tree.selection()
-        if not selected:
-            messagebox.showwarning("경고", "삭제할 항목을 선택해주세요.")
-            return
-
-        if not messagebox.askyesno("삭제 확인", "선택한 규칙을 삭제하시겠습니까?"):
-            return
-
+        if not selected: return
         try:
             rule_id = self.tree.item(selected[0], 'values')[0]
             with database.get_db_connection() as conn:
-                with conn.cursor() as cursor:
-                    cursor.execute("DELETE FROM category WHERE id=%s", (rule_id,))
+                with conn.cursor() as cursor: cursor.execute("DELETE FROM category WHERE id=%s", (rule_id,))
                 conn.commit()
-            
-            self.load_categories()
-            self.clear_form()
-        except Exception as e:
-            messagebox.showerror("오류", f"삭제 중 에러 발생: {e}")
+            self.load_categories(); self.clear_form()
+        except Exception as e: messagebox.showerror("오류", str(e))
 
     def on_tree_select(self, event):
-        """목록 선택 시 폼에 데이터를 채웁니다."""
         selected = self.tree.selection()
         if not selected: return
-        
         values = self.tree.item(selected[0], 'values')
-        self.ent_merchant.delete(0, "end")
-        self.ent_merchant.insert(0, values[1])
-        self.ent_category.delete(0, "end")
-        self.ent_category.insert(0, values[2])
-        self.ent_sub_category.delete(0, "end")
-        self.ent_sub_category.insert(0, values[3])
+        self.ent_merchant.delete(0, "end"); self.ent_merchant.insert(0, values[1])
+        self.ent_category.delete(0, "end"); self.ent_category.insert(0, values[2])
+        self.ent_sub_category.delete(0, "end"); self.ent_sub_category.insert(0, values[3])
 
     def clear_form(self):
-        """입력 폼을 초기화합니다."""
-        self.ent_merchant.delete(0, "end")
-        self.ent_category.delete(0, "end")
-        self.ent_sub_category.delete(0, "end")
+        self.ent_merchant.delete(0, "end"); self.ent_category.delete(0, "end"); self.ent_sub_category.delete(0, "end")
         self.tree.selection_remove(self.tree.selection())
