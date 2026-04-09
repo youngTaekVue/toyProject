@@ -86,7 +86,7 @@ class DashboardView(ttk.Frame):
 
         # SpendingManagement Top 5 업데이트
         if hasattr(self, 'sm_top5'):
-            self.sm_top5.update_top_merchants_only(selected_month)
+            self.sm_top5.update_top_merchants(selected_month)
             
         # SpendingManagement 하단(차트 + 카테고리) 업데이트
         if hasattr(self, 'sm'):
