@@ -15,6 +15,7 @@ import traceback
 from utils.KakaoNotifier import KakaoNotifier
 from utils.TransactionUtil import TransactionUtil
 from utils.FinancialUtil import FinancialUtil
+from utils.Logger import logger
 import database
 
 # 한글 폰트 설정
@@ -106,6 +107,7 @@ class TransactionView(ttk.Frame):
 
     def share_to_friend(self):
         """카카오톡 친구 목록을 가져와서 선택한 친구에게 전송합니다."""
+        logger.log("INFO", "UI_Action", "친구에게 공유 버튼 클릭")
         friends = self.notifier.get_friends()
 
         if friends is None:
@@ -147,16 +149,20 @@ class TransactionView(ttk.Frame):
 
             success, err = self.notifier.send_to_friend(uuid, txt)
             if success:
+                logger.log("INFO", "KakaoShare", f"친구({nickname})에게 리포트 전송 성공")
                 messagebox.showinfo("성공", f"{nickname}님에게 리포트를 보냈습니다.")
                 win.destroy()
             else:
+                logger.log("ERROR", "KakaoShare", f"친구 전송 실패: {err}")
                 messagebox.showerror("실패", f"전송 실패: {err}")
 
         ttk.Button(win, text="전송", command=do_send).pack(pady=10)
 
     def share_to_kakao(self):
         """나에게 공유하기"""
+        logger.log("INFO", "UI_Action", "나에게 공유 버튼 클릭")
         if self.df is None or self.df.empty:
+            messagebox.showwarning("경고", "공유할 데이터가 없습니다.")
             return
 
         cur_m = self.shared_month_var.get()
@@ -200,54 +206,6 @@ class TransactionView(ttk.Frame):
         except Exception:
             traceback.print_exc()
 
-        # 2) 각 카테고리(대분류)별 소분류 도표를 모두 캡처
-        def _safe_name(s):
-            s = str(s)
-            for ch in '\\/:*?"<>|':
-                s = s.replace(ch, "_")
-            return s.strip() or "미분류"
-
-        for cat in list(cat_s.keys()):
-            sub = self.dashboard_util.get_sub_category_summary(m_df, cat)
-            if not sub:
-                continue
-
-            fig2 = Figure(figsize=(4, 4), dpi=100)
-            ax2 = fig2.add_subplot(111)
-            labels = list(sub.keys())
-            values = list(sub.values())
-            total = sum(values) or 1
-            legend_labels = [
-                f"{label} ({(val / total * 100.0):.1f}% / {val:,.0f}원)"
-                for label, val in zip(labels, values)
-            ]
-            wedges, texts, autotexts = ax2.pie(
-                values,
-                autopct="%1.1f%%",
-                startangle=90,
-                counterclock=False,
-                wedgeprops={"width": 0.4, "edgecolor": "w"},
-                pctdistance=0.75,
-            )
-            ax2.legend(
-                wedges,
-                legend_labels,
-                title=f"[{cat}] 소분류 (% / 금액)",
-                loc="upper left",
-                bbox_to_anchor=(1, 1),
-                fontsize=8,
-                frameon=False,
-            )
-            plt.setp(autotexts, size=8, weight="bold", color="black")
-            fig2.subplots_adjust(left=0.05, right=0.65, top=0.9, bottom=0.1)
-
-            p_sub = os.path.join(export_dir, f"{ts}_카테고리_{_safe_name(cat)}.png")
-            try:
-                fig2.savefig(p_sub, dpi=150, bbox_inches="tight")
-                paths.append(p_sub)
-            except Exception:
-                traceback.print_exc()
-
         public_base = os.getenv("KAKAO_PUBLIC_IMAGE_BASE_URL", "").strip().rstrip("/")
         image_urls = []
         if public_base and paths:
@@ -262,25 +220,17 @@ class TransactionView(ttk.Frame):
         else:
             succ, err = self.notifier.send_report(txt)
 
-        if not succ and ("유효한 토큰" in err or "인증" in err):
-            if messagebox.askyesno("인증 필요", "카카오 인증 정보가 만료되었습니다. 인증하시겠습니까?"):
-                if self.authenticate_kakao():
-                    self.notifier.send_report(txt)
-        elif succ:
+        if succ:
+            logger.log("INFO", "KakaoShare", "나에게 보내기 성공")
             if image_urls:
                 messagebox.showinfo("성공", f"카카오톡 전송 완료!\n(차트 이미지 {len(image_urls)}장 포함)")
             else:
-                messagebox.showinfo(
-                    "성공",
-                    "카카오톡 전송 완료!\n"
-                    "※ 차트 이미지는 로컬에 저장만 했습니다.\n"
-                    f"- 저장 위치: {export_dir}\n"
-                    "※ 이미지까지 보내려면 KAKAO_PUBLIC_IMAGE_BASE_URL(공개 URL) 설정이 필요합니다.",
-                )
+                messagebox.showinfo("성공", "카카오톡 전송 완료!")
         else:
+            logger.log("ERROR", "KakaoShare", f"나에게 보내기 실패: {err}")
             messagebox.showerror("실패", f"사유: {err}")
 
-    # --- 기존 차트 및 데이터 로드 로직 유지 ---
+    # --- 차트 및 데이터 로드 로직 ---
     def update_dashboard_chart(self):
         self.ax.clear() # 항상 차트 내용 초기화
         self.ax.axis('off') # 기본적으로 축을 끈 상태로 시작
@@ -331,6 +281,7 @@ class TransactionView(ttk.Frame):
             self.canvas.draw()
 
     def reset_chart_view(self):
+        logger.log("INFO", "UI_Action", "차트 전체 보기(초기화) 클릭")
         self.current_chart_category = None; self.btn_chart_back.config(state=tk.DISABLED); self.lbl_chart_title.config(text="월간 카테고리별 지출")
         self.cat_var.set("전체"); self.update_main_tab(); self.update_dashboard_chart()
 
@@ -340,6 +291,7 @@ class TransactionView(ttk.Frame):
             if wedge.contains_point([event.x, event.y]):
                 selected = self.labels_in_chart[i]
                 if self.current_chart_category is None:
+                    logger.log("INFO", "UI_Action", f"차트 카테고리 클릭: {selected}")
                     self.current_chart_category = selected; self.btn_chart_back.config(state=tk.NORMAL)
                     self.lbl_chart_title.config(text=f"[{selected}] 소분류 지출 비율")
                     self.type_var.set("지출"); self.cat_var.set(selected)
@@ -398,13 +350,16 @@ class TransactionView(ttk.Frame):
         self.lbl_expense.config(text=f"{exp:,} 원")
 
     def on_month_change(self, event):
+        selected = self.shared_month_var.get()
+        logger.log("INFO", "UI_Action", f"조회 월 변경: {selected}")
         self.update_dashboard_chart()
         self.update_summary_card()
         self.on_tab_change(None)
 
     def on_tab_change(self, event):
         try:
-            if self.notebook.index('current') == 0: self.update_main_tab()
+            idx = self.notebook.index('current')
+            if idx == 0: self.update_main_tab()
             else: self.update_dup_tab()
         except Exception: pass
 
@@ -513,6 +468,7 @@ class TransactionView(ttk.Frame):
         self.clipboard_clear(); self.clipboard_append("\n".join(rows))
 
     def upload_file(self):
+        logger.log("INFO", "UI_Action", "엑셀 통합 업로드 버튼 클릭")
         path = filedialog.askopenfilename(filetypes=[("Excel Files", "*.xlsx *.xls")])
         if not path: return
         try:
@@ -547,17 +503,26 @@ class TransactionView(ttk.Frame):
                         if new_recs:
                             cursor.executemany("INSERT INTO transactions (transaction_date, transaction_type, description, amount, payment_method) VALUES (%s, %s, %s, %s, %s)", new_recs)
                             conn.commit()
+                            logger.log("INFO", "TransactionDB", f"가계부 내역 {len(new_recs)}건 저장 완료")
+            
+            logger.log("INFO", "FileUpload", f"엑셀 파일 업로드 성공: {os.path.basename(path)}")
             self.load_data_from_db()
             messagebox.showinfo("완료", "데이터 업로드 및 DB 저장이 완료되었습니다.")
         except Exception as e:
+            logger.log("ERROR", "FileUpload", f"업로드 실패: {str(e)}")
             traceback.print_exc(); messagebox.showerror("오류", str(e))
 
     def authenticate_kakao(self):
+        logger.log("INFO", "UI_Action", "카카오 인증 시작")
         uri = os.getenv("KAKAO_REDIRECT_URI", "http://localhost:5000")
         if not self.rest_api_key: return False
         webbrowser.open(f"https://kauth.kakao.com/oauth/authorize?client_id={self.rest_api_key}&redirect_uri={uri}&response_type=code")
         code = simpledialog.askstring("카카오 인증", "로그인 후 브라우저 주소창의 'code=' 뒷부분을 복사해서 입력하세요:")
         if not code: return False
         succ, msg = self.notifier.issue_token(code, uri)
-        if succ: messagebox.showinfo("성공", "카카오 인증 성공!"); return True
-        else: messagebox.showerror("오류", msg); return False
+        if succ: 
+            logger.log("INFO", "KakaoAuth", "카카오 계정 인증 성공")
+            messagebox.showinfo("성공", "카카오 인증 성공!"); return True
+        else: 
+            logger.log("ERROR", "KakaoAuth", f"카카오 인증 실패: {msg}")
+            messagebox.showerror("오류", msg); return False

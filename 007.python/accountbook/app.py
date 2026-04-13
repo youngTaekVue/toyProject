@@ -11,6 +11,7 @@ from ui.LogsView import LogsView
 from ui.SettingsView import SettingsView
 from ui.FinancialStatus import FinancialStatus
 from ui.SpendingManagement import SpendingManagement
+from utils.Logger import logger
 
 class ComplexLayoutApp:
     def __init__(self, root):
@@ -29,6 +30,8 @@ class ComplexLayoutApp:
         
         # 3. 초기 시각 설정 적용 (폰트 등)
         self.apply_visual_settings()
+        
+        logger.log("INFO", "System", "애플리케이션이 시작되었습니다.")
 
     def apply_visual_settings(self):
         """환경 변수에서 설정을 읽어와 폰트를 적용합니다."""
@@ -49,7 +52,7 @@ class ComplexLayoutApp:
         self.root.update_idletasks()
 
     def setup_main_layout(self):
-        # ttkbootstrap은 표준 ttk 위젯을 스타일링하므로 ttk.PanedWinㅁㅁdow를 사용합니다.
+        # ttkbootstrap은 표준 ttk 위젯을 스타일링하므로 ttk.PanedWindow를 사용합니다.
         self.main_pane = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         self.main_pane.pack(fill=tk.BOTH, expand=tk.YES)
 
@@ -70,7 +73,7 @@ class ComplexLayoutApp:
         self.menu_buttons = []
         self.menu_map = {
             "대시보드": DashboardView,
-            "가계": TransactionView,
+            "가계부 내역": TransactionView,
             "월별 지출 관리": SpendingManagement,
             "자산 조회": FinancialStatus,
             "시스템 설정": SettingsView,
@@ -104,8 +107,19 @@ class ComplexLayoutApp:
         # 탭 이벤트 바인딩
         self.notebook.bind("<Button-3>", self.on_tab_right_click)  # 우클릭
         self.notebook.bind("<Button-2>", self.on_tab_middle_click) # 휠 클릭 (Linux/Windows)
+        self.notebook.bind("<<NotebookTabChanged>>", self.on_tab_selection_change)
         
-        self.add_tab("가계", TransactionView)
+        self.add_tab("대시보드", DashboardView)
+
+    def on_tab_selection_change(self, event):
+        """탭이 변경될 때(선택될 때) 로그 기록"""
+        try:
+            current_tab_id = self.notebook.select()
+            if current_tab_id:
+                title = self.notebook.tab(current_tab_id, "text").strip()
+                logger.log("INFO", "Navigation", f"'{title}' 메뉴에 진입했습니다.")
+        except tk.TclError:
+            pass
 
     def on_tab_middle_click(self, event):
         """마우스 휠 클릭 시 해당 탭 닫기"""
@@ -135,7 +149,9 @@ class ComplexLayoutApp:
     def close_tab_by_index(self, index):
         """특정 인덱스의 탭을 닫음 (최소 1개 유지)"""
         if len(self.notebook.tabs()) > 1:
+            title = self.notebook.tab(index, "text").strip()
             self.notebook.forget(index)
+            logger.log("INFO", "Navigation", f"'{title}' 탭을 닫았습니다.")
         else:
             messagebox.showwarning("경고", "최소 하나 이상의 탭은 열려 있어야 합니다.")
 
@@ -145,6 +161,7 @@ class ComplexLayoutApp:
         for tab in self.notebook.tabs():
             if str(tab) != str(current_tab):
                 self.notebook.forget(tab)
+        logger.log("INFO", "Navigation", "현재 탭을 제외한 모든 탭을 닫았습니다.")
 
     def close_all_tabs(self):
         """모든 탭 닫기 시도 (최소 1개는 남김)"""
@@ -157,6 +174,7 @@ class ComplexLayoutApp:
         for i in range(len(tabs) - 1):
             self.notebook.forget(tabs[i])
         messagebox.showinfo("알림", "최소 유지 조건에 따라 마지막 탭은 남겨두었습니다.")
+        logger.log("INFO", "Navigation", "모든 탭을 닫았습니다. (마지막 탭 제외)")
 
     def add_tab(self, title, view_cls):
         for tab in self.notebook.tabs():
@@ -171,6 +189,7 @@ class ComplexLayoutApp:
             
         self.notebook.add(new_view, text=f" {title} ")
         self.notebook.select(new_view)
+        # 진입 로그는 on_tab_selection_change에서 처리됨
 
     # --- 드래그 앤 드롭 로직 ---
     def on_drag_start(self, event):

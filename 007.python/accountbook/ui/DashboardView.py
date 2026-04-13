@@ -10,8 +10,8 @@ class DashboardView(ttk.Frame):
         # 1. 대시보드 전체 레이아웃 (2행 구성)
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=0) # 헤더
-        self.rowconfigure(1, weight=1) # 상단 (지출상세 + Top5)
-        self.rowconfigure(2, weight=1) # 하단 (지출 추이 + 카테고리 분석)
+        self.rowconfigure(1, weight=5) # 상단 (지출상세 + Top5) - 높이 비중 확대
+        self.rowconfigure(2, weight=4) # 하단 (지출 추이)
 
         # 2. 객체 생성
         self.tv = TransactionView(self)
@@ -42,10 +42,10 @@ class DashboardView(ttk.Frame):
         self.tv.main_frame.columnconfigure(0, weight=3)
         self.tv.main_frame.columnconfigure(1, weight=2)
 
-        # 5. [하단 영역] SpendingManagement 활용 (지출 추이 + 카테고리 분석)
-        # KPI와 Top 5를 제외한 차트와 카테고리 분석만 표시
+        # 5. [하단 영역] SpendingManagement 활용 (지출 추이)
+        # KPI, Top 5, 카테고리 분석을 제외한 차트만 표시
         # 차트 클릭 시 DashboardView의 _on_month_change를 호출하도록 콜백 전달
-        self.sm = SpendingManagement(self, display_sections=['chart', 'category_analysis'], on_month_select=self._on_month_change)
+        self.sm = SpendingManagement(self, display_sections=['chart'], on_month_select=self._on_month_change)
         self.sm.grid(row=2, column=0, sticky="nsew", padx=10, pady=5)
 
         self._sync_month_selector()
