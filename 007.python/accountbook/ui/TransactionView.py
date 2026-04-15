@@ -209,7 +209,6 @@ class TransactionView(ttk.Frame):
         cur_m = self.shared_month_var.get(); m_df = self.df[self.df['월'] == cur_m]
         trans_df = m_df[m_df['대분류'] == '교통'].copy()
         if trans_df.empty: return
-        logger.log("INFO", "Analysis", f"--- [{cur_m}] 교통 카테고리 전수 조사 ---")
         for _, r in trans_df.sort_values(by='abs_amt', ascending=False).head(15).iterrows():
             f = "[취소됨]" if r['is_cancel'] else ("[이중지출]" if r['is_double_count'] else "[정상]")
             logger.log("INFO", "Analysis", f"{f} {r['일시']} | {r['내용']} | {r['금액']:,}원")
@@ -278,9 +277,7 @@ class TransactionView(ttk.Frame):
             bs_sheet = get_sheet("뱅샐현황")
             if bs_sheet:
                 f_df = excel_data[bs_sheet]
-                FinancialUtil.save_financial_data([(FinancialUtil.extract_section(f_df, "자산", 1, 4), "자산"), (FinancialUtil.extract_section(f_df, "부채", 5, 7), "부채")])
-                FinancialUtil.save_insurance_data(FinancialUtil.extract_section(f_df, "보험현황"))
-                FinancialUtil.save_investment_data(FinancialUtil.extract_section(f_df, "투자현황"))
+                FinancialUtil.process_bank_status_sheet(f_df)
             acc_sheet = get_sheet("가계부 내역")
             if acc_sheet:
                 df = self.dashboard_util.process_excel_data(excel_data[acc_sheet])
