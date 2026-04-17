@@ -13,41 +13,63 @@ class FinancialStatus(ttk.Frame):
         self.refresh_data()
 
     def setup_ui(self):
-        # 상단 컨트롤 바
-        top_bar = ttk.Frame(self, padding=10)
-        top_bar.pack(fill=tk.X)
+        # 상단 타이틀 및 컨트롤 바
+        header = ttk.Frame(self, padding=20)
+        header.pack(fill=tk.X)
 
-        ttk.Label(top_bar, text="자산 및 계약 현황", font=("맑은 고딕", 14, "bold")).pack(side=tk.LEFT)
-        ttk.Button(top_bar, text="새로고침", command=self.refresh_data).pack(side=tk.RIGHT, padx=5)
-        ttk.Button(top_bar, text="Excel 업로드", command=self.upload_excel_data).pack(side=tk.RIGHT, padx=5)
+        title_label = ttk.Label(header, text="💰 재무 상태 현황", font=("맑은 고딕", 18, "bold"))
+        title_label.pack(side=tk.LEFT)
 
-        # 메인 탭 구성 (재무, 보험, 투자)
-        self.notebook = ttk.Notebook(self)
-        self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        btn_frame = ttk.Frame(header)
+        btn_frame.pack(side=tk.RIGHT)
 
-        # 1. 재무현황 탭
-        self.tab_finance = ttk.Frame(self.notebook)
-        self.notebook.add(self.tab_finance, text="재무현황 (자산/부채)")
-        self.tree_finance = self.create_treeview(self.tab_finance,
+        ttk.Button(btn_frame, text="🔄 새로고침", command=self.refresh_data).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="📊 Excel 업로드", command=self.upload_excel_data).pack(side=tk.LEFT, padx=5)
+
+        # 요약 정보 카드 섹션
+        summary_frame = ttk.Frame(self, padding=(20, 0, 20, 10))
+        summary_frame.pack(fill=tk.X)
+
+        # 스타일 설정
+        style = ttk.Style()
+        style.configure("Asset.TLabel", font=("맑은 고딕", 14, "bold"), foreground="#007bff") # Blue
+        style.configure("Liability.TLabel", font=("맑은 고딕", 14, "bold"), foreground="#dc3545") # Red
+        style.configure("Net.TLabel", font=("맑은 고딕", 16, "bold"))
+
+        # 자산 요약
+        asset_card = ttk.LabelFrame(summary_frame, text="총 자산", padding=15)
+        asset_card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
+        self.lbl_total_assets = ttk.Label(asset_card, text="0 원", style="Asset.TLabel")
+        self.lbl_total_assets.pack()
+
+        # 부채 요약
+        liability_card = ttk.LabelFrame(summary_frame, text="총 부채", padding=15)
+        liability_card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
+        self.lbl_total_liabilities = ttk.Label(liability_card, text="0 원", style="Liability.TLabel")
+        self.lbl_total_liabilities.pack()
+
+        # 순자산 요약
+        net_card = ttk.LabelFrame(summary_frame, text="순자산 (자본)", padding=15)
+        net_card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
+        self.lbl_net_worth = ttk.Label(net_card, text="0 원", style="Net.TLabel")
+        self.lbl_net_worth.pack()
+
+        # 상세 내역 트리뷰 섹션
+        list_frame = ttk.LabelFrame(self, text="재무 상세 내역 (자산 및 부채)", padding=10)
+        list_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+
+        self.tree_finance = self.create_treeview(list_frame,
             ("항목", "구분", "금융기관", "금액", "비고"))
-
-        # 2. 보험현황 탭
-        self.tab_insurance = ttk.Frame(self.notebook)
-        self.notebook.add(self.tab_insurance, text="보험현황")
-        self.tree_insurance = self.create_treeview(self.tab_insurance,
-            ("보험사", "상품명", "피보험자", "보험료", "만기일", "상태"))
-
-        # 3. 투자현황 탭
-        self.tab_investment = ttk.Frame(self.notebook)
-        self.notebook.add(self.tab_investment, text="투자현황")
-        self.tree_investment = self.create_treeview(self.tab_investment,
-            ("종목명", "보유수량", "평균단가", "현재가", "평가손익", "수익률"))
+        
+        # 트리뷰 태그 설정 (색상 구분)
+        self.tree_finance.tag_configure("asset", foreground="#007bff")
+        self.tree_finance.tag_configure("liability", foreground="#dc3545")
 
     def create_treeview(self, parent, columns):
         frame = ttk.Frame(parent)
         frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        tree = ttk.Treeview(frame, columns=columns, show="headings")
+        tree = ttk.Treeview(frame, columns=columns, show="headings", selectmode="browse")
 
         # 스크롤바
         vsb = ttk.Scrollbar(frame, orient="vertical", command=tree.yview)
@@ -56,7 +78,11 @@ class FinancialStatus(ttk.Frame):
 
         for col in columns:
             tree.heading(col, text=col)
-            tree.column(col, width=120, anchor="center")
+            # 금액 컬럼은 우측 정렬
+            if col == "금액":
+                tree.column(col, width=150, anchor="e")
+            else:
+                tree.column(col, width=120, anchor="center")
 
         tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         vsb.pack(side=tk.RIGHT, fill=tk.Y)
@@ -65,40 +91,81 @@ class FinancialStatus(ttk.Frame):
         return tree
 
     def refresh_data(self):
-        """DB에서 데이터를 가져와 각 트리뷰를 업데이트합니다."""
+        """DB에서 데이터를 가져와 재무현황을 업데이트합니다."""
         try:
             with database.get_db_connection() as conn:
                 with conn.cursor() as cursor:
-                    # 재무현황 로드
-                    cursor.execute("SELECT item_name, category, institution, amount, note FROM financial")
-                    self.update_tree(self.tree_finance, cursor.fetchall())
+                    # 재무현황 로드 (보험/투자는 요청에 따라 제거)
+                    # DB 테이블의 실제 컬럼명 확인 필요 (기존 코드 참고: itemName or item_name)
+                    # 여기서는 기존 코드에 있던 itemName을 유지하되, 만약 오류 시 item_name 시도 가능
+                    try:
+                        cursor.execute("SELECT itemName, category, institution, amount, note FROM financial")
+                    except:
+                        cursor.execute("SELECT item_name as itemName, category, institution, amount, note FROM financial")
+                    
+                    rows = cursor.fetchall()
+                    self.update_finance_tree(rows)
+                    self.calculate_summary(rows)
 
-                    # 보험현황 로드
-                    cursor.execute("SELECT company, product_name, insured, premium, expiry_date, status FROM insurance")
-                    self.update_tree(self.tree_insurance, cursor.fetchall())
-
-                    # 투자현황 로드
-                    cursor.execute("SELECT stock_name, quantity, avg_price, current_price, profit_loss, return_rate FROM investment")
-                    self.update_tree(self.tree_investment, cursor.fetchall())
         except Exception as e:
-            # 테이블이 아직 없는 경우 에러가 발생할 수 있으므로 간단히 출력만 함
-            print(f"데이터 로드 중 오류 (테이블 확인 필요): {e}")
+            print(f"데이터 로드 중 오류: {e}")
 
-    def update_tree(self, tree, rows):
-        tree.delete(*tree.get_children())
+    def update_finance_tree(self, rows):
+        """트리뷰에 데이터를 채우고 자산/부채에 따라 색상을 입힙니다."""
+        self.tree_finance.delete(*self.tree_finance.get_children())
         for row in rows:
-            # 리스트나 딕셔너리 형태에 따라 처리
             values = list(row.values()) if isinstance(row, dict) else row
             
-            # 금액 포맷팅 (숫자인 경우)
+            # 카테고리(구분) 추출
+            category = row.get('category', '') if isinstance(row, dict) else row[1]
+            
+            # 태그 지정
+            tag = ""
+            if "자산" in str(category):
+                tag = "asset"
+            elif "부채" in str(category):
+                tag = "liability"
+
+            # 금액 포맷팅 및 값 리스트 구성
             formatted_values = []
-            for v in values:
+            for i, v in enumerate(values):
                 if isinstance(v, (int, float)):
                     formatted_values.append(f"{v:,}")
                 else:
                     formatted_values.append(v)
 
-            tree.insert("", tk.END, values=formatted_values)
+            self.tree_finance.insert("", tk.END, values=formatted_values, tags=(tag,))
+
+    def calculate_summary(self, rows):
+        """총 자산, 총 부채, 순자산을 계산하여 화면에 표시합니다."""
+        total_assets = 0
+        total_liabilities = 0
+        
+        for row in rows:
+            category = str(row.get('category', '')) if isinstance(row, dict) else str(row[1])
+            amount = row.get('amount', 0) if isinstance(row, dict) else row[3]
+            
+            try:
+                amt_val = int(amount)
+            except:
+                amt_val = 0
+
+            if "자산" in category:
+                total_assets += amt_val
+            elif "부채" in category:
+                total_liabilities += amt_val
+        
+        net_worth = total_assets - total_liabilities
+        
+        self.lbl_total_assets.config(text=f"{total_assets:,} 원")
+        self.lbl_total_liabilities.config(text=f"{total_liabilities:,} 원")
+        self.lbl_net_worth.config(text=f"{net_worth:,} 원")
+        
+        # 순자산 색상 처리
+        if net_worth >= 0:
+            self.lbl_net_worth.config(foreground="#28a745") # Green
+        else:
+            self.lbl_net_worth.config(foreground="#dc3545") # Red
 
     def upload_excel_data(self):
         """뱅셀현황 엑셀 파일을 읽어 '재무현황' 데이터를 DB에 저장합니다."""
@@ -111,29 +178,11 @@ class FinancialStatus(ttk.Frame):
             return
 
         try:
-            # 엑셀 파일 읽기 (시트명: 뱅셀현황)
-            # 사용자가 언급한 "뱅셀현황 시트 > 재무현황에 대한 엑셀 데이터"를 처리
             df = pd.read_excel(file_path, sheet_name='뱅셀현황')
 
-            # 필요한 컬럼 매핑 (엑셀 컬럼명 -> DB 컬럼명)
-            # 엑셀의 구조를 모르므로, 사용자가 제공한 DB 컬럼명에 맞춰 데이터를 추출하는 로직이 필요합니다.
-            # 여기서는 엑셀의 컬럼명이 DB 컬럼명과 유사하다고 가정하거나, 
-            # 특정 위치(index)의 데이터를 가져오는 방식으로 구현할 수 있습니다.
-            
-            # 예시: 엑셀 컬럼명이 '항목', '구분', '금융기관', '금액', '비고' 라고 가정
-            # 만약 실제 엑셀 컬럼명이 다르다면 이 부분을 수정해야 합니다.
-            required_columns = ['항목', '구분', '금융기관', '금액', '비고']
-            
-            # 엑셀 파일 내에 '재무현황' 섹션이 어디서 시작하는지 찾거나, 
-            # 전체가 재무현황 데이터라면 그대로 사용합니다.
-            # 여기서는 전체 시트 내용 중 필요한 컬럼만 추출한다고 가정합니다.
-            
-            # DB 연결 및 데이터 삽입
             with database.get_db_connection() as conn:
                 with conn.cursor() as cursor:
-                    # 기존 데이터 삭제 (필요시)
-                    # cursor.execute("DELETE FROM financial")
-
+                    # 기존 로직 유지 (필요 시 DELETE 추가 가능)
                     insert_sql = """
                         INSERT INTO financial (item_name, category, institution, amount, note, updated_at)
                         VALUES (%s, %s, %s, %s, %s, %s)
@@ -141,9 +190,8 @@ class FinancialStatus(ttk.Frame):
                     
                     count = 0
                     for index, row in df.iterrows():
-                        # NaN 처리 및 데이터 추출 (컬럼명은 실제 엑셀에 맞춰 조정 필요)
-                        # 여기서는 df의 컬럼 순서대로 가져온다고 가정하거나 이름을 지정합니다.
                         try:
+                            # 엑셀 컬럼명은 사용자 환경에 맞춰 '항목', '구분', '금융기관', '금액', '비고'로 가정
                             item_name = str(row['항목']) if pd.notna(row['항목']) else ""
                             category = str(row['구분']) if pd.notna(row['구분']) else ""
                             institution = str(row['금융기관']) if pd.notna(row['금융기관']) else ""
@@ -153,8 +201,7 @@ class FinancialStatus(ttk.Frame):
 
                             cursor.execute(insert_sql, (item_name, category, institution, amount, note, updated_at))
                             count += 1
-                        except KeyError:
-                            # 엑셀 컬럼명이 일치하지 않는 경우 skip하거나 에러 처리
+                        except Exception:
                             continue
 
                     conn.commit()

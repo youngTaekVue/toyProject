@@ -124,7 +124,10 @@ class SpendingManagement(ttk.Frame):
             self.tree_merchants.heading("cat", text="카테고리")
             self.tree_merchants.heading("merchant", text="소비처")
             self.tree_merchants.heading("amount", text="금액")
-            for col in ("cat", "merchant", "amount"): self.tree_merchants.column(col, width=80, anchor="center")
+            #for col in ("cat", "amount"): self.tree_merchants.column(col, width=80, anchor="center")
+            self.tree_merchants.column("cat", width=80, anchor="center")
+            self.tree_merchants.column("merchant", width=80, anchor="w")
+            self.tree_merchants.column("amount", width=80, anchor="e")
             self.tree_merchants.pack(fill=tk.BOTH, expand=True)
 
         if 'ai_advice' in self.display_sections:
