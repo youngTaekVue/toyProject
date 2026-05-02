@@ -3,6 +3,10 @@ import io
 import requests
 import webbrowser
 import json
+import threading
+import http.server
+import socketserver
+from urllib.parse import urlparse, parse_qs
 import pandas as pd
 from dotenv import load_dotenv
 import tkinter as tk
@@ -115,6 +119,11 @@ class TransactionView(ttk.Frame):
             txt = f"[{cur_m} 가계부 요약]\n💰 총 수입: {inc:,}원\n💸 총 지출: {exp:,}원\n--------------------\n[카테고리별 지출]\n"
             for c, a in cat_s.items(): txt += f"• {c}: {a:,}원\n"
             succ, err = self.notifier.send_to_friend(uuid, txt)
+            if (not succ) and ("인증 필요" in str(err or "")):
+                if not self.authenticate_kakao():
+                    messagebox.showerror("실패", "카카오 인증이 필요합니다.\n브라우저에서 인증 후 코드를 입력해 주세요.")
+                    return
+                succ, err = self.notifier.send_to_friend(uuid, txt)
             if succ:
                 logger.log("INFO", "KakaoShare", f"친구({nick}) 전송 성공")
                 messagebox.showinfo("성공", f"{nick}님에게 전송 완료"); win.destroy()
@@ -131,6 +140,11 @@ class TransactionView(ttk.Frame):
         txt = f"[{cur_m} 가계부 요약]\n💰 총 수입: {inc:,}원\n💸 총 지출: {exp:,}원\n--------------------\n[카테고리별 지출]\n"
         for c, a in cat_s.items(): txt += f"• {c}: {a:,}원\n"
         succ, err = self.notifier.send_report(txt)
+        if (not succ) and ("인증 필요" in str(err or "")):
+            if not self.authenticate_kakao():
+                messagebox.showerror("실패", "카카오 인증이 필요합니다.\n브라우저에서 인증 후 코드를 입력해 주세요.")
+                return
+            succ, err = self.notifier.send_report(txt)
         if succ:
             logger.log("INFO", "KakaoShare", "나에게 보내기 성공")
             messagebox.showinfo("성공", "카카오톡 전송 완료")
@@ -296,10 +310,92 @@ class TransactionView(ttk.Frame):
 
     def authenticate_kakao(self):
         uri = os.getenv("KAKAO_REDIRECT_URI", "http://localhost:5000")
-        if not self.rest_api_key: return False
-        webbrowser.open(f"https://kauth.kakao.com/oauth/authorize?client_id={self.rest_api_key}&redirect_uri={uri}&response_type=code")
-        code = simpledialog.askstring("카카오 인증", "코드 입력:")
-        if not code: return False
+        if not self.rest_api_key:
+            messagebox.showerror("오류", "KAKAO_REST_API_KEY가 설정되어 있지 않습니다(.env 확인).")
+            return False
+
+        auth_url = self.notifier.get_authorize_url(uri)
+        if not auth_url:
+            messagebox.showerror("오류", "인증 URL 생성에 실패했습니다(rest_api_key 확인).")
+            return False
+
+        # redirect_uri로 넘어오는 http://localhost:5000/?code=... 를 자동으로 수신
+        parsed = urlparse(uri)
+        host = parsed.hostname or "localhost"
+        port = parsed.port or 5000
+
+        code_holder = {"code": None, "error": None}
+        got_code = threading.Event()
+
+        class OAuthHandler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                try:
+                    q = parse_qs(urlparse(self.path).query)
+                    code = (q.get("code") or [None])[0]
+                    err = (q.get("error") or [None])[0]
+                    if code:
+                        code_holder["code"] = code
+                    elif err:
+                        code_holder["error"] = err
+                    got_code.set()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/html; charset=utf-8")
+                    self.end_headers()
+                    self.wfile.write(
+                        "<html><body><h3>인증 완료</h3><p>이 창은 닫아도 됩니다.</p></body></html>".encode("utf-8")
+                    )
+                except Exception as e:
+                    code_holder["error"] = str(e)
+                    got_code.set()
+                finally:
+                    # 다음 요청을 기다리지 않고 서버 종료
+                    threading.Thread(target=self.server.shutdown, daemon=True).start()
+
+            def log_message(self, format, *args):
+                return  # 콘솔 로그 억제
+
+        try:
+            socketserver.TCPServer.allow_reuse_address = True
+            httpd = socketserver.TCPServer((host, port), OAuthHandler)
+        except Exception:
+            httpd = None
+
+        if httpd:
+            server_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+            server_thread.start()
+
+        opened = self.notifier.open_authorize_page(uri)
+        if not opened:
+            # 브라우저 자동 오픈이 막힌 환경 대비: URL 안내 + 클립보드 복사
+            try:
+                self.clipboard_clear()
+                self.clipboard_append(auth_url)
+                self.update()
+                copied = True
+            except Exception:
+                copied = False
+            msg = "브라우저를 자동으로 열지 못했습니다.\n아래 URL을 브라우저에 붙여넣어 인증을 진행해 주세요."
+            if copied:
+                msg += "\n\n(인증 URL을 클립보드에 복사했습니다.)"
+            messagebox.showinfo("카카오 인증", f"{msg}\n\n{auth_url}")
+
+        code = None
+        if httpd:
+            # 최대 2분 대기(사용자가 로그인/동의하는 시간)
+            got = got_code.wait(timeout=120)
+            try:
+                httpd.server_close()
+            except Exception:
+                pass
+            if got and code_holder.get("code"):
+                code = code_holder["code"]
+
+        # 자동 수신 실패 시 수동 입력으로 폴백
+        if not code:
+            code = simpledialog.askstring("카카오 인증", "코드 입력:")
+        if not code:
+            return False
+
         succ, msg = self.notifier.issue_token(code, uri)
         if succ: messagebox.showinfo("성공", "인증 성공"); return True
         else: messagebox.showerror("오류", msg); return False
