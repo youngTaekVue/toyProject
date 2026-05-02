@@ -48,7 +48,7 @@ class TransactionView(ttk.Frame):
     def setup_ui(self):
         # 1. 상단 바
         self.top_bar = ttk.Frame(self, padding=10); self.top_bar.pack(fill=tk.X)
-        ttk.Button(self.top_bar, text="엑셀 통합 업로드", command=self.upload_file).pack(side=tk.LEFT, padx=5)
+        ttk.Button(self.top_bar, text="가계부 엑셀 업로드", command=self.upload_file).pack(side=tk.LEFT, padx=5)
         ttk.Button(self.top_bar, text="나에게 공유", command=self.share_to_kakao).pack(side=tk.LEFT, padx=5)
         ttk.Button(self.top_bar, text="친구에게 공유", command=self.share_to_friend).pack(side=tk.LEFT, padx=5)
 
@@ -274,10 +274,8 @@ class TransactionView(ttk.Frame):
         try:
             excel_data = pd.read_excel(path, sheet_name=None, header=None)
             def get_sheet(kw): return next((s for s in excel_data.keys() if kw in str(s).strip()), None)
-            bs_sheet = get_sheet("뱅샐현황")
-            if bs_sheet:
-                f_df = excel_data[bs_sheet]
-                FinancialUtil.process_bank_status_sheet(f_df)
+            # 재무현황(뱅샐현황) 업로드는 FinancialStatus 화면에서 처리합니다.
+            # TransactionView에서는 가계부 내역(거래내역)만 업로드합니다.
             acc_sheet = get_sheet("가계부 내역")
             if acc_sheet:
                 df = self.dashboard_util.process_excel_data(excel_data[acc_sheet])
@@ -293,7 +291,7 @@ class TransactionView(ttk.Frame):
                         if new_recs:
                             cursor.executemany("INSERT INTO transactions (transaction_date, transaction_type, description, amount, payment_method) VALUES (%s, %s, %s, %s, %s)", new_recs)
                             conn.commit(); logger.log("INFO", "TransactionDB", f"가계부 내역 {len(new_recs)}건 저장 완료")
-            logger.log("INFO", "FileUpload", f"엑셀 업로드 성공"); self.load_data_from_db(); messagebox.showinfo("완료", "데이터 업로드 완료")
+            logger.log("INFO", "FileUpload", f"엑셀 업로드 성공"); self.load_data_from_db(); messagebox.showinfo("완료", "가계부 내역 업로드 완료\n(재무현황 업로드는 '재무 상태 현황'에서 진행)")
         except Exception: traceback.print_exc()
 
     def authenticate_kakao(self):

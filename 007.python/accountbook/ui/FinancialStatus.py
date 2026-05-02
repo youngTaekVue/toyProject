@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox, filedialog
 import pandas as pd
 import database
 from datetime import datetime
+from utils.FinancialUtil import FinancialUtil
 
 class FinancialStatus(ttk.Frame):
     def __init__(self, parent):
@@ -35,6 +36,9 @@ class FinancialStatus(ttk.Frame):
         style.configure("Asset.TLabel", font=("맑은 고딕", 14, "bold"), foreground="#007bff") # Blue
         style.configure("Liability.TLabel", font=("맑은 고딕", 14, "bold"), foreground="#dc3545") # Red
         style.configure("Net.TLabel", font=("맑은 고딕", 16, "bold"))
+        # 트리뷰 가독성 개선 (행 높이/폰트/헤더 폰트)
+        style.configure("Finance.Treeview", font=("맑은 고딕", 10), rowheight=26)
+        style.configure("Finance.Treeview.Heading", font=("맑은 고딕", 10, "bold"))
 
         # 자산 요약
         asset_card = ttk.LabelFrame(summary_frame, text="총 자산", padding=15)
@@ -69,7 +73,7 @@ class FinancialStatus(ttk.Frame):
         frame = ttk.Frame(parent)
         frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        tree = ttk.Treeview(frame, columns=columns, show="headings", selectmode="browse")
+        tree = ttk.Treeview(frame, columns=columns, show="headings", selectmode="browse", style="Finance.Treeview")
 
         # 스크롤바
         vsb = ttk.Scrollbar(frame, orient="vertical", command=tree.yview)
@@ -78,15 +82,26 @@ class FinancialStatus(ttk.Frame):
 
         for col in columns:
             tree.heading(col, text=col)
-            # 금액 컬럼은 우측 정렬
-            if col == "금액":
-                tree.column(col, width=150, anchor="e")
+            # 컬럼 폭/정렬 재조정 (깨져보이는 느낌 완화)
+            if col == "항목":
+                tree.column(col, width=280, minwidth=200, anchor="w", stretch=True)
+            elif col == "구분":
+                tree.column(col, width=80, minwidth=70, anchor="center", stretch=False)
+            elif col == "금융기관":
+                tree.column(col, width=160, minwidth=120, anchor="center", stretch=False)
+            elif col == "금액":
+                tree.column(col, width=140, minwidth=120, anchor="e", stretch=False)
+            elif col == "비고":
+                tree.column(col, width=200, minwidth=140, anchor="w", stretch=True)
             else:
                 tree.column(col, width=120, anchor="center")
 
-        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        vsb.pack(side=tk.RIGHT, fill=tk.Y)
-        hsb.pack(side=tk.BOTTOM, fill=tk.X)
+        # pack 대신 grid로 스크롤바/트리 배치 안정화
+        frame.rowconfigure(0, weight=1)
+        frame.columnconfigure(0, weight=1)
+        tree.grid(row=0, column=0, sticky="nsew")
+        vsb.grid(row=0, column=1, sticky="ns")
+        hsb.grid(row=1, column=0, columnspan=2, sticky="ew")
 
         return tree
 
@@ -168,9 +183,9 @@ class FinancialStatus(ttk.Frame):
             self.lbl_net_worth.config(foreground="#dc3545") # Red
 
     def upload_excel_data(self):
-        """뱅셀현황 엑셀 파일을 읽어 '재무현황' 데이터를 DB에 저장합니다."""
+        """뱅샐현황 엑셀 파일을 읽어 '재무현황' 데이터를 DB에 저장합니다."""
         file_path = filedialog.askopenfilename(
-            title="뱅셀현황 엑셀 파일 선택",
+            title="뱅샐현황 엑셀 파일 선택",
             filetypes=[("Excel files", "*.xlsx *.xls")]
         )
 
@@ -178,33 +193,10 @@ class FinancialStatus(ttk.Frame):
             return
 
         try:
-            df = pd.read_excel(file_path, sheet_name='뱅셀현황')
-
-            with database.get_db_connection() as conn:
-                with conn.cursor() as cursor:
-                    # 기존 로직 유지 (필요 시 DELETE 추가 가능)
-                    insert_sql = """
-                        INSERT INTO financial (item_name, category, institution, amount, note, updated_at)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                    """
-                    
-                    count = 0
-                    for index, row in df.iterrows():
-                        try:
-                            # 엑셀 컬럼명은 사용자 환경에 맞춰 '항목', '구분', '금융기관', '금액', '비고'로 가정
-                            item_name = str(row['항목']) if pd.notna(row['항목']) else ""
-                            category = str(row['구분']) if pd.notna(row['구분']) else ""
-                            institution = str(row['금융기관']) if pd.notna(row['금융기관']) else ""
-                            amount = int(row['금액']) if pd.notna(row['금액']) else 0
-                            note = str(row['비고']) if pd.notna(row['비고']) else ""
-                            updated_at = datetime.now()
-
-                            cursor.execute(insert_sql, (item_name, category, institution, amount, note, updated_at))
-                            count += 1
-                        except Exception:
-                            continue
-
-                    conn.commit()
+            # 템플릿(좌:자산/우:부채) 형태는 컬럼이 정리되어 있지 않아서 header=None으로 원본 형태를 유지
+            df_raw = pd.read_excel(file_path, sheet_name='뱅샐현황', header=None)
+            rows = FinancialUtil.parse_financial_status_table(df_raw)
+            count = FinancialUtil.save_financial_rows(rows, truncate=True)
             
             messagebox.showinfo("완료", f"{count}건의 재무현황 데이터가 업로드되었습니다.")
             self.refresh_data()
