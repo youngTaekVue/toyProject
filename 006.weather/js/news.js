@@ -32,19 +32,17 @@ async function fetchNewsData(param) {
 
             // `data.items` 배열의 각 항목을 순회합니다.
             data.items.forEach(item => {
-                //     console.log(`Title: ${item.title}, Link: ${item.link}`);
-
                 // 📌 반복문 안에서 각 항목별로 새로운 HTML 요소를 생성합니다.
                 const newsItem = document.createElement('div');
-                newsItem.classList.add('col-12', 'mb-3'); // Bootstrap 그리드 클래스 추가
+                newsItem.classList.add('col-12', 'mb-2'); // Bootstrap 그리드 클래스 추가
 
                 // 템플릿 리터럴을 사용해 HTML 내용을 구성합니다.
                 // ${item.title}와 ${item.link}를 사용해 동적 데이터 삽입
                 newsItem.innerHTML = `
-                    <div class="card shadow-sm h-100 default-card">
+                    <div class="card shadow-sm">
                         <div class="card-body">
-                            <h6 class="card-subtitle mb-2 text-body-secondary">${item.title}</h6>
-                            <a href="${item.link}" class="card-link" target="_blank">기사 보러 가기</a>
+                            <h6 class="card-subtitle mb-2 text-dark" style="font-weight: 600;">${item.title}</h6>
+                            <a href="${item.link}" class="card-link text-primary" target="_blank" style="text-decoration: none;">기사 보러 가기 &rarr;</a>
                         </div>
                     </div>
                 `;

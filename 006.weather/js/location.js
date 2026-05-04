@@ -6,7 +6,7 @@ const districtSelect = document.getElementById('districtSelect');
 
 document.addEventListener('DOMContentLoaded', () => {
     //console.log('DOMContentLoaded');
-    fetch('./file/coordinate.csv')
+    fetch('./files/coordinate.csv')
         .then(response => {
             if (!response.ok) {
                 throw new Error('Network response was not ok');

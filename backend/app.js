@@ -1,43 +1,40 @@
 const express = require('express');
 const app = express();
-const port = 3000;
 require('dotenv').config();
 
 const cors = require('cors');
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
  
 const corsOptions = {
-    // 여러 도메인을 허용하기 위해 origin 값을 배열로 변경합니다.
     origin: ['http://localhost:63342','http://localhost:3000'],
-    optionsSuccessStatus: 200 // 일부 레거시 브라우저 지원
+    optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
 
-// news 라우트 파일 불러오기
+// 라우터 불러오기
 const commonRouter = require('./routes/common');
 const weatherRouter = require('./routes/weather');
 const newsRouter = require('./routes/news');
 const calendarRouter = require('./routes/calendar');
-const mapkeyRouter = require('./routes/getmapkey');
-const eatateRouter = require('./routes/geteatate');
-
-// news 라우트 파일 불러오기
+const mapkeyRouter = require('./routes/mapkey');
+const busRouter = require('./routes/bus');
 const pythonRouter = require('./routes/python');
 
+app.use(express.json()); // JSON 형식 요청 본문 처리
+app.use(express.static('public')); // 정적 파일 서비스
 
-
-app.use(express.json()); //JSON 형식
-app.use(express.static('public'))
-
-
+// 라우터 마운트
 app.use('/api', commonRouter);
 app.use('/weather', weatherRouter);
 app.use('/news', newsRouter);
 app.use('/calendar', calendarRouter);
 app.use('/mapkey', mapkeyRouter);
-app.use('/eatate', eatateRouter);
+app.use('/bus', busRouter);
 app.use('/python', pythonRouter);
 
-// app.js (또는 서버 설정 파일)의 맨 마지막에 추가
-// 이렇게 하면 www.js가 이 Express 앱 인스턴스를 가져와 사용할 수 있습니다.
+// 에러 핸들링 미들웨어 (기본 예시)
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).send('서버 내부에서 오류가 발생했습니다.');
+});
+
 module.exports = app;

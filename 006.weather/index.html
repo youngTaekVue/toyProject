@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Soft UI Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div>
+                <div class="sidebar-header">
+                    <div class="logo-icon"><i class="fas fa-bolt"></i></div>
+                    <h2>SOFT UI PRO</h2>
+                </div>
+                <nav class="sidebar-nav">
+                    <ul>
+                        <li><a href="#" class="active"><i class="fas fa-th-large"></i> <span>Dashboard</span></a></li>
+                        <li><a href="#"><i class="fas fa-chart-bar"></i> <span>Analytics</span></a></li>
+                        <li><a href="#"><i class="fas fa-wallet"></i> <span>Billing</span></a></li>
+                        <li><a href="#"><i class="fas fa-user-circle"></i> <span>Profile</span></a></li>
+                        <li><a href="#"><i class="fas fa-cog"></i> <span>Settings</span></a></li>
+                    </ul>
+                </nav>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="help-box">
+                    <div class="help-icon"><i class="fas fa-star"></i></div>
+                    <h3>Upgrade to PRO</h3>
+                    <p>Check our documentation</p>
+                    <button class="documentation-btn">GET STARTED</button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="main-header">
+                <div class="header-title">
+                    <p class="breadcrumb">Pages / Dashboard</p>
+                    <h1>Main Dashboard</h1>
+                </div>
+                <div class="header-actions">
+                    <div class="search-wrapper">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Type here..." class="neumorphic-input">
+                    </div>
+                    <button class="neumorphic-btn accent-btn"><i class="fas fa-plus"></i> NEW POST</button>
+                    <div class="icon-actions">
+                        <button class="icon-btn"><i class="fas fa-bell"></i></button>
+                        <button class="icon-btn"><i class="fas fa-cog"></i></button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Summary Cards -->
+            <section class="summary-cards">
+                <div class="card neumorphic-card">
+                    <div class="card-content">
+                        <h3>Today's Money</h3>
+                        <p class="card-value">$53,000 <span class="growth-positive">+55%</span></p>
+                    </div>
+                    <div class="card-icon money-icon"><i class="fas fa-coins"></i></div>
+                </div>
+                <div class="card neumorphic-card">
+                    <div class="card-content">
+                        <h3>Today's Users</h3>
+                        <p class="card-value">2,300 <span class="growth-positive">+3%</span></p>
+                    </div>
+                    <div class="card-icon user-icon"><i class="fas fa-users"></i></div>
+                </div>
+                <div class="card neumorphic-card">
+                    <div class="card-content">
+                        <h3>New Clients</h3>
+                        <p class="card-value">3,462 <span class="growth-negative">-2%</span></p>
+                    </div>
+                    <div class="card-icon client-icon"><i class="fas fa-user-plus"></i></div>
+                </div>
+                <div class="card neumorphic-card">
+                    <div class="card-content">
+                        <h3>Total Sales</h3>
+                        <p class="card-value">$103,430 <span class="growth-positive">+5%</span></p>
+                    </div>
+                    <div class="card-icon sales-icon"><i class="fas fa-shopping-cart"></i></div>
+                </div>
+            </section>
+
+            <!-- Main Grid Section -->
+            <div class="main-grid">
+                <!-- Charts -->
+                <section class="charts-section">
+                    <div class="chart-card neumorphic-card">
+                        <div class="chart-header">
+                            <h3>Sales Overview</h3>
+                            <p><span>(+5%) more</span> in 2021</p>
+                        </div>
+                        <div class="chart-placeholder">
+                            <div class="fake-chart-bar" style="height: 60%"></div>
+                            <div class="fake-chart-bar" style="height: 80%"></div>
+                            <div class="fake-chart-bar" style="height: 40%"></div>
+                            <div class="fake-chart-bar" style="height: 90%"></div>
+                            <div class="fake-chart-bar" style="height: 50%"></div>
+                        </div>
+                    </div>
+                    <div class="chart-card neumorphic-card">
+                        <div class="chart-header">
+                            <h3>Active Users</h3>
+                            <p><span>(+23%) more</span> in 2021</p>
+                        </div>
+                        <div class="chart-placeholder circle-placeholder">
+                            <div class="fake-circle-chart">75%</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Tables -->
+                <section class="tables-section">
+                    <div class="project-table neumorphic-card">
+                        <h3>Projects</h3>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Companies</th>
+                                    <th>Budget</th>
+                                    <th>Status</th>
+                                    <th>Completion</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="company-cell">
+                                        <img src="https://via.placeholder.com/24" alt="logo">
+                                        <span>Soft UI Version</span>
+                                    </td>
+                                    <td>$14,000</td>
+                                    <td><span class="badge badge-success">Online</span></td>
+                                    <td>
+                                        <div class="progress-bar-container">
+                                            <div class="progress-bar" style="width: 60%"></div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="company-cell">
+                                        <img src="https://via.placeholder.com/24" alt="logo">
+                                        <span>Add Progress Track</span>
+                                    </td>
+                                    <td>$3,000</td>
+                                    <td><span class="badge badge-warning">Working</span></td>
+                                    <td>
+                                        <div class="progress-bar-container">
+                                            <div class="progress-bar" style="width: 10%"></div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="order-history neumorphic-card">
+                        <h3>Orders Overview</h3>
+                        <div class="timeline">
+                            <div class="timeline-item">
+                                <i class="fas fa-bell text-success"></i>
+                                <div class="timeline-content">
+                                    <p>$2400, Design changes</p>
+                                    <span>22 DEC 7:20 PM</span>
+                                </div>
+                            </div>
+                            <div class="timeline-item">
+                                <i class="fab fa-html5 text-danger"></i>
+                                <div class="timeline-content">
+                                    <p>New order #1832412</p>
+                                    <span>21 DEC 11:00 PM</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+</body>
+</html>
