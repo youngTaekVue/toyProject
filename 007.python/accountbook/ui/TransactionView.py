@@ -45,6 +45,7 @@ class TransactionView(ttk.Frame):
         self.style = ttk.Style()
         self.style.configure("Big.TLabel", font=("맑은 고딕", 20, "bold"))
         self.style.configure("Mid.TLabel", font=("맑은 고딕", 12))
+        self.style.configure("Treeview", rowheight=25) # Add this line to increase row height
 
         self.setup_ui()
         self.load_data_from_db()

@@ -37,7 +37,7 @@ class FinancialStatus(ttk.Frame):
         style.configure("Liability.TLabel", font=("맑은 고딕", 14, "bold"), foreground="#dc3545") # Red
         style.configure("Net.TLabel", font=("맑은 고딕", 16, "bold"))
         # 트리뷰 가독성 개선 (행 높이/폰트/헤더 폰트)
-        style.configure("Finance.Treeview", font=("맑은 고딕", 10), rowheight=26)
+        style.configure("Finance.Treeview", font=("맑은 고딕", 10), rowheight=30) # Changed rowheight from 26 to 30
         style.configure("Finance.Treeview.Heading", font=("맑은 고딕", 10, "bold"))
 
         # 자산 요약

@@ -17,7 +17,7 @@ class ComplexLayoutApp:
     def __init__(self, root):
         self.root = root
         self.root.title("시스템")
-        self.root.geometry("1200x800")
+        self.root.geometry("1300x900")
 
         # 1. 스타일 초기화 (위젯 생성 전 필수 수행)
         load_dotenv(override=True)

@@ -11,6 +11,8 @@ import ttkbootstrap as tb
 import os
 import threading
 from dotenv import load_dotenv
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
 
 # Google Gemini API 라이브러리
 try:
@@ -35,8 +37,8 @@ class SpendingManagement(ttk.Frame):
         self.selected_month_idx = None
         self.on_month_select = on_month_select
         self.ai_call_timer = None
-        self.ai_cache = {}  
-        
+        self.ai_cache = {}
+
         # UI 요소 초기화
         self.lbl_curr_val = None
         self.lbl_mom_change = None
@@ -49,6 +51,14 @@ class SpendingManagement(ttk.Frame):
             self.display_sections = ['kpi', 'chart', 'category_analysis', 'top_merchants', 'ai_advice']
         else:
             self.display_sections = display_sections
+
+        self.style = ttk.Style()
+        self.style.configure("Treeview", rowheight=25) # Add this line to increase row height
+        # 증감에 따른 폰트 색상 스타일 추가
+        self.style.configure("increase.Treeview", foreground="red")
+        self.style.configure("decrease.Treeview", foreground="blue")
+        self.style.configure("no_change.Treeview", foreground="gray")
+
 
         self.setup_ui()
         self.load_and_plot_data()
@@ -114,7 +124,13 @@ class SpendingManagement(ttk.Frame):
             self.tree_category = ttk.Treeview(self.left_analysis, columns=("category", "prev", "curr", "diff"), show="headings", height=5)
             self.tree_category.heading("category", text="카테고리"); self.tree_category.heading("prev", text="지난달")
             self.tree_category.heading("curr", text="선택달"); self.tree_category.heading("diff", text="증감")
-            for col in ("category", "prev", "curr", "diff"): self.tree_category.column(col, width=80, anchor="center")
+
+            # 컬럼 정렬 변경
+            self.tree_category.column("category", width=80, anchor="w") # 왼쪽 정렬
+            self.tree_category.column("prev", width=80, anchor="e") # 오른쪽 정렬
+            self.tree_category.column("curr", width=80, anchor="e") # 오른쪽 정렬
+            self.tree_category.column("diff", width=80, anchor="e") # 오른쪽 정렬
+
             self.tree_category.pack(fill=tk.BOTH, expand=True)
 
         if 'top_merchants' in self.display_sections:
@@ -176,11 +192,11 @@ class SpendingManagement(ttk.Frame):
 
         curr_row = self.monthly_summary[self.monthly_summary['month'] == target_month]
         if curr_row.empty: return
-        
+
         curr_amt = int(curr_row.iloc[0]['amount'])
 
         if self.lbl_curr_val: self.lbl_curr_val.config(text=f"{curr_amt:,}원")
-            
+
         if self.lbl_mom_change:
             if self.selected_month_idx > 0:
                 prev_month = self.all_months[self.selected_month_idx - 1]
@@ -240,27 +256,77 @@ class SpendingManagement(ttk.Frame):
         if self.lbl_ai_status: self.lbl_ai_status.config(text="상태: 분석 중...", foreground="#1e88e5")
         threading.Thread(target=self._fetch_gemini_response, args=(api_key, target_month), daemon=True).start()
 
+    def _get_category_spending_data(self, target_month):
+        curr_month_df = self.filtered_df[self.filtered_df['month'] == target_month]
+        curr_cat_sum = curr_month_df.groupby('category')['amount'].sum().to_dict()
+
+        prev_cat_sum = {}
+        # target_month의 인덱스를 찾고, 이전 달이 있는지 확인
+        if target_month in self.all_months:
+            selected_month_idx = self.all_months.index(target_month)
+            if selected_month_idx > 0:
+                prev_month_str = self.all_months[selected_month_idx - 1]
+                prev_month_df = self.filtered_df[self.filtered_df['month'] == prev_month_str]
+                prev_cat_sum = prev_month_df.groupby('category')['amount'].sum().to_dict()
+        return curr_cat_sum, prev_cat_sum
+
+    @staticmethod
+    def _update_ai_ui(instance, text, status):
+        instance.display_ai_advice(text)
+        if instance.lbl_ai_status: instance.lbl_ai_status.config(text=f"상태: {status}", foreground="gray")
+
     def _fetch_gemini_response(self, api_key, target_month):
         try:
             genai.configure(api_key=api_key)
             try: model = genai.GenerativeModel('models/gemini-2.5-flash')
             except: model = genai.GenerativeModel('gemini-pro')
+
             curr_spending = self.monthly_summary[self.monthly_summary['month'] == target_month].iloc[0]['amount']
             avg_spending = self.monthly_summary['amount'].mean()
-            prompt = (f"{target_month} 가계부 조언. 총지출:{int(curr_spending):,}원, 전체월평균:{int(avg_spending):,}원. "
-                      f"한국어로 1~2문장으로 핵심만 짧게 조언해줘.")
+
+            # 1. 카테고리별 지출 데이터 가져오기 및 전월 대비 증감
+            curr_cat_sum, prev_cat_sum = self._get_category_spending_data(target_month)
+            category_details = []
+            all_categories = sorted(list(set(curr_cat_sum.keys()) | set(prev_cat_sum.keys())))
+            for cat in all_categories:
+                curr_amt = curr_cat_sum.get(cat, 0)
+                prev_amt = prev_cat_sum.get(cat, 0)
+                diff = curr_amt - prev_amt
+                if diff != 0:
+                    category_details.append(f"{cat}: {int(curr_amt):,}원 (전월 대비 {int(diff):,}원 {'증가' if diff > 0 else '감소'})")
+                else:
+                    category_details.append(f"{cat}: {int(curr_amt):,}원")
+            category_info_str = "카테고리별 지출: " + ", ".join(category_details) if category_details else "카테고리별 지출 정보 없음."
+
+            # 2. 주요 소비처 (Top Merchants)
+            curr_df = self.filtered_df[self.filtered_df['month'] == target_month]
+            top_merchants_data = curr_df.groupby(['category', '내용'])['amount'].sum().reset_index().sort_values('amount', ascending=False).head(5)
+            top_merchants_list = []
+            for _, row in top_merchants_data.iterrows():
+                top_merchants_list.append(f"{row['내용']} ({row['category']}): {int(row['amount']):,}원")
+            top_merchants_info_str = "주요 소비처: " + ", ".join(top_merchants_list) if top_merchants_list else "주요 소비처 정보 없음."
+
+            # 3. 일평균 지출
+            curr_month_df_for_daily_avg = self.filtered_df[self.filtered_df['month'] == target_month]
+            days_count = curr_month_df_for_daily_avg['DT'].dt.day.nunique()
+            daily_avg = curr_spending / days_count if days_count > 0 else 0
+            daily_avg_info_str = f"일평균 지출: {int(daily_avg):,}원."
+
+            prompt = (f"{target_month} 가계부 조언. "
+                      f"총지출:{int(curr_spending):,}원, 전체월평균:{int(avg_spending):,}원. "
+                      f"{daily_avg_info_str} "
+                      f"{category_info_str}. "
+                      f"{top_merchants_info_str}. "
+                      f"한국어로 2~3문장으로 핵심만 짧게 조언해줘. 불필요한 서론은 생략하고 바로 조언을 시작해줘.")
+
             response = model.generate_content(prompt)
             result_text = response.text.strip()
             self.ai_cache[target_month] = result_text
-            self.after(0, lambda: self._update_ai_ui(result_text, "분석 완료"))
+            self.after(0, lambda: SpendingManagement._update_ai_ui(self, result_text, "분석 완료"))
         except Exception as e:
             error_msg = str(e)
             msg = "AI 호출 한도 초과(무료 버전). 잠시 후 다시 시도해 주세요." if "429" in error_msg else f"AI 분석 오류: {error_msg[:50]}..."
-            self.after(0, lambda: self._update_ai_ui(msg, "분석 실패"))
-
-    def _update_ai_ui(self, text, status):
-        self.display_ai_advice(text)
-        if self.lbl_ai_status: self.lbl_ai_status.config(text=f"상태: {status}", foreground="gray")
+            self.after(0, lambda: SpendingManagement._update_ai_ui(self, msg, "분석 실패"))
 
     def draw_modern_chart(self, monthly):
         if not hasattr(self, 'ax'): return
@@ -292,9 +358,35 @@ class SpendingManagement(ttk.Frame):
     def update_category_analysis(self, target_month):
         if not hasattr(self, 'tree_category'): return
         for item in self.tree_category.get_children(): self.tree_category.delete(item)
-        curr_df = self.filtered_df[self.filtered_df['month'] == target_month]
-        cat_sum = curr_df.groupby('category')['amount'].sum().sort_values(ascending=False)
-        for cat, amt in cat_sum.items(): self.tree_category.insert("", tk.END, values=(cat, "-", f"{int(amt):,}원", "-"))
+
+        curr_cat_sum, prev_cat_sum = self._get_category_spending_data(target_month)
+
+        all_categories = sorted(list(set(curr_cat_sum.keys()) | set(prev_cat_sum.keys())))
+
+        for cat in all_categories:
+            curr_amt = curr_cat_sum.get(cat, 0)
+            prev_amt = prev_cat_sum.get(cat, 0)
+
+            diff = curr_amt - prev_amt
+            diff_str = f"{diff:,}원"
+            tag = "no_change"
+            icon = ""
+
+            if diff > 0:
+                diff_str = f"+{diff:,}원"
+                tag = "increase"
+                icon = "▲ "
+            elif diff < 0:
+                diff_str = f"{diff:,}원"
+                tag = "decrease"
+                icon = "▼ "
+
+            self.tree_category.insert("", tk.END, values=(
+                cat,
+                f"{prev_amt:,}원" if prev_amt != 0 else "-",
+                f"{curr_amt:,}원",
+                f"{icon}{diff_str}"
+            ), tags=(tag,))
 
     def update_top_merchants(self, target_month):
         if not hasattr(self, 'tree_merchants'): return
