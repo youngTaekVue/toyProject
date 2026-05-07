@@ -401,3 +401,43 @@ class FinancialUtil:
             print("[알림] 추출된 자산/부채 데이터가 전혀 없습니다.")
 
         print("="*50)
+
+    @staticmethod
+    def get_financial_data_from_db():
+        """DB에서 재무 데이터를 가져옵니다."""
+        try:
+            with database.get_db_connection() as conn:
+                with conn.cursor() as cursor:
+                    try:
+                        cursor.execute("SELECT itemName, category, institution, amount, note FROM financial")
+                    except Exception:
+                        # itemName 컬럼이 없을 경우 item_name으로 재시도
+                        cursor.execute("SELECT item_name as itemName, category, institution, amount, note FROM financial")
+                    rows = cursor.fetchall()
+                    return rows
+        except Exception as e:
+            logger.log("ERROR", "FinancialUtil", f"재무 데이터 로드 중 오류: {e}")
+            return []
+
+    @staticmethod
+    def calculate_financial_summary(rows):
+        """재무 데이터 목록을 받아 총 자산, 총 부채, 순자산을 계산합니다."""
+        total_assets = 0
+        total_liabilities = 0
+
+        for row in rows:
+            category = str(row.get('category', '')) if isinstance(row, dict) else str(row[1])
+            amount = row.get('amount', 0) if isinstance(row, dict) else row[3]
+
+            try:
+                amt_val = int(amount)
+            except ValueError:
+                amt_val = 0
+
+            if "자산" in category:
+                total_assets += amt_val
+            elif "부채" in category:
+                total_liabilities += amt_val
+
+        net_worth = total_assets - total_liabilities
+        return total_assets, total_liabilities, net_worth

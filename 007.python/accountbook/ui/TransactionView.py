@@ -36,7 +36,7 @@ class TransactionView(ttk.Frame):
         self.notifier = KakaoNotifier(rest_api_key=self.rest_api_key)
         self.dashboard_util = TransactionUtil()
 
-        self.df = pd.DataFrame() 
+        self.df = pd.DataFrame()
         self.mapping_rules = []
         self.selected_column = None
         self.current_chart_category = None
@@ -198,20 +198,27 @@ class TransactionView(ttk.Frame):
             with database.get_db_connection() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute("SELECT merchant, category, sub_category FROM category")
-                    rules = cursor.fetchall(); cursor.execute("SELECT * FROM transactions"); res = cursor.fetchall()
-            self.dashboard_util.mapping_rules = sorted(rules, key=lambda x: len(x['merchant']), reverse=True) if rules else []
-            if not res: self.df = pd.DataFrame(); return
-            self.df = pd.DataFrame(res); self.df.rename(columns={'transaction_date': 'DT', 'transaction_type': '타입', 'description': '내용', 'amount': '금액', 'payment_method': '결제수단'}, inplace=True)
-            self.df['DT'] = pd.to_datetime(self.df['DT']); self.df['일시'] = self.df['DT'].dt.strftime('%Y-%m-%d %H:%M'); self.df['월'] = self.df['DT'].dt.strftime('%Y-%m')
-            cls_df = self.df.apply(lambda r: self.dashboard_util.auto_classify(r), axis=1)
-            self.df['대분류'], self.df['소분류'], self.df['타입'] = cls_df['대분류'], cls_df['소분류'], cls_df['타입']
-            self.df['abs_amt'] = self.df['금액'].abs()
-            self.df['is_cancel'] = self.df.groupby(['월', '내용', 'abs_amt'])['금액'].transform('sum') == 0
-            self.df.loc[self.df['내용'].str.contains('취소|반품', na=False), 'is_cancel'] = True
-            card_kws = '카드대금|결제대금|우리카드|신한카드|현대카드|삼성카드|국민카드|농협카드|하나카드'
-            self.df['is_double_count'] = self.df['내용'].str.contains(card_kws, na=False) | self.df.duplicated(subset=['DT', '타입', '내용', '금액'], keep="first")
-            self.update_filter_options(); self.on_month_change(None)
-        except Exception: traceback.print_exc()
+                    rules = cursor.fetchall()
+                    self.dashboard_util.mapping_rules = sorted(rules, key=lambda x: len(x['merchant']), reverse=True) if rules else []
+
+                    cursor.execute("SELECT * FROM transactions")
+                    res = cursor.fetchall()
+
+            if not res:
+                self.df = pd.DataFrame()
+                return
+
+            # DB에서 가져온 원본 데이터를 DataFrame으로 변환
+            raw_df = pd.DataFrame(res)
+            raw_df.rename(columns={'transaction_date': 'DT', 'transaction_type': '타입', 'description': '내용', 'amount': '금액', 'payment_method': '결제수단'}, inplace=True)
+
+            # TransactionUtil을 사용하여 데이터 전처리
+            self.df = self.dashboard_util.process_transactions_dataframe(raw_df)
+
+            self.update_filter_options()
+            self.on_month_change(None)
+        except Exception:
+            traceback.print_exc()
 
     def update_summary_card(self):
         if self.df.empty: return
@@ -286,28 +293,47 @@ class TransactionView(ttk.Frame):
     def upload_file(self):
         path = filedialog.askopenfilename(filetypes=[("Excel Files", "*.xlsx *.xls")])
         if not path: return
+
+        upload_messages = []
+
         try:
             excel_data = pd.read_excel(path, sheet_name=None, header=None)
             def get_sheet(kw): return next((s for s in excel_data.keys() if kw in str(s).strip()), None)
-            # 재무현황(뱅샐현황) 업로드는 FinancialStatus 화면에서 처리합니다.
-            # TransactionView에서는 가계부 내역(거래내역)만 업로드합니다.
-            acc_sheet = get_sheet("가계부 내역")
-            if acc_sheet:
-                df = self.dashboard_util.process_excel_data(excel_data[acc_sheet])
-                with database.get_db_connection() as conn:
-                    with conn.cursor() as cursor:
-                        cursor.execute("SELECT transaction_date, amount, description, transaction_type FROM transactions")
-                        existing = {(r['transaction_date'].strftime('%Y-%m-%d %H:%M:%S'), int(r['amount']), str(r['description']).strip(), r['transaction_type']) for r in cursor.fetchall()}
-                        new_recs = []
-                        for _, row in df.iterrows():
-                            desc = str(row['내용']).strip()
-                            if desc and not pd.isna(row['DT']) and (row['DT'].strftime('%Y-%m-%d %H:%M:%S'), int(row['금액']), desc, row['타입']) not in existing:
-                                new_recs.append((row['DT'], row['타입'], desc, row['금액'], row.get('결제수단', '')))
-                        if new_recs:
-                            cursor.executemany("INSERT INTO transactions (transaction_date, transaction_type, description, amount, payment_method) VALUES (%s, %s, %s, %s, %s)", new_recs)
-                            conn.commit(); logger.log("INFO", "TransactionDB", f"가계부 내역 {len(new_recs)}건 저장 완료")
-            logger.log("INFO", "FileUpload", f"엑셀 업로드 성공"); self.load_data_from_db(); messagebox.showinfo("완료", "가계부 내역 업로드 완료\n(재무현황 업로드는 '재무 상태 현황'에서 진행)")
-        except Exception: traceback.print_exc()
+
+            # 1. 가계부 내역 (거래내역) 업로드 처리
+            acc_sheet_name = get_sheet("가계부 내역")
+            if acc_sheet_name:
+                df_transactions = self.dashboard_util.process_excel_data(excel_data[acc_sheet_name])
+                # TransactionUtil의 save_new_transactions_to_db 메서드 사용
+                saved_count = self.dashboard_util.save_new_transactions_to_db(df_transactions)
+                if saved_count > 0:
+                    logger.log("INFO", "TransactionDB", f"가계부 내역 {saved_count}건 저장 완료")
+                    upload_messages.append(f"가계부 내역 {saved_count}건 업로드 완료.")
+                else:
+                    upload_messages.append("새로운 가계부 내역이 없습니다.")
+            else:
+                upload_messages.append("가계부 내역 시트를 찾을 수 없습니다.")
+
+            # 2. 재무 현황 (뱅샐현황) 업로드 처리
+            financial_sheet_name = get_sheet("뱅샐현황")
+            if financial_sheet_name:
+                df_raw_financial = excel_data[financial_sheet_name]
+                rows_financial = FinancialUtil.parse_financial_status_table(df_raw_financial)
+                count_financial = FinancialUtil.save_financial_rows(rows_financial, truncate=True)
+                logger.log("INFO", "FinancialDB", f"재무 현황 {count_financial}건 저장 완료")
+                upload_messages.append(f"재무 현황 {count_financial}건 업로드 완료.")
+            else:
+                upload_messages.append("재무 현황 시트(뱅샐현황)를 찾을 수 없습니다.")
+
+            logger.log("INFO", "FileUpload", f"엑셀 업로드 성공: {'; '.join(upload_messages)}")
+            messagebox.showinfo("업로드 완료", "\n".join(upload_messages))
+            self.load_data_from_db() # 가계부 내역 새로고침
+            # FinancialStatus 화면이 있다면 해당 화면도 새로고침 필요 (현재는 직접 호출 불가)
+            # 만약 FinancialStatus 인스턴스에 접근 가능하다면: self.financial_status_instance.refresh_data()
+
+        except Exception as e:
+            traceback.print_exc()
+            messagebox.showerror("오류", f"엑셀 업로드 중 오류가 발생했습니다: {e}")
 
     def authenticate_kakao(self):
         uri = os.getenv("KAKAO_REDIRECT_URI", "http://localhost:5000")

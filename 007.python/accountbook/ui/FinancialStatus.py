@@ -1,7 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import pandas as pd
-import database
 from datetime import datetime
 from utils.FinancialUtil import FinancialUtil
 
@@ -25,7 +24,8 @@ class FinancialStatus(ttk.Frame):
         btn_frame.pack(side=tk.RIGHT)
 
         ttk.Button(btn_frame, text="🔄 새로고침", command=self.refresh_data).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame, text="📊 Excel 업로드", command=self.upload_excel_data).pack(side=tk.LEFT, padx=5)
+        # 엑셀 업로드 버튼 제거
+        # ttk.Button(btn_frame, text="📊 Excel 업로드", command=self.upload_excel_data).pack(side=tk.LEFT, padx=5)
 
         # 요약 정보 카드 섹션
         summary_frame = ttk.Frame(self, padding=(20, 0, 20, 10))
@@ -108,19 +108,9 @@ class FinancialStatus(ttk.Frame):
     def refresh_data(self):
         """DB에서 데이터를 가져와 재무현황을 업데이트합니다."""
         try:
-            with database.get_db_connection() as conn:
-                with conn.cursor() as cursor:
-                    # 재무현황 로드 (보험/투자는 요청에 따라 제거)
-                    # DB 테이블의 실제 컬럼명 확인 필요 (기존 코드 참고: itemName or item_name)
-                    # 여기서는 기존 코드에 있던 itemName을 유지하되, 만약 오류 시 item_name 시도 가능
-                    try:
-                        cursor.execute("SELECT itemName, category, institution, amount, note FROM financial")
-                    except:
-                        cursor.execute("SELECT item_name as itemName, category, institution, amount, note FROM financial")
-                    
-                    rows = cursor.fetchall()
-                    self.update_finance_tree(rows)
-                    self.calculate_summary(rows)
+            rows = FinancialUtil.get_financial_data_from_db()
+            self.update_finance_tree(rows)
+            self.calculate_summary(rows)
 
         except Exception as e:
             print(f"데이터 로드 중 오류: {e}")
@@ -153,24 +143,7 @@ class FinancialStatus(ttk.Frame):
 
     def calculate_summary(self, rows):
         """총 자산, 총 부채, 순자산을 계산하여 화면에 표시합니다."""
-        total_assets = 0
-        total_liabilities = 0
-        
-        for row in rows:
-            category = str(row.get('category', '')) if isinstance(row, dict) else str(row[1])
-            amount = row.get('amount', 0) if isinstance(row, dict) else row[3]
-            
-            try:
-                amt_val = int(amount)
-            except:
-                amt_val = 0
-
-            if "자산" in category:
-                total_assets += amt_val
-            elif "부채" in category:
-                total_liabilities += amt_val
-        
-        net_worth = total_assets - total_liabilities
+        total_assets, total_liabilities, net_worth = FinancialUtil.calculate_financial_summary(rows)
         
         self.lbl_total_assets.config(text=f"{total_assets:,} 원")
         self.lbl_total_liabilities.config(text=f"{total_liabilities:,} 원")
@@ -182,24 +155,25 @@ class FinancialStatus(ttk.Frame):
         else:
             self.lbl_net_worth.config(foreground="#dc3545") # Red
 
-    def upload_excel_data(self):
-        """뱅샐현황 엑셀 파일을 읽어 '재무현황' 데이터를 DB에 저장합니다."""
-        file_path = filedialog.askopenfilename(
-            title="뱅샐현황 엑셀 파일 선택",
-            filetypes=[("Excel files", "*.xlsx *.xls")]
-        )
+    # upload_excel_data 함수 제거
+    # def upload_excel_data(self):
+    #     """뱅샐현황 엑셀 파일을 읽어 '재무현황' 데이터를 DB에 저장합니다."""
+    #     file_path = filedialog.askopenfilename(
+    #         title="뱅샐현황 엑셀 파일 선택",
+    #         filetypes=[("Excel files", "*.xlsx *.xls")]
+    #     )
 
-        if not file_path:
-            return
+    #     if not file_path:
+    #         return
 
-        try:
-            # 템플릿(좌:자산/우:부채) 형태는 컬럼이 정리되어 있지 않아서 header=None으로 원본 형태를 유지
-            df_raw = pd.read_excel(file_path, sheet_name='뱅샐현황', header=None)
-            rows = FinancialUtil.parse_financial_status_table(df_raw)
-            count = FinancialUtil.save_financial_rows(rows, truncate=True)
+    #     try:
+    #         # 템플릿(좌:자산/우:부채) 형태는 컬럼이 정리되어 있지 않아서 header=None으로 원본 형태를 유지
+    #         df_raw = pd.read_excel(file_path, sheet_name='뱅샐현황', header=None)
+    #         rows = FinancialUtil.parse_financial_status_table(df_raw)
+    #         count = FinancialUtil.save_financial_rows(rows, truncate=True)
             
-            messagebox.showinfo("완료", f"{count}건의 재무현황 데이터가 업로드되었습니다.")
-            self.refresh_data()
+    #         messagebox.showinfo("완료", f"{count}건의 재무현황 데이터가 업로드되었습니다.")
+    #         self.refresh_data()
 
-        except Exception as e:
-            messagebox.showerror("오류", f"엑셀 업로드 중 오류가 발생했습니다: {e}")
+    #     except Exception as e:
+    #         messagebox.showerror("오류", f"엑셀 업로드 중 오류가 발생했습니다: {e}")
