@@ -3,7 +3,7 @@ const app = express();
 require('dotenv').config();
 
 const cors = require('cors');
- 
+NODE_TLS_REJECT_UNAUTHORIZED=0
 const corsOptions = {
     origin: ['http://localhost:63342','http://localhost:3000'],
     optionsSuccessStatus: 200

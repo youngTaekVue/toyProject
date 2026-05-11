@@ -3,7 +3,7 @@ const router = express.Router();
 const axios = require('axios');
 require("dotenv").config();
 
-const SERVICE_KEY = process.env.NATIONAL_Encoding_KEY;
+const SERVICE_KEY = process.env.NATIONAL_Decoding_KEY;
 const { dfs_xy_conv } = require('../utils/geoConverter');
 
 router.post('/dataList', async function (req, res) {

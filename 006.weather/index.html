@@ -58,7 +58,8 @@
                 </div>
             </header>
 
-            <!-- Summary Cards -->
+            <!-- Original Summary Cards (Commented Out) -->
+            <!--
             <section class="summary-cards">
                 <div class="card neumorphic-card">
                     <div class="card-content">
@@ -89,10 +90,11 @@
                     <div class="card-icon sales-icon"><i class="fas fa-shopping-cart"></i></div>
                 </div>
             </section>
+            -->
 
-            <!-- Main Grid Section -->
+            <!-- Original Main Grid Section (Commented Out) -->
+            <!--
             <div class="main-grid">
-                <!-- Charts -->
                 <section class="charts-section">
                     <div class="chart-card neumorphic-card">
                         <div class="chart-header">
@@ -100,11 +102,6 @@
                             <p><span>(+5%) more</span> in 2021</p>
                         </div>
                         <div class="chart-placeholder">
-                            <div class="fake-chart-bar" style="height: 60%"></div>
-                            <div class="fake-chart-bar" style="height: 80%"></div>
-                            <div class="fake-chart-bar" style="height: 40%"></div>
-                            <div class="fake-chart-bar" style="height: 90%"></div>
-                            <div class="fake-chart-bar" style="height: 50%"></div>
                         </div>
                     </div>
                     <div class="chart-card neumorphic-card">
@@ -113,12 +110,10 @@
                             <p><span>(+23%) more</span> in 2021</p>
                         </div>
                         <div class="chart-placeholder circle-placeholder">
-                            <div class="fake-circle-chart">75%</div>
                         </div>
                     </div>
                 </section>
 
-                <!-- Tables -->
                 <section class="tables-section">
                     <div class="project-table neumorphic-card">
                         <h3>Projects</h3>
@@ -132,56 +127,216 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr>
-                                    <td class="company-cell">
-                                        <img src="https://via.placeholder.com/24" alt="logo">
-                                        <span>Soft UI Version</span>
-                                    </td>
-                                    <td>$14,000</td>
-                                    <td><span class="badge badge-success">Online</span></td>
-                                    <td>
-                                        <div class="progress-bar-container">
-                                            <div class="progress-bar" style="width: 60%"></div>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td class="company-cell">
-                                        <img src="https://via.placeholder.com/24" alt="logo">
-                                        <span>Add Progress Track</span>
-                                    </td>
-                                    <td>$3,000</td>
-                                    <td><span class="badge badge-warning">Working</span></td>
-                                    <td>
-                                        <div class="progress-bar-container">
-                                            <div class="progress-bar" style="width: 10%"></div>
-                                        </div>
-                                    </td>
-                                </tr>
                             </tbody>
                         </table>
                     </div>
                     <div class="order-history neumorphic-card">
                         <h3>Orders Overview</h3>
                         <div class="timeline">
-                            <div class="timeline-item">
-                                <i class="fas fa-bell text-success"></i>
-                                <div class="timeline-content">
-                                    <p>$2400, Design changes</p>
-                                    <span>22 DEC 7:20 PM</span>
-                                </div>
-                            </div>
-                            <div class="timeline-item">
-                                <i class="fab fa-html5 text-danger"></i>
-                                <div class="timeline-content">
-                                    <p>New order #1832412</p>
-                                    <span>21 DEC 11:00 PM</span>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </section>
             </div>
+            -->
+
+            <!-- Consolidated App Dashboard Section -->
+            <section class="dashboard-section">
+                <h2>App Dashboard Overview</h2>
+
+                <!-- App Overview and Key Metrics -->
+                <div class="summary-cards">
+                    <div class="card neumorphic-card">
+                        <div class="card-content">
+                            <h4>Total Installs</h4>
+                            <p class="card-value">150,000 <span class="growth-positive">+12%</span></p>
+                        </div>
+                        <div class="card-icon"><i class="fas fa-download"></i></div>
+                    </div>
+                    <div class="card neumorphic-card">
+                        <div class="card-content">
+                            <h4>Daily Active Users (DAU)</h4>
+                            <p class="card-value">25,000 <span class="growth-positive">+5%</span></p>
+                        </div>
+                        <div class="card-icon"><i class="fas fa-users"></i></div>
+                    </div>
+                    <div class="card neumorphic-card">
+                        <div class="card-content">
+                            <h4>Monthly Active Users (MAU)</h4>
+                            <p class="card-value">75,000 <span class="growth-positive">+8%</span></p>
+                        </div>
+                        <div class="card-icon"><i class="fas fa-user-check"></i></div>
+                    </div>
+                    <div class="card neumorphic-card">
+                        <div class="card-content">
+                            <h4>Avg. Rating</h4>
+                            <p class="card-value">4.5 <span class="growth-positive">(12k Reviews)</span></p>
+                        </div>
+                        <div class="card-icon"><i class="fas fa-star"></i></div>
+                    </div>
+                    <div class="card neumorphic-card">
+                        <div class="card-content">
+                            <h4>Revenue (Est.)</h4>
+                            <p class="card-value">$1,200 <span class="growth-positive">+15%</span></p>
+                        </div>
+                        <div class="card-icon"><i class="fas fa-dollar-sign"></i></div>
+                    </div>
+                </div>
+
+                <!-- User Acquisition and Churn -->
+                <h3 style="margin-top: 40px;">User Acquisition & Churn</h3>
+                <div class="main-grid">
+                    <div class="chart-card neumorphic-card">
+                        <div class="chart-header">
+                            <h4>Downloads Trend</h4>
+                            <p><span>(+10%) more</span> this month</p>
+                        </div>
+                        <div class="chart-placeholder">
+                            <!-- Chart will be rendered here by JS -->
+                        </div>
+                    </div>
+                    <div class="chart-card neumorphic-card">
+                        <div class="chart-header">
+                            <h4>Uninstall Rate</h4>
+                            <p><span>(-0.5%) decrease</span> from last month</p>
+                        </div>
+                        <div class="chart-placeholder circle-placeholder">
+                            <!-- Chart will be rendered here by JS -->
+                        </div>
+                    </div>
+                </div>
+                <div class="summary-cards" style="margin-top: 20px;">
+                    <div class="card neumorphic-card">
+                        <div class="card-content">
+                            <h4>D1 Retention</h4>
+                            <p class="card-value">65% <span class="growth-positive">+2%</span></p>
+                        </div>
+                        <div class="card-icon"><i class="fas fa-redo-alt"></i></div>
+                    </div>
+                    <div class="card neumorphic-card">
+                        <div class="card-content">
+                            <h4>D7 Retention</h4>
+                            <p class="card-value">40% <span class="growth-positive">+1%</span></p>
+                        </div>
+                        <div class="card-icon"><i class="fas fa-redo-alt"></i></div>
+                    </div>
+                    <div class="card neumorphic-card">
+                        <div class="card-content">
+                            <h4>D30 Retention</h4>
+                            <p class="card-value">20% <span class="growth-positive">0%</span></p>
+                        </div>
+                        <div class="card-icon"><i class="fas fa-redo-alt"></i></div>
+                    </div>
+                </div>
+
+                <!-- User Behavior and Engagement -->
+                <h3 style="margin-top: 40px;">User Behavior & Engagement</h3>
+                <div class="main-grid">
+                    <div class="chart-card neumorphic-card">
+                        <div class="chart-header">
+                            <h4>Average Session Time</h4>
+                            <p><span>(+10s) increase</span> from last week</p>
+                        </div>
+                        <div class="chart-placeholder circle-placeholder">
+                            <!-- Chart will be rendered here by JS -->
+                        </div>
+                    </div>
+                    <div class="project-table neumorphic-card">
+                        <h4>Feature Usage</h4>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Feature</th>
+                                    <th>Usage Count</th>
+                                    <th>% of Users</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Hourly Forecast</td>
+                                    <td>120,000</td>
+                                    <td>80%</td>
+                                </tr>
+                                <tr>
+                                    <td>Weekly Forecast</td>
+                                    <td>90,000</td>
+                                    <td>60%</td>
+                                </tr>
+                                <tr>
+                                    <td>Weather Widget</td>
+                                    <td>45,000</td>
+                                    <td>30%</td>
+                                </tr>
+                                <tr>
+                                    <td>Location Search</td>
+                                    <td>75,000</td>
+                                    <td>50%</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="project-table neumorphic-card" style="margin-top: 20px;">
+                    <h4>Geographical Distribution</h4>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Country</th>
+                                <th>Users</th>
+                                <th>% of Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>South Korea</td>
+                                <td>80,000</td>
+                                <td>53.3%</td>
+                            </tr>
+                            <tr>
+                                <td>United States</td>
+                                <td>30,000</td>
+                                <td>20.0%</td>
+                            </tr>
+                            <tr>
+                                <td>Japan</td>
+                                <td>15,000</td>
+                                <td>10.0%</td>
+                            </tr>
+                            <tr>
+                                <td>Germany</td>
+                                <td>7,500</td>
+                                <td>5.0%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- App Performance and Stability -->
+                <h3 style="margin-top: 40px;">App Performance & Stability</h3>
+                <div class="summary-cards">
+                    <div class="card neumorphic-card">
+                        <div class="card-content">
+                            <h4>Crash Rate</h4>
+                            <p class="card-value">0.1% <span class="growth-negative">-0.05%</span></p>
+                        </div>
+                        <div class="card-icon"><i class="fas fa-bug"></i></div>
+                    </div>
+                    <div class="card neumorphic-card">
+                        <div class="card-content">
+                            <h4>ANR Rate</h4>
+                            <p class="card-value">0.05% <span class="growth-negative">-0.02%</span></p>
+                        </div>
+                        <div class="card-icon"><i class="fas fa-hourglass-half"></i></div>
+                    </div>
+                    <div class="card neumorphic-card">
+                        <div class="card-content">
+                            <h4>Load Time (Avg)</h4>
+                            <p class="card-value">1.5s <span class="growth-positive">+0.1s</span></p>
+                        </div>
+                        <div class="card-icon"><i class="fas fa-tachometer-alt"></i></div>
+                    </div>
+                </div>
+            </section>
+
         </main>
     </div>
 </body>
