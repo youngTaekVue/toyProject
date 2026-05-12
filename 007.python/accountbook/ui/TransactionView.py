@@ -319,7 +319,7 @@ class TransactionView(ttk.Frame):
             if financial_sheet_name:
                 df_raw_financial = excel_data[financial_sheet_name]
                 rows_financial = FinancialUtil.parse_financial_status_table(df_raw_financial)
-                count_financial = FinancialUtil.save_financial_rows(rows_financial, truncate=True)
+                count_financial = FinancialUtil.save_financial_rows(rows_financial)
                 logger.log("INFO", "FinancialDB", f"재무 현황 {count_financial}건 저장 완료")
                 upload_messages.append(f"재무 현황 {count_financial}건 업로드 완료.")
             else:
@@ -328,8 +328,10 @@ class TransactionView(ttk.Frame):
             logger.log("INFO", "FileUpload", f"엑셀 업로드 성공: {'; '.join(upload_messages)}")
             messagebox.showinfo("업로드 완료", "\n".join(upload_messages))
             self.load_data_from_db() # 가계부 내역 새로고침
-            # FinancialStatus 화면이 있다면 해당 화면도 새로고침 필요 (현재는 직접 호출 불가)
-            # 만약 FinancialStatus 인스턴스에 접근 가능하다면: self.financial_status_instance.refresh_data()
+            try:
+                self.winfo_toplevel().event_generate("<<FinancialDataChanged>>", when="tail")
+            except tk.TclError:
+                pass
 
         except Exception as e:
             traceback.print_exc()

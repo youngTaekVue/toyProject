@@ -3,6 +3,7 @@
 out/
 build/
 local.properties
+*.pyc
 *.log
 *.DS_Store
 Thumbs.db
@@ -12,3 +13,5 @@ dist/
 006.weather/file
 007.python/.env
 007.python/**/logs/
+*.json
+*.png

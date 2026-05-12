@@ -30,6 +30,9 @@ class ComplexLayoutApp:
         
         # 3. 초기 시각 설정 적용 (폰트 등)
         self.apply_visual_settings()
+
+        # 가계부 엑셀 업로드 시 재무(자산) 화면 동기화
+        self.root.bind("<<FinancialDataChanged>>", self._on_financial_data_changed)
         
         logger.log("INFO", "System", "애플리케이션이 시작되었습니다.")
 
@@ -45,6 +48,16 @@ class ComplexLayoutApp:
         # 전역 폰트 설정
         self.style.configure(".", font=("맑은 고딕", font_size))
         self.style.configure("Treeview.Heading", font=("맑은 고딕", font_size, "bold"))
+
+    def _on_financial_data_changed(self, event=None):
+        """엑셀 업로드 등으로 재무 DB가 바뀌었을 때, 열려 있는 자산 조회 탭을 새로고침합니다."""
+        try:
+            for tab in self.notebook.tabs():
+                w = self.notebook.nametowidget(tab)
+                if isinstance(w, FinancialStatus):
+                    w.refresh_data()
+        except tk.TclError:
+            pass
 
     def update_settings(self):
         """설정 변경 시 호출되어 UI를 갱신합니다."""

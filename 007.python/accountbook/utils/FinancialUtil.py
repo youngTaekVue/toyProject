@@ -1,9 +1,11 @@
+import pymysql.err
 import pandas as pd
 import database
 from utils.Common import map_columns
 from utils.Logger import logger
 
 class FinancialUtil:
+
     @staticmethod
     def _clean_amount(value):
         s = str(value).strip()
@@ -176,8 +178,84 @@ class FinancialUtil:
         return results
 
     @staticmethod
-    def save_financial_rows(rows, truncate=True):
-        """parse_financial_status_table() 결과를 DB에 저장합니다. (itemName/item_name 둘 다 호환)"""
+    def _financial_has_snapshot_id(cursor):
+        cursor.execute(
+            """
+            SELECT COUNT(*) AS c FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'financial' AND COLUMN_NAME = 'snapshot_id'
+            """
+        )
+        row = cursor.fetchone()
+        n = row["c"] if isinstance(row, dict) else row[0]
+        return int(n or 0) > 0
+
+    @staticmethod
+    def _ensure_financial_snapshot_schema(cursor, conn):
+        """업로드마다 스냅샷을 쌓기 위한 컬럼 추가(없을 때만). 기존 행은 snapshot_id=1로 묶습니다."""
+        alters = [
+            "ALTER TABLE financial ADD COLUMN snapshot_id BIGINT NULL",
+            "ALTER TABLE financial ADD COLUMN uploaded_at DATETIME NULL",
+        ]
+        for sql in alters:
+            try:
+                cursor.execute(sql)
+                conn.commit()
+            except pymysql.err.OperationalError as e:
+                if e.args[0] != 1060:
+                    raise
+            except Exception as e:
+                if "Duplicate column" not in str(e) and "1060" not in str(e):
+                    raise
+
+        try:
+            cursor.execute(
+                "UPDATE financial SET snapshot_id = 1, uploaded_at = COALESCE(uploaded_at, NOW()) WHERE snapshot_id IS NULL"
+            )
+            conn.commit()
+        except Exception:
+            pass
+
+        try:
+            cursor.execute("CREATE INDEX idx_financial_snapshot_id ON financial (snapshot_id)")
+            conn.commit()
+        except Exception:
+            pass
+
+    @staticmethod
+    def _financial_item_column_name(cursor):
+        cursor.execute("SHOW COLUMNS FROM financial")
+        fields = {r["Field"] for r in cursor.fetchall()}
+        if "itemName" in fields:
+            return "itemName"
+        if "item_name" in fields:
+            return "item_name"
+        return "itemName"
+
+    @staticmethod
+    def _next_financial_snapshot_id(cursor):
+        cursor.execute("SELECT COALESCE(MAX(snapshot_id), 0) AS m FROM financial")
+        row = cursor.fetchone()
+        m = row["m"] if isinstance(row, dict) else row[0]
+        return int(m or 0) + 1
+
+    @staticmethod
+    def _fetch_financial_rows(cursor, sql, params=None):
+        try:
+            if params is not None:
+                cursor.execute(sql, params)
+            else:
+                cursor.execute(sql)
+        except Exception:
+            sql_alt = sql.replace("itemName", "item_name AS itemName")
+            if params is not None:
+                cursor.execute(sql_alt, params)
+            else:
+                cursor.execute(sql_alt)
+        return cursor.fetchall()
+
+    @staticmethod
+    def save_financial_rows(rows, truncate=False):
+        """parse_financial_status_table() 결과를 DB에 스냅샷 단위로 추가합니다. truncate=True는 이전 호환용(전체 삭제)입니다."""
         if not rows:
             return 0
         count = 0
@@ -185,49 +263,58 @@ class FinancialUtil:
             with conn.cursor() as cursor:
                 if truncate:
                     cursor.execute("TRUNCATE TABLE financial")
+                    conn.commit()
 
-                # 컬럼명/updated_at 유무 호환 처리 (첫 성공 쿼리를 캐시)
-                insert_sqls = [
-                    # itemName
-                    "INSERT INTO financial (itemName, category, institution, amount, note) VALUES (%s, %s, %s, %s, %s)",
-                    "INSERT INTO financial (itemName, category, institution, amount, note, updated_at) VALUES (%s, %s, %s, %s, %s, NOW())",
-                    # item_name
-                    "INSERT INTO financial (item_name, category, institution, amount, note) VALUES (%s, %s, %s, %s, %s)",
-                    "INSERT INTO financial (item_name, category, institution, amount, note, updated_at) VALUES (%s, %s, %s, %s, %s, NOW())",
+                FinancialUtil._ensure_financial_snapshot_schema(cursor, conn)
+                snapshot_id = FinancialUtil._next_financial_snapshot_id(cursor)
+                item_col = FinancialUtil._financial_item_column_name(cursor)
+                sql_snap = (
+                    f"INSERT INTO financial ({item_col}, category, institution, amount, note, snapshot_id, uploaded_at) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, NOW())"
+                )
+                sql_snap_upd = (
+                    f"INSERT INTO financial ({item_col}, category, institution, amount, note, snapshot_id, uploaded_at, updated_at) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW())"
+                )
+                legacy_sqls = [
+                    f"INSERT INTO financial ({item_col}, category, institution, amount, note) VALUES (%s, %s, %s, %s, %s)",
+                    f"INSERT INTO financial ({item_col}, category, institution, amount, note, updated_at) VALUES (%s, %s, %s, %s, %s, NOW())",
                 ]
-
-                working_sql = None
 
                 for r in rows:
                     name = str(r.get("item_name", "")).strip()
                     if not FinancialUtil._is_meaningful_name(name):
                         continue
-                    params = (
+                    params_full = (
                         name,
                         str(r.get("category", "")).strip(),
                         str(r.get("institution", "")).strip(),
                         int(r.get("amount", 0) or 0),
                         str(r.get("note", "")).strip(),
+                        snapshot_id,
                     )
-
-                    if working_sql is None:
-                        last_err = None
-                        for sql in insert_sqls:
-                            try:
-                                cursor.execute(sql, params)
-                                working_sql = sql
-                                count += 1
-                                last_err = None
-                                break
-                            except Exception as e:
-                                last_err = e
-                                continue
-                        if last_err is not None and working_sql is None:
-                            raise last_err
+                    params_legacy = params_full[:-1]
+                    last_err = None
+                    for sql in (sql_snap, sql_snap_upd):
+                        try:
+                            cursor.execute(sql, params_full)
+                            count += 1
+                            last_err = None
+                            break
+                        except Exception as e:
+                            last_err = e
+                    if last_err is None:
                         continue
-
-                    cursor.execute(working_sql, params)
-                    count += 1
+                    for sql in legacy_sqls:
+                        try:
+                            cursor.execute(sql, params_legacy)
+                            count += 1
+                            last_err = None
+                            break
+                        except Exception as e:
+                            last_err = e
+                    if last_err is not None:
+                        raise last_err
             conn.commit()
         return count
 
@@ -314,14 +401,23 @@ class FinancialUtil:
 
     @staticmethod
     def save_financial_data(df_list_with_cat):
-        """재무 데이터(자산/부채) DB 저장"""
+        """재무 데이터(자산/부채)를 한 번의 스냅샷으로 DB에 추가 저장합니다."""
         print(f"\n[FinancialUtil] DB 저장 시작 (섹션 수: {len(df_list_with_cat)})")
         count = 0
         try:
             with database.get_db_connection() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute("TRUNCATE TABLE financial")
-                    sql = "INSERT INTO financial (itemName, category, institution, amount, note) VALUES (%s, %s, %s, %s, %s)"
+                    FinancialUtil._ensure_financial_snapshot_schema(cursor, conn)
+                    snapshot_id = FinancialUtil._next_financial_snapshot_id(cursor)
+                    item_col = FinancialUtil._financial_item_column_name(cursor)
+                    sql_snap = (
+                        f"INSERT INTO financial ({item_col}, category, institution, amount, note, snapshot_id, uploaded_at) "
+                        "VALUES (%s, %s, %s, %s, %s, %s, NOW())"
+                    )
+                    sql_snap_upd = (
+                        f"INSERT INTO financial ({item_col}, category, institution, amount, note, snapshot_id, uploaded_at, updated_at) "
+                        "VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW())"
+                    )
 
                     alias_map = {
                         'item_name': ['상품명', '항목명', '자산명', '항목'],
@@ -363,10 +459,20 @@ class FinancialUtil:
                             else: note = last_note
 
                             print(f"    [저장] {overall_cat} > {name}: {amt}")
-                            cursor.execute(sql, (name, overall_cat, inst, amt, note))
-                            count += 1
+                            params = (name, overall_cat, inst, amt, note, snapshot_id)
+                            last_err = None
+                            for sql in (sql_snap, sql_snap_upd):
+                                try:
+                                    cursor.execute(sql, params)
+                                    count += 1
+                                    last_err = None
+                                    break
+                                except Exception as e:
+                                    last_err = e
+                            if last_err is not None:
+                                raise last_err
                 conn.commit()
-            logger.log("INFO", "FinancialDB", f"재무 데이터 {count}건 저장 완료")
+            logger.log("INFO", "FinancialDB", f"재무 데이터 {count}건 저장 완료 (snapshot_id={snapshot_id})")
         except Exception as e:
             print(f" -> [에러] DB 저장 중 오류 발생: {e}")
             raise
@@ -403,21 +509,90 @@ class FinancialUtil:
         print("="*50)
 
     @staticmethod
-    def get_financial_data_from_db():
-        """DB에서 재무 데이터를 가져옵니다."""
+    def get_financial_data_from_db(snapshot_id=None):
+        """DB에서 재무 데이터를 가져옵니다. snapshot_id가 None이면 가장 최근 스냅샷만 조회합니다."""
         try:
             with database.get_db_connection() as conn:
                 with conn.cursor() as cursor:
-                    try:
-                        cursor.execute("SELECT itemName, category, institution, amount, note FROM financial")
-                    except Exception:
-                        # itemName 컬럼이 없을 경우 item_name으로 재시도
-                        cursor.execute("SELECT item_name as itemName, category, institution, amount, note FROM financial")
-                    rows = cursor.fetchall()
-                    return rows
+                    if not FinancialUtil._financial_has_snapshot_id(cursor):
+                        FinancialUtil._ensure_financial_snapshot_schema(cursor, conn)
+                    if not FinancialUtil._financial_has_snapshot_id(cursor):
+                        return FinancialUtil._fetch_financial_rows(
+                            cursor, "SELECT itemName, category, institution, amount, note FROM financial"
+                        )
+                    if snapshot_id is not None:
+                        return FinancialUtil._fetch_financial_rows(
+                            cursor,
+                            "SELECT itemName, category, institution, amount, note FROM financial WHERE snapshot_id = %s",
+                            (snapshot_id,),
+                        )
+                    return FinancialUtil._fetch_financial_rows(
+                        cursor,
+                        """SELECT itemName, category, institution, amount, note FROM financial
+                           WHERE snapshot_id = (SELECT MAX(snapshot_id) FROM financial)""",
+                    )
         except Exception as e:
             logger.log("ERROR", "FinancialUtil", f"재무 데이터 로드 중 오류: {e}")
             return []
+
+    @staticmethod
+    def get_distinct_financial_snapshot_ids(limit=20):
+        """snapshot_id 내림차순 목록 (히스토리 조회용)."""
+        try:
+            with database.get_db_connection() as conn:
+                with conn.cursor() as cursor:
+                    if not FinancialUtil._financial_has_snapshot_id(cursor):
+                        return []
+                    cursor.execute(
+                        """SELECT DISTINCT snapshot_id FROM financial
+                           WHERE snapshot_id IS NOT NULL
+                           ORDER BY snapshot_id DESC LIMIT %s""",
+                        (limit,),
+                    )
+                    rows = cursor.fetchall()
+                    return [r["snapshot_id"] if isinstance(r, dict) else r[0] for r in rows]
+        except Exception as e:
+            logger.log("ERROR", "FinancialUtil", f"스냅샷 ID 조회 오류: {e}")
+            return []
+
+    @staticmethod
+    def get_current_and_previous_financial_rows():
+        """(최신 스냅샷 행, 직전 스냅샷 행 또는 None). 스냅샷이 1개뿐이면 증감 기준 없음."""
+        try:
+            with database.get_db_connection() as conn:
+                with conn.cursor() as cursor:
+                    if not FinancialUtil._financial_has_snapshot_id(cursor):
+                        FinancialUtil._ensure_financial_snapshot_schema(cursor, conn)
+                    if not FinancialUtil._financial_has_snapshot_id(cursor):
+                        rows = FinancialUtil._fetch_financial_rows(
+                            cursor, "SELECT itemName, category, institution, amount, note FROM financial"
+                        )
+                        return rows, None
+                    cursor.execute(
+                        """SELECT DISTINCT snapshot_id FROM financial
+                           WHERE snapshot_id IS NOT NULL
+                           ORDER BY snapshot_id DESC LIMIT 2"""
+                    )
+                    id_rows = cursor.fetchall()
+                    ids = [r["snapshot_id"] if isinstance(r, dict) else r[0] for r in id_rows]
+                    if not ids:
+                        return [], None
+                    curr = FinancialUtil._fetch_financial_rows(
+                        cursor,
+                        "SELECT itemName, category, institution, amount, note FROM financial WHERE snapshot_id = %s",
+                        (ids[0],),
+                    )
+                    if len(ids) < 2:
+                        return curr, None
+                    prev = FinancialUtil._fetch_financial_rows(
+                        cursor,
+                        "SELECT itemName, category, institution, amount, note FROM financial WHERE snapshot_id = %s",
+                        (ids[1],),
+                    )
+                    return curr, prev
+        except Exception as e:
+            logger.log("ERROR", "FinancialUtil", f"최신/직전 재무 조회 오류: {e}")
+            return [], None
 
     @staticmethod
     def calculate_financial_summary(rows):
@@ -441,3 +616,71 @@ class FinancialUtil:
 
         net_worth = total_assets - total_liabilities
         return total_assets, total_liabilities, net_worth
+
+    @staticmethod
+    def _normalize_financial_row(row):
+        if isinstance(row, dict):
+            name = str(row.get("itemName") or row.get("item_name") or "").strip()
+            cat = str(row.get("category", "")).strip()
+            inst = str(row.get("institution", "")).strip()
+            amt = row.get("amount", 0)
+        else:
+            name = str(row[0]).strip()
+            cat = str(row[1]).strip()
+            inst = str(row[2]).strip()
+            amt = row[3]
+        try:
+            amt_i = int(amt)
+        except (TypeError, ValueError):
+            amt_i = 0
+        return {"itemName": name, "category": cat, "institution": inst, "amount": amt_i}
+
+    @classmethod
+    def _amount_map_by_item_key(cls, rows):
+        m = {}
+        for row in rows or []:
+            d = cls._normalize_financial_row(row)
+            k = (d["itemName"], d["category"], d["institution"])
+            m[k] = m.get(k, 0) + d["amount"]
+        return m
+
+    @staticmethod
+    def compute_financial_delta(prev_rows, curr_rows):
+        """
+        직전 스냅샷(prev_rows) 대비 최신(curr_rows) 증감을 계산합니다.
+        prev_rows가 None이면 None(비교 기준이 없음). 빈 리스트는 유효합니다.
+        """
+        if prev_rows is None:
+            return None
+
+        prev_map = FinancialUtil._amount_map_by_item_key(prev_rows)
+        curr_map = FinancialUtil._amount_map_by_item_key(curr_rows)
+
+        pa, pl, pn = FinancialUtil.calculate_financial_summary(prev_rows)
+        ca, cl, cn = FinancialUtil.calculate_financial_summary(curr_rows)
+
+        line_items = []
+        all_keys = set(prev_map.keys()) | set(curr_map.keys())
+        for k in sorted(all_keys, key=lambda x: (x[1], x[0])):
+            name, cat, inst = k
+            prev_amt = prev_map.get(k, 0)
+            curr_amt = curr_map.get(k, 0)
+            delta = curr_amt - prev_amt
+            line_items.append({
+                "itemName": name,
+                "category": cat,
+                "institution": inst,
+                "delta": delta,
+                "prev": prev_amt,
+                "curr": curr_amt,
+            })
+
+        return {
+            "d_assets": ca - pa,
+            "d_liabilities": cl - pl,
+            "d_net": cn - pn,
+            "curr_assets": ca,
+            "curr_liabilities": cl,
+            "curr_net": cn,
+            "line_items": line_items,
+        }
