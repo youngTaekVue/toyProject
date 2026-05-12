@@ -1,4 +1,14 @@
 .idea/
+*.iml
+out/
+build/
+local.properties
+*.log
+*.DS_Store
+Thumbs.db
+venv/
+node_modules/
+dist/
 006.weather/file
 007.python/.env
 007.python/**/logs/
