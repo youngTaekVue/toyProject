@@ -9,7 +9,7 @@
         </div>
         <nav class="sidebar-nav">
           <ul>
-            <li><router-link to="/dashboard" active-class="active"><v-icon>mdi-view-dashboard</v-icon> <span>Dashboard</span></router-link></li>
+            <li><router-link to="/home" active-class="active"><v-icon>mdi-view-dashboard</v-icon> <span>Dashboard</span></router-link></li>
             <li><router-link to="/analytics" active-class="active"><v-icon>mdi-chart-bar</v-icon> <span>Analytics</span></router-link></li>
             <li><router-link to="/billing" active-class="active"><v-icon>mdi-wallet</v-icon> <span>Billing</span></router-link></li>
             <li><router-link to="/profile" active-class="active"><v-icon>mdi-account-circle</v-icon> <span>Profile</span></router-link></li>
