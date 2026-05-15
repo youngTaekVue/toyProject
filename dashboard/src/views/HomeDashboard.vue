@@ -62,9 +62,7 @@
               <h4>Downloads Trend</h4>
               <p><span>(+10%) more</span> this month</p>
             </div>
-            <div class="chart-placeholder">
-              <!-- Chart will be rendered here by JS -->
-            </div>
+            <apexchart type="area" height="180" :options="downloadsChart.chartOptions" :series="downloadsChart.series"></apexchart>
           </div>
         </v-col>
         <v-col cols="12" lg="4">
@@ -73,9 +71,7 @@
               <h4>Uninstall Rate</h4>
               <p><span>(-0.5%) decrease</span> from last month</p>
             </div>
-            <div class="chart-placeholder circle-placeholder">
-              <!-- Chart will be rendered here by JS -->
-            </div>
+            <apexchart type="radialBar" height="180" :options="uninstallChart.chartOptions" :series="uninstallChart.series"></apexchart>
           </div>
         </v-col>
       </v-row>
@@ -111,7 +107,47 @@
 
       <!-- User Behavior and Engagement -->
       <h3 style="margin-top: 40px;">User Behavior & Engagement</h3>
-      <v-row class="main-grid">
+      <!-- New: App Analytics Summary -->
+      <v-row class="summary-cards">
+        <v-col cols="12" sm="6" md="4" lg="3">
+          <div class="card neumorphic-card">
+            <div class="card-content">
+              <h4>Daily Active Users</h4>
+              <p class="card-value">25,000 <span class="growth-positive">+5%</span></p>
+            </div>
+            <div class="card-icon"><v-icon>mdi-account-group</v-icon></div>
+          </div>
+        </v-col>
+        <v-col cols="12" sm="6" md="4" lg="3">
+          <div class="card neumorphic-card">
+            <div class="card-content">
+              <h4>Monthly Active Users</h4>
+              <p class="card-value">75,000 <span class="growth-positive">+8%</span></p>
+            </div>
+            <div class="card-icon"><v-icon>mdi-account-check</v-icon></div>
+          </div>
+        </v-col>
+        <v-col cols="12" sm="6" md="4" lg="3">
+          <div class="card neumorphic-card">
+            <div class="card-content">
+              <h4>D7 Retention Rate</h4>
+              <p class="card-value">40% <span class="growth-positive">+1%</span></p>
+            </div>
+            <div class="card-icon"><v-icon>mdi-chart-line</v-icon></div>
+          </div>
+        </v-col>
+        <v-col cols="12" sm="6" md="4" lg="3">
+          <div class="card neumorphic-card">
+            <div class="card-content">
+              <h4>Avg. Session Duration</h4>
+              <p class="card-value">3m 20s <span class="growth-positive">+10s</span></p>
+            </div>
+            <div class="card-icon"><v-icon>mdi-timer-sand</v-icon></div>
+          </div>
+        </v-col>
+      </v-row>
+
+      <v-row class="main-grid" style="margin-top: 20px;">
         <v-col cols="12" lg="8">
           <div class="chart-card neumorphic-card">
             <div class="chart-header">
@@ -235,7 +271,109 @@
 </template>
 
 <script setup lang="ts">
-import AppLayout from '../components/AppLayout.vue'; // Updated import path
+import AppLayout from '../components/AppLayout.vue';
+import { ref } from 'vue';
+import VueApexCharts from 'vue3-apexcharts';
+
+// Downloads Trend Chart Data
+const downloadsChart = ref({
+  series: [{
+    name: 'Downloads',
+    data: [30, 40, 35, 50, 49, 60, 70, 91, 125]
+  }],
+  chartOptions: {
+    chart: {
+      type: 'area',
+      toolbar: {
+        show: false
+      },
+      sparkline: {
+        enabled: true
+      }
+    },
+    dataLabels: {
+      enabled: false
+    },
+    stroke: {
+      curve: 'smooth'
+    },
+    xaxis: {
+      categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'],
+      labels: {
+        show: false
+      }
+    },
+    yaxis: {
+      labels: {
+        show: false
+      }
+    },
+    grid: {
+      show: false
+    },
+    tooltip: {
+      enabled: true,
+      x: {
+        show: true
+      }
+    },
+    colors: ['#007bff']
+  },
+});
+
+// Uninstall Rate Chart Data
+const uninstallChart = ref({
+  series: [76], // Percentage value
+  chartOptions: {
+    chart: {
+      height: 180,
+      type: 'radialBar',
+    },
+    plotOptions: {
+      radialBar: {
+        hollow: {
+          size: '70%',
+        },
+        dataLabels: {
+          show: true,
+          name: {
+            show: true,
+            fontSize: '16px',
+            fontWeight: 600,
+            offsetY: -10,
+          },
+          value: {
+            show: true,
+            fontSize: '20px',
+            fontWeight: 700,
+            offsetY: 5,
+            formatter: function (val: number) {
+              return val + '%';
+            }
+          }
+        }
+      },
+    },
+    fill: {
+      type: 'gradient',
+      gradient: {
+        shade: 'dark',
+        type: 'horizontal',
+        shadeIntensity: 0.5,
+        gradientToColors: ['#EA5455'], // Reddish color for uninstall
+        inverseColors: true,
+        opacityFrom: 1,
+        opacityTo: 1,
+        stops: [0, 100]
+      }
+    },
+    stroke: {
+      lineCap: 'round'
+    },
+    labels: ['Uninstall'],
+    colors: ['#FF9F43'] // Orange color
+  },
+});
 </script>
 
 <style scoped>
@@ -468,21 +606,4 @@ import AppLayout from '../components/AppLayout.vue'; // Updated import path
   .timeline-content p { font-size: 17px; }
   .timeline-content span { font-size: 15px; }
 }
-
-/* REMOVE OLD RESPONSIVE CSS */
-/*
-@media (max-width: 1200px) {
-  .summary-cards { grid-template-columns: repeat(2, 1fr); }
-  .main-grid { grid-template-columns: 1fr; }
-}
-
-@media (max-width: 768px) {
-  .dashboard-container { flex-direction: column; }
-  .sidebar { width: 100%; height: auto; }
-  .main-content { padding: 15px; }
-  .summary-cards { grid-template-columns: 1fr; }
-  .header-actions { flex-direction: column; align-items: stretch; }
-  .search-wrapper .neumorphic-input { width: 100%; }
-}
-*/
 </style>

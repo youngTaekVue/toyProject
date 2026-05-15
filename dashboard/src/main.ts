@@ -10,6 +10,7 @@ import { createApp } from 'vue'
 // Plugins
 import { registerPlugins } from '@/plugins'
 import router from '@/router' // Import the router instance
+import VueApexCharts from 'vue3-apexcharts'; // VueApexCharts 임포트
 
 // Components
 import App from './App.vue'
@@ -23,5 +24,6 @@ const app = createApp(App)
 
 registerPlugins(app)
 app.use(router) // Use the router instance
+app.use(VueApexCharts); // VueApexCharts 등록
 
 app.mount('#app')
