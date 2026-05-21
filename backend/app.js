@@ -11,14 +11,14 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // 라우터 불러오기
-const commonRouter = require('./routes/common');
-const weatherRouter = require('./routes/weather');
-const newsRouter = require('./routes/news');
-const calendarRouter = require('./routes/calendar');
-const mapkeyRouter = require('./routes/mapkey');
-const busRouter = require('./routes/bus');
+const commonRouter = require('./routes/browser/common');
+const weatherRouter = require('./routes/browser/weather');
+const newsRouter = require('./routes/browser/news');
+const calendarRouter = require('./routes/browser/calendar');
+const mapkeyRouter = require('./routes/browser/mapkey');
+const busRouter = require('./routes/browser/bus');
 //const pythonRouter = require('./routes/python');
-const analytics = require('./routes/analytics');
+//const analytics = require('./routes/browser/analytics');
 
 app.use(express.json()); // JSON 형식 요청 본문 처리
 app.use(express.static('public')); // 정적 파일 서비스
@@ -31,7 +31,7 @@ app.use('/calendar', calendarRouter);
 app.use('/mapkey', mapkeyRouter);
 app.use('/bus', busRouter);
 //app.use('/python', pythonRouter);
-app.use('/analytics', analytics);
+//app.use('/analytics', analytics);
 
 // 에러 핸들링 미들웨어 (기본 예시)
 app.use((err, req, res, next) => {
