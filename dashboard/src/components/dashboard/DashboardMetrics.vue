@@ -54,15 +54,14 @@ onMounted(() => {
 /* Styles specific to DashboardMetrics */
 .neumorphic-card {
   background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 15px 20px 0 rgba(0,0,0,0.04);
-  padding: 18px;
+  border-radius: 12px; /* Adjusted to match AppLayout */
+  box-shadow: 0 10px 15px 0 rgba(0,0,0,0.03); /* Adjusted to match AppLayout */
+  padding: 16px; /* Adjusted to match AppLayout */
   border: 1px solid rgba(255, 255, 255, 0.3);
   height: 100%;
-  display: flex;
-  flex-direction: column; /* Changed to column for better stacking of content and icon */
-  justify-content: space-between;
-  align-items: flex-start; /* Align content to start */
+  display: flex; /* Changed to flex for horizontal layout */
+  justify-content: space-between; /* Space between content and icon */
+  align-items: center; /* Vertically center content and icon */
 }
 
 .neumorphic-skeleton {
@@ -70,73 +69,38 @@ onMounted(() => {
 }
 
 .card-content {
-  width: 100%; /* Ensure content takes full width */
-  margin-bottom: 10px; /* Add some space between content and icon */
-}
-
-.summary-cards .card {
-  /* This style is now mostly handled by .neumorphic-card directly */
+  /* No specific width needed, flex will handle it */
+  margin-right: 10px; /* Space between content and icon */
 }
 
 .summary-cards h4 {
-  font-size: 12px;
+  font-size: clamp(12px, 1.2vw, 14px); /* Responsive typography */
   color: var(--secondary-text);
-  margin-bottom: 4px;
+  margin-bottom: 3px; /* Adjusted margin */
 }
-.card-value { font-size: 16px; font-weight: 700; }
+.card-value {
+  font-size: clamp(16px, 2vw, 20px); /* Responsive typography */
+  font-weight: 700;
+}
 .growth-positive, .growth-negative {
-  font-size: 11px;
+  font-size: clamp(10px, 1vw, 12px); /* Responsive typography */
   margin-left: 4px;
 }
 .growth-positive { color: #28a745; }
 .growth-negative { color: #dc3545; }
 
 .card-icon {
-  width: 40px;
-  height: 40px;
+  width: clamp(36px, 4vw, 48px); /* Responsive width */
+  height: clamp(36px, 4vw, 48px); /* Responsive height */
   background: linear-gradient(310deg, #007bff 0%, #00c6ff 100%);
-  border-radius: 10px;
+  border-radius: 8px; /* Adjusted border-radius */
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-size: 16px;
-  align-self: flex-end; /* Align icon to the end */
+  font-size: clamp(16px, 2vw, 20px); /* Responsive icon size */
+  flex-shrink: 0; /* Prevent icon from shrinking */
 }
 
-/* Responsive styles for these cards */
-@media (min-width: 600px) {
-  .summary-cards h4 { font-size: 13px; }
-  .card-value { font-size: 17px; }
-  .growth-positive, .growth-negative { font-size: 12px; }
-  .card-icon { width: 42px; height: 42px; font-size: 17px; }
-}
-
-@media (min-width: 840px) {
-  .summary-cards h4 { font-size: 14px; }
-  .card-value { font-size: 18px; }
-  .growth-positive, .growth-negative { font-size: 13px; }
-  .card-icon { width: 44px; height: 44px; font-size: 18px; }
-}
-
-@media (min-width: 1145px) {
-  .summary-cards h4 { font-size: 15px; }
-  .card-value { font-size: 20px; }
-  .growth-positive, .growth-negative { font-size: 14px; }
-  .card-icon { width: 48px; height: 48px; font-size: 20px; }
-}
-
-@media (min-width: 1545px) {
-  .summary-cards h4 { font-size: 16px; }
-  .card-value { font-size: 22px; }
-  .growth-positive, .growth-negative { font-size: 15px; }
-  .card-icon { width: 52px; height: 52px; font-size: 22px; }
-}
-
-@media (min-width: 2138px) {
-  .summary-cards h4 { font-size: 18px; }
-  .card-value { font-size: 24px; }
-  .growth-positive, .growth-negative { font-size: 16px; }
-  .card-icon { width: 56px; height: 56px; font-size: 24px; }
-}
+/* Removed all previous media queries as clamp() and v-col handle responsiveness */
 </style>

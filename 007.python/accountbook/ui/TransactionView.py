@@ -20,7 +20,7 @@ from utils.KakaoNotifier import KakaoNotifier
 from utils.TransactionUtil import TransactionUtil
 from utils.FinancialUtil import FinancialUtil
 from utils.Logger import logger
-import database
+# import database # No longer needed for direct DB access
 
 # 한글 폰트 설정
 import matplotlib.pyplot as plt
@@ -37,7 +37,7 @@ class TransactionView(ttk.Frame):
         self.dashboard_util = TransactionUtil()
 
         self.df = pd.DataFrame()
-        self.mapping_rules = []
+        # self.mapping_rules = [] # Now handled by TransactionUtil internally
         self.selected_column = None
         self.current_chart_category = None
         self.legend_map = {}
@@ -48,7 +48,7 @@ class TransactionView(ttk.Frame):
         self.style.configure("Treeview", rowheight=25) # Add this line to increase row height
 
         self.setup_ui()
-        self.load_data_from_db()
+        self.load_data_from_api() # Changed to load from API
 
     def setup_ui(self):
         # 1. 상단 바
@@ -97,7 +97,7 @@ class TransactionView(ttk.Frame):
         self.notebook.bind("<<NotebookTabChanged>>", self.on_tab_change)
         self.setup_main_tab_ui(); self.setup_dup_tab_ui()
 
-    def share_to_friend(self):
+    def share_to_friend(self, event=None): # Added event=None for consistency
         logger.log("INFO", "UI_Action", "친구에게 공유 클릭")
         friends = self.notifier.get_friends()
         if friends is None:
@@ -133,7 +133,7 @@ class TransactionView(ttk.Frame):
                 messagebox.showerror("실패", f"실패: {err}")
         ttk.Button(win, text="전송", command=do_send).pack(pady=10)
 
-    def share_to_kakao(self):
+    def share_to_kakao(self, event=None): # Added event=None for consistency
         logger.log("INFO", "UI_Action", "나에게 공유 클릭")
         if self.df.empty: return
         cur_m = self.shared_month_var.get(); m_df = self.df[self.df["월"] == cur_m]
@@ -193,24 +193,25 @@ class TransactionView(ttk.Frame):
         self.current_chart_category = None; self.btn_chart_back.config(state=tk.DISABLED)
         self.cat_var.set("전체"); self.update_main_tab(); self.update_dashboard_chart()
 
-    def load_data_from_db(self):
+    def load_data_from_api(self): # Renamed from load_data_from_db
         try:
-            with database.get_db_connection() as conn:
-                with conn.cursor() as cursor:
-                    cursor.execute("SELECT merchant, category, sub_category FROM category")
-                    rules = cursor.fetchall()
-                    self.dashboard_util.mapping_rules = sorted(rules, key=lambda x: len(x['merchant']), reverse=True) if rules else []
+            # Fetch transactions from the API
+            raw_df = self.dashboard_util.fetch_transactions_from_api()
 
-                    cursor.execute("SELECT * FROM transactions")
-                    res = cursor.fetchall()
-
-            if not res:
+            if raw_df.empty:
                 self.df = pd.DataFrame()
                 return
 
-            # DB에서 가져온 원본 데이터를 DataFrame으로 변환
-            raw_df = pd.DataFrame(res)
-            raw_df.rename(columns={'transaction_date': 'DT', 'transaction_type': '타입', 'description': '내용', 'amount': '금액', 'payment_method': '결제수단'}, inplace=True)
+            # The API returns data that might already be close to the desired format
+            # Ensure column names match what process_transactions_dataframe expects
+            # Assuming API returns 'transaction_date', 'transaction_type', 'description', 'amount', 'payment_method'
+            raw_df.rename(columns={
+                'transaction_date': 'DT',
+                'transaction_type': '타입',
+                'description': '내용',
+                'amount': '금액',
+                'payment_method': '결제수단'
+            }, inplace=True)
 
             # TransactionUtil을 사용하여 데이터 전처리
             self.df = self.dashboard_util.process_transactions_dataframe(raw_df)
@@ -219,6 +220,8 @@ class TransactionView(ttk.Frame):
             self.on_month_change(None)
         except Exception:
             traceback.print_exc()
+            messagebox.showerror("데이터 로드 오류", "거래 내역을 불러오는 중 오류가 발생했습니다. 백엔드 서버가 실행 중인지 확인해주세요.")
+
 
     def update_summary_card(self):
         if self.df.empty: return
@@ -304,7 +307,7 @@ class TransactionView(ttk.Frame):
             acc_sheet_name = get_sheet("가계부 내역")
             if acc_sheet_name:
                 df_transactions = self.dashboard_util.process_excel_data(excel_data[acc_sheet_name])
-                # TransactionUtil의 save_new_transactions_to_db 메서드 사용
+                # TransactionUtil의 save_new_transactions_to_db 메서드 사용 (already updated to use API)
                 saved_count = self.dashboard_util.save_new_transactions_to_db(df_transactions)
                 if saved_count > 0:
                     logger.log("INFO", "TransactionDB", f"가계부 내역 {saved_count}건 저장 완료")
@@ -319,6 +322,7 @@ class TransactionView(ttk.Frame):
             if financial_sheet_name:
                 df_raw_financial = excel_data[financial_sheet_name]
                 rows_financial = FinancialUtil.parse_financial_status_table(df_raw_financial)
+                # FinancialUtil.save_financial_rows needs to be updated to use API
                 count_financial = FinancialUtil.save_financial_rows(rows_financial)
                 logger.log("INFO", "FinancialDB", f"재무 현황 {count_financial}건 저장 완료")
                 upload_messages.append(f"재무 현황 {count_financial}건 업로드 완료.")
@@ -327,7 +331,7 @@ class TransactionView(ttk.Frame):
 
             logger.log("INFO", "FileUpload", f"엑셀 업로드 성공: {'; '.join(upload_messages)}")
             messagebox.showinfo("업로드 완료", "\n".join(upload_messages))
-            self.load_data_from_db() # 가계부 내역 새로고침
+            self.load_data_from_api() # 가계부 내역 새로고침 (Changed to load from API)
             try:
                 self.winfo_toplevel().event_generate("<<FinancialDataChanged>>", when="tail")
             except tk.TclError:

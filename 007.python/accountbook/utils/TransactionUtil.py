@@ -1,12 +1,29 @@
 import pandas as pd
 from utils.Common import map_columns
-import database # DB 접근을 위해 추가
+import requests
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:5000")
 
 class TransactionUtil:
     """가계부 요약 및 엑셀 데이터 처리를 담당하는 유틸리티 클래스"""
 
     def __init__(self, mapping_rules=None):
         self.mapping_rules = mapping_rules or []
+        self.load_mapping_rules_from_api()
+
+    def load_mapping_rules_from_api(self):
+        """API에서 카테고리 매핑 규칙을 로드합니다."""
+        try:
+            response = requests.get(f"{API_BASE_URL}/categories")
+            response.raise_for_status()
+            rules = response.json()
+            self.mapping_rules = sorted(rules, key=lambda x: len(x['merchant']), reverse=True) if rules else []
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching category rules from API: {e}")
+            self.mapping_rules = [] # Fallback to empty list on error
 
     def _get_valid_df(self, df):
         """취소, 선승인, 이체 등을 제외한 실제 소비/수입 데이터프레임 반환"""
@@ -133,6 +150,69 @@ class TransactionUtil:
         final_df['소분류'] = df['subcat'].fillna("") if 'subcat' in df.columns else ""
         return final_df
 
+    def fetch_transactions_from_api(self):
+        """API에서 모든 거래 내역을 가져옵니다."""
+        try:
+            response = requests.get(f"{API_BASE_URL}/transactions")
+            response.raise_for_status()
+            transactions_data = response.json()
+            if not transactions_data:
+                return pd.DataFrame()
+            return pd.DataFrame(transactions_data)
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching transactions from API: {e}")
+            return pd.DataFrame()
+
+    def save_new_transactions_to_db(self, new_transactions_df):
+        """
+        새로운 거래 내역 DataFrame을 API를 통해 DB에 저장합니다.
+        기존 DB 데이터와 비교하여 중복을 제외하고 삽입합니다.
+        """
+        if new_transactions_df.empty:
+            return 0 # No new records to save
+
+        saved_count = 0
+        try:
+            # Fetch existing transactions from API to avoid duplicates
+            existing_transactions_df = self.fetch_transactions_from_api()
+            existing_transactions = set()
+            if not existing_transactions_df.empty:
+                for _, r in existing_transactions_df.iterrows():
+                    # Ensure consistent format for comparison
+                    dt_str = pd.to_datetime(r['transaction_date']).strftime('%Y-%m-%d %H:%M:%S')
+                    existing_transactions.add((dt_str, int(r['amount']), str(r['description']).strip(), r['transaction_type']))
+
+            records_to_insert = []
+            for _, row in new_transactions_df.iterrows():
+                desc = str(row['내용']).strip()
+                # Check if the transaction already exists
+                if desc and not pd.isna(row['DT']):
+                    # Format for comparison
+                    current_transaction_tuple = (
+                        row['DT'].strftime('%Y-%m-%d %H:%M:%S'),
+                        int(row['금액']),
+                        desc,
+                        row['타입']
+                    )
+                    if current_transaction_tuple not in existing_transactions:
+                        records_to_insert.append({
+                            "transaction_date": row['DT'].isoformat(), # ISO format for JSON
+                            "transaction_type": row['타입'],
+                            "description": desc,
+                            "amount": int(row['금액']),
+                            "payment_method": row.get('결제수단', '')
+                        })
+
+            if records_to_insert:
+                response = requests.post(f"{API_BASE_URL}/transactions", json=records_to_insert)
+                response.raise_for_status()
+                # Assuming the API returns a success message or count
+                saved_count = len(records_to_insert)
+        except requests.exceptions.RequestException as e:
+            print(f"Error saving transactions to API: {e}")
+            raise # Re-raise to be caught by TransactionView's try-except
+        return saved_count
+
     def process_transactions_dataframe(self, df):
         """
         거래 내역 DataFrame을 전처리하고 파생 컬럼을 생성합니다.
@@ -177,48 +257,3 @@ class TransactionUtil:
         df['is_double_count'] = df['내용'].str.contains(card_kws, na=False) | df.duplicated(subset=['DT', '타입', '내용', '금액'], keep="first")
 
         return df
-
-    def save_new_transactions_to_db(self, new_transactions_df):
-        """
-        새로운 거래 내역 DataFrame을 DB에 저장합니다.
-        기존 DB 데이터와 비교하여 중복을 제외하고 삽입합니다.
-        """
-        if new_transactions_df.empty:
-            return 0 # No new records to save
-
-        saved_count = 0
-        try:
-            with database.get_db_connection() as conn:
-                with conn.cursor() as cursor:
-                    # Fetch existing transactions to avoid duplicates
-                    cursor.execute("SELECT transaction_date, amount, description, transaction_type FROM transactions")
-                    existing_transactions = {
-                        (r['transaction_date'].strftime('%Y-%m-%d %H:%M:%S'), int(r['amount']), str(r['description']).strip(), r['transaction_type'])
-                        for r in cursor.fetchall()
-                    }
-
-                    records_to_insert = []
-                    for _, row in new_transactions_df.iterrows():
-                        desc = str(row['내용']).strip()
-                        # Check if the transaction already exists in the DB
-                        if desc and not pd.isna(row['DT']) and \
-                                (row['DT'].strftime('%Y-%m-%d %H:%M:%S'), int(row['금액']), desc, row['타입']) not in existing_transactions:
-                            records_to_insert.append((
-                                row['DT'],
-                                row['타입'],
-                                desc,
-                                row['금액'],
-                                row.get('결제수단', '')
-                            ))
-
-                    if records_to_insert:
-                        cursor.executemany(
-                            "INSERT INTO transactions (transaction_date, transaction_type, description, amount, payment_method) VALUES (%s, %s, %s, %s, %s)",
-                            records_to_insert
-                        )
-                        conn.commit()
-                        saved_count = len(records_to_insert)
-        except Exception as e:
-            print(f"Error saving transactions to DB: {e}")
-            raise # Re-raise to be caught by TransactionView's try-except
-        return saved_count
