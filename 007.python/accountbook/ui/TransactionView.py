@@ -8,7 +8,7 @@ import http.server
 import socketserver
 from urllib.parse import urlparse, parse_qs
 import pandas as pd
-from dotenv import load_dotenv
+# from dotenv import load_dotenv # Removed
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
 from matplotlib.figure import Figure
@@ -30,7 +30,7 @@ class TransactionView(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent)
 
-        load_dotenv()
+        # load_dotenv() # Removed
         self.rest_api_key = os.getenv("KAKAO_REST_API_KEY")
 
         self.notifier = KakaoNotifier(rest_api_key=self.rest_api_key)

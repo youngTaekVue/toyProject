@@ -8,13 +8,39 @@
           <h2>SOFT UI PRO</h2>
         </div>
         <nav class="sidebar-nav">
-          <ul>
-            <li><router-link to="/home" active-class="active"><v-icon>mdi-view-dashboard</v-icon> <span>Dashboard</span></router-link></li>
-            <li><router-link to="/analytics" active-class="active"><v-icon>mdi-chart-bar</v-icon> <span>Analytics</span></router-link></li>
-            <li><router-link to="/billing" active-class="active"><v-icon>mdi-wallet</v-icon> <span>Billing</span></router-link></li>
-            <li><router-link to="/profile" active-class="active"><v-icon>mdi-account-circle</v-icon> <span>Profile</span></router-link></li>
-            <li><router-link to="/settings" active-class="active"><v-icon>mdi-cog</v-icon> <span>Settings</span></router-link></li>
-          </ul>
+          <v-list nav dense>
+            <template v-for="item in mainMenuItems" :key="item.path">
+              <v-list-group
+                v-if="item.children && item.children.length > 0"
+                :value="item.path"
+                :opened="item.path === '/accountbook' ? true : undefined"
+              >
+                <template v-slot:activator="{ props }">
+                  <v-list-item
+                    v-bind="props"
+                    :prepend-icon="item.icon"
+                    :title="item.title"
+                    active-class="active"
+                  ></v-list-item>
+                </template>
+                <v-list-item
+                  v-for="child in item.children"
+                  :key="child.path"
+                  :to="child.path"
+                  :prepend-icon="child.icon"
+                  :title="child.title"
+                  active-class="active"
+                ></v-list-item>
+              </v-list-group>
+              <v-list-item
+                v-else
+                :to="item.path"
+                :prepend-icon="item.icon"
+                :title="item.title"
+                active-class="active"
+              ></v-list-item>
+            </template>
+          </v-list>
         </nav>
       </div>
 
@@ -32,8 +58,8 @@
     <main class="main-content">
       <header class="main-header">
         <div class="header-title">
-          <p class="breadcrumb">{{ breadcrumb }}</p>
-          <h1>{{ pageTitle }}</h1>
+          <p class="breadcrumb">{{ route.meta.breadcrumb }}</p>
+          <h1>{{ route.meta.pageTitle }}</h1>
         </div>
         <div class="header-actions">
           <div class="search-wrapper">
@@ -48,29 +74,66 @@
         </div>
       </header>
 
-      <!-- Slot for page-specific content -->
-      <slot></slot>
+      <!-- Router view for page-specific content -->
+      <router-view />
 
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { defineProps } from 'vue';
+import { useRoute, useRouter } from 'vue-router'; // useRoute, useRouter 훅 import
+import { computed } from 'vue';
 
-const props = defineProps({
-  pageTitle: {
-    type: String,
-    required: true
-  },
-  breadcrumb: {
-    type: String,
-    required: true
-  },
-  currentRoute: {
-    type: String,
-    default: 'dashboard' // Default to dashboard if not provided
-  }
+const route = useRoute(); // 현재 라우트 객체 가져오기
+const router = useRouter(); // 라우터 인스턴스 가져오기
+
+interface MenuItem {
+  title: string;
+  icon?: string;
+  path: string;
+  children?: MenuItem[];
+}
+
+const mainMenuItems = computed<MenuItem[]>(() => {
+  // '/' 경로의 자식 라우트들을 가져옵니다.
+  // router.options.routes는 최상위 라우트 배열을 반환합니다.
+  // AppLayout이 '/' 경로의 component로 설정되어 있으므로, 그 children을 찾아야 합니다.
+  const appLayoutParentRoute = router.options.routes.find(r => r.path === '/');
+  const appLayoutRoutes = appLayoutParentRoute?.children || [];
+
+  return appLayoutRoutes
+    .filter(r => r.meta && r.meta.pageTitle && !r.redirect) // meta.pageTitle이 있고 redirect가 아닌 라우트만 필터링
+    .map(r => {
+      // 자식 라우트가 있는 경우 (예: accountbook)
+      if (r.children && r.children.length > 0) {
+        // 자식 라우트 중 meta.pageTitle이 있는 것만 필터링하고 매핑
+        const children = r.children
+          .filter(child => child.meta && child.meta.pageTitle)
+          .map(child => ({
+            title: child.meta.pageTitle as string,
+            icon: child.meta.icon as string,
+            path: `/${r.path}/${child.path}` // 자식 링크의 전체 경로
+          }));
+
+        // 자식 라우트가 하나라도 있으면 그룹으로 처리
+        if (children.length > 0) {
+          return {
+            title: r.meta.pageTitle as string,
+            icon: r.meta.icon as string,
+            path: `/${r.path}`, // 그룹의 기본 경로 (클릭 시 리다이렉트될 경로)
+            children: children
+          };
+        }
+      }
+      // 자식 라우트가 없거나, 필터링 후 자식 라우트가 없는 경우 단일 링크로 처리
+      return {
+        title: r.meta.pageTitle as string,
+        icon: r.meta.icon as string,
+        path: `/${r.path}` // 단일 링크의 전체 경로
+      };
+    })
+    .filter(item => item !== null); // null이 될 수 있는 항목 제거 (필터링된 자식이 없는 그룹)
 });
 </script>
 
@@ -138,24 +201,13 @@ const props = defineProps({
   letter-spacing: -0.5px;
 }
 
-.sidebar-nav ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex; /* Horizontal nav for mobile */
-  flex-wrap: wrap; /* Allow wrapping */
-  gap: 8px; /* Gap between nav items */
-  justify-content: center;
+.sidebar-nav {
+  /* Vuetify v-list will handle most styling, but keep some base */
+  margin-top: 10px;
 }
 
-.sidebar-nav li {
-  margin-bottom: 0;
-}
-
-.sidebar-nav a {
-  display: flex;
-  flex-direction: column; /* Stack icon and text */
-  align-items: center;
+/* Custom styles for active/hover states for v-list-item */
+.sidebar-nav .v-list-item {
   padding: 8px 10px; /* Adjusted padding */
   text-decoration: none;
   color: var(--secondary-text);
@@ -163,29 +215,40 @@ const props = defineProps({
   transition: all 0.3s ease;
   font-weight: 500;
   font-size: clamp(10px, 1.2vw, 14px); /* Responsive typography */
-  text-align: center;
+  text-align: left; /* Align text left for Vuetify list items */
+  margin-bottom: 6px;
 }
 
-.sidebar-nav a span {
-  margin-top: 4px;
-}
-
-.sidebar-nav a i {
-  width: auto;
-  font-size: 14px;
-}
-
-.sidebar-nav a.active, .sidebar-nav a:hover {
+.sidebar-nav .v-list-item--active,
+.sidebar-nav .v-list-item:hover {
   background: #fff;
   color: var(--primary-text);
   box-shadow: 2px 2px 5px var(--shadow-dark);
 }
 
-.sidebar-nav a.active i {
+.sidebar-nav .v-list-item--active .v-icon {
   background: var(--accent-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+
+/* Adjust icon styling within v-list-item */
+.sidebar-nav .v-list-item .v-icon {
+  font-size: 14px; /* Match original icon size */
+  margin-right: 8px; /* Space between icon and text */
+}
+
+/* Adjust title styling within v-list-item */
+.sidebar-nav .v-list-item .v-list-item__title {
+  font-size: inherit; /* Inherit from parent v-list-item */
+  font-weight: inherit;
+}
+
+/* Adjust for v-list-group activator */
+.sidebar-nav .v-list-group__activator .v-list-item {
+  margin-bottom: 0; /* Remove extra margin for group activator */
+}
+
 
 /* Sidebar Help Box */
 .sidebar-footer {

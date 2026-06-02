@@ -1,8 +1,11 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-import database
+# import database # Removed direct database import
 import os
-from dotenv import load_dotenv
+# from dotenv import load_dotenv # Removed as main.py handles it
+import requests # Added for API calls
+
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:3000/python") # Ensure this is correctly set by main.py
 
 class SettingsView(ttk.Frame):
     def __init__(self, parent, main_app=None):
@@ -101,13 +104,16 @@ class SettingsView(ttk.Frame):
         btn_save_sys.pack(pady=20, side="bottom", anchor="e")
 
     def load_system_settings(self):
-        load_dotenv(override=True)
+        # load_dotenv(override=True) # Removed
         self.ent_username.insert(0, os.getenv("APP_USER_NAME", "User"))
         self.font_size_var.set(os.getenv("APP_FONT_SIZE", "10"))
 
 
     def save_system_settings(self):
         try:
+            # This part still directly manipulates the .env file.
+            # For a full REST API approach, these settings might also be stored in the DB
+            # and managed via API, but for now, direct .env manipulation is kept for app settings.
             env_path = ".env"
             current_env_vars = {}
             if os.path.exists(env_path):
@@ -138,39 +144,67 @@ class SettingsView(ttk.Frame):
     def load_categories(self):
         for item in self.tree.get_children(): self.tree.delete(item)
         try:
-            with database.get_db_connection() as conn:
-                with conn.cursor() as cursor:
-                    cursor.execute("SELECT id, merchant, category, sub_category FROM category ORDER BY category, merchant")
-                    for row in cursor.fetchall():
-                        self.tree.insert("", "end", values=(row['id'], row['merchant'], row['category'], row['sub_category']))
-        except Exception as e: print(f"Error: {e}")
+            response = requests.get(f"{API_BASE_URL}/categories")
+            response.raise_for_status()
+            rules = response.json()
+            for row in rules:
+                self.tree.insert("", "end", values=(row['id'], row['merchant'], row['category'], row['sub_category']))
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("오류", f"카테고리 규칙을 불러오는 중 오류 발생: {e}")
+        except Exception as e:
+            messagebox.showerror("오류", f"카테고리 규칙 처리 중 오류 발생: {e}")
 
     def save_rule(self):
         merchant, category, sub_category = self.ent_merchant.get().strip(), self.ent_category.get().strip(), self.ent_sub_category.get().strip()
-        if not merchant or not category: return
+        if not merchant or not category:
+            messagebox.showwarning("경고", "키워드와 대분류는 필수 입력 항목입니다.")
+            return
+
         selected = self.tree.selection()
+        rule_data = {
+            "merchant": merchant,
+            "category": category,
+            "sub_category": sub_category
+        }
+
         try:
-            with database.get_db_connection() as conn:
-                with conn.cursor() as cursor:
-                    if selected:
-                        rule_id = self.tree.item(selected[0], 'values')[0]
-                        cursor.execute("UPDATE category SET merchant=%s, category=%s, sub_category=%s WHERE id=%s", (merchant, category, sub_category, rule_id))
-                    else:
-                        cursor.execute("INSERT INTO category (merchant, category, sub_category) VALUES (%s, %s, %s)", (merchant, category, sub_category))
-                conn.commit()
-            self.clear_form(); self.load_categories()
-        except Exception as e: messagebox.showerror("오류", str(e))
+            if selected:
+                rule_id = self.tree.item(selected[0], 'values')[0]
+                response = requests.put(f"{API_BASE_URL}/categories/{rule_id}", json=rule_data)
+                response.raise_for_status()
+                messagebox.showinfo("성공", "카테고리 규칙이 수정되었습니다.")
+            else:
+                response = requests.post(f"{API_BASE_URL}/categories", json=rule_data)
+                response.raise_for_status()
+                messagebox.showinfo("성공", "카테고리 규칙이 저장되었습니다.")
+            
+            self.clear_form()
+            self.load_categories()
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("오류", f"카테고리 규칙 저장/수정 중 오류 발생: {e}")
+        except Exception as e:
+            messagebox.showerror("오류", f"카테고리 규칙 처리 중 오류 발생: {e}")
 
     def delete_rule(self):
         selected = self.tree.selection()
-        if not selected: return
+        if not selected:
+            messagebox.showwarning("경고", "삭제할 규칙을 선택해주세요.")
+            return
+        
+        if not messagebox.askyesno("확인", "선택한 규칙을 정말 삭제하시겠습니까?"):
+            return
+
         try:
             rule_id = self.tree.item(selected[0], 'values')[0]
-            with database.get_db_connection() as conn:
-                with conn.cursor() as cursor: cursor.execute("DELETE FROM category WHERE id=%s", (rule_id,))
-                conn.commit()
-            self.load_categories(); self.clear_form()
-        except Exception as e: messagebox.showerror("오류", str(e))
+            response = requests.delete(f"{API_BASE_URL}/categories/{rule_id}")
+            response.raise_for_status()
+            messagebox.showinfo("성공", "카테고리 규칙이 삭제되었습니다.")
+            self.load_categories()
+            self.clear_form()
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("오류", f"카테고리 규칙 삭제 중 오류 발생: {e}")
+        except Exception as e:
+            messagebox.showerror("오류", f"카테고리 규칙 처리 중 오류 발생: {e}")
 
     def on_tree_select(self, event):
         selected = self.tree.selection()

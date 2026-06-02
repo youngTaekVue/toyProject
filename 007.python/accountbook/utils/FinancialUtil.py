@@ -1,12 +1,12 @@
 import pandas as pd
 import requests
 import os
-from dotenv import load_dotenv
+# from dotenv import load_dotenv # Removed as main.py handles it
 from utils.Common import map_columns
 from utils.Logger import logger
 
-load_dotenv()
-API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:5000")
+# load_dotenv() # Removed as main.py handles it
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:3000/python") # Updated for Node.js API
 
 class FinancialUtil:
 
@@ -391,29 +391,43 @@ class FinancialUtil:
 
         print("="*50)
 
-    # The following methods need to be re-implemented to use API calls
-    # For now, they are commented out or return placeholder values.
-
     @staticmethod
     def get_financial_data_from_db(snapshot_id=None):
         """API에서 재무 데이터를 가져옵니다. snapshot_id가 None이면 가장 최근 스냅샷만 조회합니다."""
-        # This method needs a new API endpoint, e.g., /financial_status/latest or /financial_status?snapshot_id=X
-        logger.log("WARNING", "FinancialUtil", "get_financial_data_from_db needs API implementation.")
-        return []
+        try:
+            endpoint = f"{API_BASE_URL}/financial_status/latest"
+            if snapshot_id is not None:
+                endpoint = f"{API_BASE_URL}/financial_status?snapshot_id={snapshot_id}" # Node.js API needs to handle this query param
+            
+            response = requests.get(endpoint)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            logger.log("ERROR", "FinancialUtil", f"재무 데이터 로드 중 오류: {e}")
+            return []
 
     @staticmethod
     def get_distinct_financial_snapshot_ids(limit=20):
         """API에서 snapshot_id 내림차순 목록 (히스토리 조회용)."""
-        # This method needs a new API endpoint, e.g., /financial_status/snapshots
-        logger.log("WARNING", "FinancialUtil", "get_distinct_financial_snapshot_ids needs API implementation.")
-        return []
+        try:
+            response = requests.get(f"{API_BASE_URL}/financial_status/snapshots?limit={limit}")
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            logger.log("ERROR", "FinancialUtil", f"스냅샷 ID 조회 오류: {e}")
+            return []
 
     @staticmethod
     def get_current_and_previous_financial_rows():
         """API에서 (최신 스냅샷 행, 직전 스냅샷 행 또는 None)을 가져옵니다."""
-        # This method needs a new API endpoint, e.g., /financial_status/compare
-        logger.log("WARNING", "FinancialUtil", "get_current_and_previous_financial_rows needs API implementation.")
-        return [], None
+        try:
+            response = requests.get(f"{API_BASE_URL}/financial_status/compare")
+            response.raise_for_status()
+            data = response.json()
+            return data.get('current', []), data.get('previous', None)
+        except requests.exceptions.RequestException as e:
+            logger.log("ERROR", "FinancialUtil", f"최신/직전 재무 조회 오류: {e}")
+            return [], None
 
     @staticmethod
     def calculate_financial_summary(rows):
@@ -422,8 +436,8 @@ class FinancialUtil:
         total_liabilities = 0
 
         for row in rows:
-            category = str(row.get('category', '')) if isinstance(row, dict) else str(row[1])
-            amount = row.get('amount', 0) if isinstance(row, dict) else row[3]
+            category = str(row.get('category', ''))
+            amount = row.get('amount', 0)
 
             try:
                 amt_val = int(amount)
@@ -440,17 +454,11 @@ class FinancialUtil:
 
     @staticmethod
     def _normalize_financial_row(row):
-        if isinstance(row, dict):
-            name = str(row.get("itemName") or row.get("item_name") or "").strip()
-            cat = str(row.get("category", "")).strip()
-            inst = str(row.get("institution", "")).strip()
-            amt = row.get("amount", 0)
-        else:
-            # Assuming tuple format if not dict, adjust indices as per your DB fetch
-            name = str(row[0]).strip()
-            cat = str(row[1]).strip()
-            inst = str(row[2]).strip()
-            amt = row[3]
+        # Node.js API returns dicts, so we can simplify this
+        name = str(row.get("item_name") or "").strip()
+        cat = str(row.get("category", "")).strip()
+        inst = str(row.get("institution", "")).strip()
+        amt = row.get("amount", 0)
         try:
             amt_i = int(amt)
         except (TypeError, ValueError):

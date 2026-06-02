@@ -17,10 +17,10 @@ const newsRouter = require('./routes/browser/news');
 const calendarRouter = require('./routes/browser/calendar');
 const mapkeyRouter = require('./routes/browser/mapkey');
 const busRouter = require('./routes/browser/bus');
-//const pythonRouter = require('./routes/python');
+const pythonRouter = require('./routes/python/python'); // Updated path
 //const analytics = require('./routes/browser/analytics');
 
-app.use(express.json()); // JSON 형식 요청 본문 처리
+app.use(express.json({ limit: '50mb' })); // JSON 형식 요청 본문 처리, limit 증가
 app.use(express.static('public')); // 정적 파일 서비스
 
 // 라우터 마운트
@@ -30,7 +30,7 @@ app.use('/news', newsRouter);
 app.use('/calendar', calendarRouter);
 app.use('/mapkey', mapkeyRouter);
 app.use('/bus', busRouter);
-//app.use('/python', pythonRouter);
+app.use('/python', pythonRouter); // Uncommented and enabled
 //app.use('/analytics', analytics);
 
 // 에러 핸들링 미들웨어 (기본 예시)

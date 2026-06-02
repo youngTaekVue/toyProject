@@ -2,10 +2,10 @@ import pandas as pd
 from utils.Common import map_columns
 import requests
 import os
-from dotenv import load_dotenv
+# from dotenv import load_dotenv # Removed as main.py handles it
 
-load_dotenv()
-API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:5000")
+# load_dotenv() # Removed as main.py handles it
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:3000/python") # Ensure this is correctly set by main.py
 
 class TransactionUtil:
     """가계부 요약 및 엑셀 데이터 처리를 담당하는 유틸리티 클래스"""

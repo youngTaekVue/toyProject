@@ -4,13 +4,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import database
+# import database # Removed direct database import
 import traceback
 from utils.TransactionUtil import TransactionUtil
 import ttkbootstrap as tb
 import os
 import threading
-from dotenv import load_dotenv
+# from dotenv import load_dotenv # Removed as main.py handles it
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
@@ -28,7 +28,7 @@ plt.rcParams['axes.unicode_minus'] = False
 class SpendingManagement(ttk.Frame):
     def __init__(self, parent, display_sections=None, on_month_select=None):
         super().__init__(parent)
-        load_dotenv(override=True)
+        # load_dotenv(override=True) # Removed
         self.dashboard_util = TransactionUtil()
         self.filtered_df = pd.DataFrame()
         self.all_months = []
@@ -121,12 +121,12 @@ class SpendingManagement(ttk.Frame):
         if 'category_analysis' in self.display_sections:
             self.left_analysis = ttk.LabelFrame(self.bottom_section, text=" 전월 대비 카테고리별 증감 ", padding=10)
             self.left_analysis.pack(side=tk.LEFT, fill=tk.BOTH, expand=True,  padx=(10, 10))
-            self.tree_category = ttk.Treeview(self.left_analysis, columns=("category", "prev", "curr", "diff"), show="headings", height=5)
-            self.tree_category.heading("category", text="카테고리"); self.tree_category.heading("prev", text="지난달")
+            self.tree_category = ttk.Treeview(self.left_analysis, columns=("대분류", "prev", "curr", "diff"), show="headings", height=5)
+            self.tree_category.heading("대분류", text="카테고리"); self.tree_category.heading("prev", text="지난달")
             self.tree_category.heading("curr", text="선택달"); self.tree_category.heading("diff", text="증감")
 
             # 컬럼 정렬 변경
-            self.tree_category.column("category", width=80, anchor="w") # 왼쪽 정렬
+            self.tree_category.column("대분류", width=80, anchor="w") # 왼쪽 정렬
             self.tree_category.column("prev", width=80, anchor="e") # 오른쪽 정렬
             self.tree_category.column("curr", width=80, anchor="e") # 오른쪽 정렬
             self.tree_category.column("diff", width=80, anchor="e") # 오른쪽 정렬
@@ -136,12 +136,13 @@ class SpendingManagement(ttk.Frame):
         if 'top_merchants' in self.display_sections:
             self.right_analysis = ttk.LabelFrame(self.bottom_section, text=" 선택 월 주요 소비처 Top 5 ", padding=10)
             self.right_analysis.pack(side=tk.LEFT, fill=tk.BOTH, expand=True,  padx=(10, 10))
-            self.tree_merchants = ttk.Treeview(self.right_analysis, columns=("cat", "merchant", "amount"), show="headings", height=5)
-            self.tree_merchants.heading("cat", text="카테고리")
+            # 'cat' 대신 '대분류' 사용
+            self.tree_merchants = ttk.Treeview(self.right_analysis, columns=("대분류", "merchant", "amount"), show="headings", height=5)
+            self.tree_merchants.heading("대분류", text="대분류") # 'cat' 대신 '대분류'
             self.tree_merchants.heading("merchant", text="소비처")
             self.tree_merchants.heading("amount", text="금액")
             #for col in ("cat", "amount"): self.tree_merchants.column(col, width=80, anchor="center")
-            self.tree_merchants.column("cat", width=80, anchor="center")
+            self.tree_merchants.column("대분류", width=80, anchor="center") # 'cat' 대신 '대분류'
             self.tree_merchants.column("merchant", width=80, anchor="w")
             self.tree_merchants.column("amount", width=80, anchor="e")
             self.tree_merchants.pack(fill=tk.BOTH, expand=True)
@@ -161,32 +162,68 @@ class SpendingManagement(ttk.Frame):
 
     def load_and_plot_data(self):
         try:
-            with database.get_db_connection() as conn:
-                with conn.cursor() as cursor:
-                    cursor.execute("SELECT merchant, category, sub_category FROM category")
-                    rules = cursor.fetchall()
-                    self.dashboard_util.mapping_rules = rules
-                    cursor.execute("SELECT transaction_date, amount, transaction_type, description, payment_method FROM transactions")
-                    res = cursor.fetchall()
-            if not res: return
-            df = pd.DataFrame(res)
-            df.rename(columns={'transaction_date': 'DT', 'transaction_type': '타입', 'description': '내용', 'amount': '금액'}, inplace=True)
-            df['DT'] = pd.to_datetime(df['DT'])
-            self.dashboard_util.mapping_rules = sorted(rules, key=lambda x: len(x['merchant']), reverse=True) if rules else []
-            classified = df.apply(lambda r: self.dashboard_util.auto_classify(r), axis=1)
-            df['category'] = classified['대분류']; df['타입'] = classified['타입']; df['abs_amt'] = df['금액'].abs()
+            # Load mapping rules from API via dashboard_util
+            self.dashboard_util.load_mapping_rules_from_api()
+
+            # Fetch transactions from API via dashboard_util
+            raw_df = self.dashboard_util.fetch_transactions_from_api()
+
+            if raw_df.empty:
+                self.filtered_df = pd.DataFrame()
+                self.all_months = []
+                self.monthly_summary = pd.DataFrame()
+                return
+
+            # The API returns data that might already be close to the desired format
+            # Ensure column names match what process_transactions_dataframe expects
+            raw_df.rename(columns={
+                'transaction_date': 'DT',
+                'transaction_type': '타입',
+                'description': '내용',
+                'amount': '금액',
+                'payment_method': '결제수단'
+            }, inplace=True)
+
+            # Process the dataframe using TransactionUtil
+            df = self.dashboard_util.process_transactions_dataframe(raw_df)
+
+            # Filter for expenses and prepare for analysis
             self.filtered_df = df[(df['타입'] == '지출')].copy()
             self.filtered_df['month'] = self.filtered_df['DT'].dt.strftime('%Y-%m')
             self.filtered_df['amount'] = self.filtered_df['금액'].abs()
+
             self.all_months = sorted(self.filtered_df['month'].unique())
             self.monthly_summary = self.filtered_df.groupby('month')['amount'].sum().reset_index()
+
             if self.all_months:
                 self.selected_month_idx = len(self.all_months) - 1
                 self.update_analysis_by_month(self.all_months[self.selected_month_idx])
+            else:
+                # Handle case where there's no data after filtering
+                self.update_analysis_by_month(None) # Pass None or empty string to reset UI
         except Exception: traceback.print_exc()
 
     def update_analysis_by_month(self, target_month):
-        if self.filtered_df.empty or self.monthly_summary.empty: return
+        if self.filtered_df.empty or self.monthly_summary.empty or target_month is None:
+            # Reset UI elements if no data or target_month is None
+            if self.lbl_curr_val: self.lbl_curr_val.config(text="0원")
+            if self.lbl_mom_change: self.lbl_mom_change.config(text="-", foreground="gray")
+            if self.lbl_daily_avg: self.lbl_daily_avg.config(text="0원")
+            if self.lbl_avg_val: self.lbl_avg_val.config(text="0원")
+            if self.lbl_max_month: self.lbl_max_month.config(text="-")
+            if hasattr(self, 'tree_category'):
+                for item in self.tree_category.get_children(): self.tree_category.delete(item)
+            if hasattr(self, 'tree_merchants'):
+                for item in self.tree_merchants.get_children(): self.tree_merchants.delete(item)
+            if 'chart' in self.display_sections:
+                self.ax.clear()
+                self.ax.text(0.5, 0.5, '데이터 없음', ha='center', va='center', transform=self.ax.transAxes)
+                self.canvas.draw()
+            if 'ai_advice' in self.display_sections:
+                self.display_ai_advice("데이터가 없어 AI 조언을 생성할 수 없습니다.")
+                if self.lbl_ai_status: self.lbl_ai_status.config(text="상태: 데이터 없음", foreground="gray")
+            return
+
         if target_month not in self.all_months: return
         self.selected_month_idx = self.all_months.index(target_month)
 
@@ -211,8 +248,9 @@ class SpendingManagement(ttk.Frame):
 
         if self.lbl_daily_avg:
             curr_month_df = self.filtered_df[self.filtered_df['month'] == target_month]
-            days_count = curr_month_df['DT'].dt.day.nunique()
-            daily_avg = curr_amt / days_count if days_count > 0 else 0
+            # Use unique days in the month to calculate days_count
+            days_in_month = pd.to_datetime(target_month).days_in_month
+            daily_avg = curr_amt / days_in_month if days_in_month > 0 else 0
             self.lbl_daily_avg.config(text=f"{int(daily_avg):,}원")
 
         if self.lbl_avg_val:
@@ -258,7 +296,8 @@ class SpendingManagement(ttk.Frame):
 
     def _get_category_spending_data(self, target_month):
         curr_month_df = self.filtered_df[self.filtered_df['month'] == target_month]
-        curr_cat_sum = curr_month_df.groupby('category')['amount'].sum().to_dict()
+        # 'category' 대신 '대분류' 사용
+        curr_cat_sum = curr_month_df.groupby('대분류')['amount'].sum().to_dict()
 
         prev_cat_sum = {}
         # target_month의 인덱스를 찾고, 이전 달이 있는지 확인
@@ -267,7 +306,8 @@ class SpendingManagement(ttk.Frame):
             if selected_month_idx > 0:
                 prev_month_str = self.all_months[selected_month_idx - 1]
                 prev_month_df = self.filtered_df[self.filtered_df['month'] == prev_month_str]
-                prev_cat_sum = prev_month_df.groupby('category')['amount'].sum().to_dict()
+                # 'category' 대신 '대분류' 사용
+                prev_cat_sum = prev_month_df.groupby('대분류')['amount'].sum().to_dict()
         return curr_cat_sum, prev_cat_sum
 
     @staticmethod
@@ -300,16 +340,18 @@ class SpendingManagement(ttk.Frame):
 
             # 2. 주요 소비처 (Top Merchants)
             curr_df = self.filtered_df[self.filtered_df['month'] == target_month]
-            top_merchants_data = curr_df.groupby(['category', '내용'])['amount'].sum().reset_index().sort_values('amount', ascending=False).head(5)
+            # 'category' 대신 '대분류' 사용
+            top_merchants_data = curr_df.groupby(['대분류', '내용'])['amount'].sum().reset_index().sort_values('amount', ascending=False).head(5)
             top_merchants_list = []
             for _, row in top_merchants_data.iterrows():
-                top_merchants_list.append(f"{row['내용']} ({row['category']}): {int(row['amount']):,}원")
+                # 'category' 대신 '대분류' 사용
+                top_merchants_list.append(f"{row['내용']} ({row['대분류']}): {int(row['amount']):,}원")
             top_merchants_info_str = "주요 소비처: " + ", ".join(top_merchants_list) if top_merchants_list else "주요 소비처 정보 없음."
 
             # 3. 일평균 지출
             curr_month_df_for_daily_avg = self.filtered_df[self.filtered_df['month'] == target_month]
-            days_count = curr_month_df_for_daily_avg['DT'].dt.day.nunique()
-            daily_avg = curr_spending / days_count if days_count > 0 else 0
+            days_in_month = pd.to_datetime(target_month).days_in_month
+            daily_avg = curr_spending / days_in_month if days_in_month > 0 else 0
             daily_avg_info_str = f"일평균 지출: {int(daily_avg):,}원."
 
             prompt = (f"{target_month} 가계부 조언. "
@@ -392,5 +434,6 @@ class SpendingManagement(ttk.Frame):
         if not hasattr(self, 'tree_merchants'): return
         for item in self.tree_merchants.get_children(): self.tree_merchants.delete(item)
         curr_df = self.filtered_df[self.filtered_df['month'] == target_month]
-        top_m = curr_df.groupby(['category', '내용'])['amount'].sum().reset_index().sort_values('amount', ascending=False).head(5)
-        for _, row in top_m.iterrows(): self.tree_merchants.insert("", tk.END, values=(row['category'], row['내용'], f"{int(row['amount']):,}원"))
+        # 'category' 대신 '대분류' 사용
+        top_m = curr_df.groupby(['대분류', '내용'])['amount'].sum().reset_index().sort_values('amount', ascending=False).head(5)
+        for _, row in top_m.iterrows(): self.tree_merchants.insert("", tk.END, values=(row['대분류'], row['내용'], f"{int(row['amount']):,}원"))
