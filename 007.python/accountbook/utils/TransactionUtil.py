@@ -95,17 +95,27 @@ class TransactionUtil:
         original_type = str(row.get('타입', '지출')).strip()
 
         # 금융/이체/카드대금 보정 (교통비 오분류 방지 핵심 키워드)
-        financial_kws = ['카드대금', '결제대금', '보험', '이자', '적금', '송금', '이체', '대출', '상환', '현금서비스']
+        financial_kws = ['카드대금', '결제대금', '이자', '적금', '송금', '이체', '대출', '상환', '현금서비스']
         if any(kw in content for kw in financial_kws):
             return pd.Series({'대분류': '금융/이체', '소분류': '자동분류', '타입': '이체'})
 
         for rule in self.mapping_rules:
             if isinstance(rule, dict):
                 kw, cat, sub = rule.get('merchant'), rule.get('category'), rule.get('sub_category')
+                # 금액 범위 조건 (최솟값, 최댓값)
+                min_amt = rule.get('min_amount')
+                max_amt = rule.get('max_amount')
             else:
                 kw, cat, sub = rule[0], rule[1], rule[2]
+                min_amt, max_amt = None, None
 
             if kw and str(kw).strip().lower() in content:
+                # 금액 범위가 설정되어 있는 경우 체크 (절대값 기준)
+                if min_amt is not None and max_amt is not None and min_amt > 0:
+                    row_amt = abs(int(row.get('금액', 0)))
+                    if not (min_amt <= row_amt <= max_amt):
+                        continue # 범위에 맞지 않으면 다음 규칙으로
+
                 new_type = original_type
                 if cat in ['이체', '자산이동', '금융/이체']:
                     new_type = '이체'
@@ -221,12 +231,13 @@ class TransactionUtil:
         if df.empty:
             return pd.DataFrame()
 
-        # Ensure 'DT' is datetime
-        if 'DT' not in df.columns:
-            # Assuming 'transaction_date' from DB if 'DT' is not present (e.g., initial load from DB)
-            df['DT'] = pd.to_datetime(df['transaction_date'], errors='coerce')
-        else:
-            df['DT'] = pd.to_datetime(df['DT'], errors='coerce')
+        # API에서 넘어오는 시간 데이터(보통 UTC ISO8601 문자열)를 한국 시간(KST)으로 변환합니다.
+        # DB에 저장된 transaction_date가 UTC 기준일 경우 UI에서 9시간 차이가 발생할 수 있습니다.
+        target_col = 'DT' if 'DT' in df.columns else 'transaction_date'
+        
+        # utc=True를 지정하여 'Z'나 '+00:00'을 인식하고, tz_convert로 현지 시간대로 보정합니다.
+        # 그 후 UI 표시를 위해 시간대 정보를 제거(naive)합니다.
+        df['DT'] = pd.to_datetime(df[target_col], errors='coerce', utc=True).dt.tz_convert('Asia/Seoul').dt.tz_localize(None)
 
         df = df.dropna(subset=['DT']) # Drop rows where DT conversion failed
 
@@ -257,3 +268,23 @@ class TransactionUtil:
         df['is_double_count'] = df['내용'].str.contains(card_kws, na=False) | df.duplicated(subset=['DT', '타입', '내용', '금액'], keep="first")
 
         return df
+
+    def update_transaction_via_api(self, transaction_id, update_data):
+        """특정 거래 내역의 정보를 API를 통해 DB에서 업데이트합니다."""
+        try:
+            # UI 컬럼명과 DB 필드명 매핑
+            api_mapping = {
+                '타입': 'transaction_type',
+                '대분류': 'category',
+                '소분류': 'sub_category'
+            }
+            
+            payload = {api_mapping[k]: v for k, v in update_data.items() if k in api_mapping}
+            
+            response = requests.put(f"{API_BASE_URL}/transactions/{transaction_id}", json=payload)
+            response.raise_for_status()
+            return True
+        except Exception as e:
+            from utils.Logger import logger
+            logger.log("ERROR", "API_Update", f"거래(ID:{transaction_id}) 업데이트 실패: {e}")
+            return False

@@ -277,7 +277,12 @@ class TransactionView(ttk.Frame):
         for c in cols:
             if c != "ID": tree.column(c, width=100, anchor="center"); tree.heading(c, text=c)
         tree.tag_configure('income', foreground='blue'); tree.tag_configure('expense', foreground='red'); tree.tag_configure('muted', foreground='#888888', background='#f2f2f2')
-        tree.pack(fill=tk.BOTH, expand=True); return tree
+        tree.pack(fill=tk.BOTH, expand=True)
+
+        # Ctrl+C 단축키 바인딩 (내용 복사)
+        tree.bind("<Control-c>", self.copy_selection_to_clipboard)
+        tree.bind("<Double-1>", self.on_tree_double_click)
+        return tree
 
     def insert_data_to_tree(self, tree, data):
         tree.delete(*tree.get_children())
@@ -433,5 +438,82 @@ class TransactionView(ttk.Frame):
         if succ: messagebox.showinfo("성공", "인증 성공"); return True
         else: messagebox.showerror("오류", msg); return False
 
+    def on_tree_double_click(self, event):
+        """Treeview 셀 더블클릭 시 편집 모드 진입"""
+        tree = event.widget
+        item_id = tree.identify_row(event.y)
+        column = tree.identify_column(event.x)
+
+        # #4: 타입, #5: 대분류, #6: 소분류 수정 가능
+        if not item_id or column not in ("#4", "#5", "#6"):
+            return
+
+        x, y, width, height = tree.bbox(item_id, column)
+        current_values = tree.item(item_id, 'values')
+        col_idx = int(column[1:]) - 1
+        old_value = str(current_values[col_idx])
+
+        entry = ttk.Entry(tree)
+        entry.insert(0, old_value)
+        entry.select_range(0, tk.END)
+        entry.focus_set()
+        entry.place(x=x, y=y, width=width, height=height)
+
+        def save_edit(event=None):
+            new_value = entry.get().strip()
+            entry.destroy()
+            
+            if new_value == old_value: return
+
+            transaction_id = current_values[0]
+            col_name = "타입" if column == "#4" else ("대분류" if column == "#5" else "소분류")
+
+            # 1. API를 통한 DB 업데이트 요청
+            succ = self.dashboard_util.update_transaction_via_api(transaction_id, {col_name: new_value})
+            
+            if succ:
+                # 2. UI Treeview 업데이트
+                new_values = list(current_values)
+                new_values[col_idx] = new_value
+                tree.item(item_id, values=new_values)
+
+                # 3. 로컬 데이터프레임(self.df) 업데이트
+                if not self.df.empty:
+                    idx = self.df[self.df['id'] == int(transaction_id)].index
+                    if not idx.empty:
+                        self.df.loc[idx, col_name] = new_value
+                
+                logger.log("INFO", "UI_Action", f"거래(ID:{transaction_id}) {col_name} 수정 완료: {new_value}")
+            else:
+                messagebox.showerror("오류", "데이터베이스 업데이트에 실패했습니다.")
+
+        entry.bind("<Return>", save_edit)
+        entry.bind("<FocusOut>", lambda e: entry.destroy())
+        entry.bind("<Escape>", lambda e: entry.destroy())
+
     def on_tree_click(self, event): pass
-    def copy_selection_to_clipboard(self, event): pass
+
+    def copy_selection_to_clipboard(self, event):
+        tree = event.widget
+        selection = tree.selection()
+        if not selection:
+            return
+
+        # 'ID' 컬럼을 제외한 헤더 목록 생성
+        display_cols = [c for c in tree["columns"] if c != "ID"]
+        
+        lines = []
+        lines.append("\t".join(display_cols))  # 첫 줄에 헤더 추가
+
+        for item in selection:
+            values = tree.item(item, 'values')
+            if values:
+                # ID(인덱스 0)를 제외한 나머지 값들을 탭으로 연결
+                row_data = [str(v) for v in values[1:]]
+                lines.append("\t".join(row_data))
+
+        if lines:
+            full_content = "\n".join(lines)
+            self.clipboard_clear()
+            self.clipboard_append(full_content)
+            logger.log("INFO", "UI_Action", f"거래 내역 {len(selection)}건 엑셀 형식 복사 완료")

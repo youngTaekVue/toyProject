@@ -42,6 +42,15 @@ class SettingsView(ttk.Frame):
         self.ent_merchant = ttk.Entry(form_frame)
         self.ent_merchant.pack(fill="x", pady=(0, 15))
 
+        range_frame = ttk.Frame(form_frame)
+        range_frame.pack(fill="x", pady=(0, 15))
+        ttk.Label(range_frame, text="금액 범위 (최소 ~ 최대):").pack(anchor="w", pady=(0, 5))
+        self.ent_min_amt = ttk.Entry(range_frame, width=10)
+        self.ent_min_amt.pack(side="left", expand=True, fill="x")
+        ttk.Label(range_frame, text=" ~ ").pack(side="left")
+        self.ent_max_amt = ttk.Entry(range_frame, width=10)
+        self.ent_max_amt.pack(side="left", expand=True, fill="x")
+
         ttk.Label(form_frame, text="대분류:").pack(anchor="w", pady=(0, 5))
         self.ent_category = ttk.Entry(form_frame)
         self.ent_category.pack(fill="x", pady=(0, 15))
@@ -58,10 +67,11 @@ class SettingsView(ttk.Frame):
         list_frame = ttk.LabelFrame(self.category_tab, text="등록된 자동 분류 규칙", padding=10)
         list_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
 
-        cols = ("ID", "키워드", "대분류", "소분류")
+        cols = ("ID", "키워드", "금액 범위", "대분류", "소분류")
         self.tree = ttk.Treeview(list_frame, columns=cols, show="headings", selectmode="browse")
         for col in cols: self.tree.heading(col, text=col)
         self.tree.column("ID", width=50, anchor="center")
+        self.tree.column("금액 범위", width=120, anchor="center")
         
         sb = ttk.Scrollbar(list_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscroll=sb.set)
@@ -148,21 +158,38 @@ class SettingsView(ttk.Frame):
             response.raise_for_status()
             rules = response.json()
             for row in rules:
-                self.tree.insert("", "end", values=(row['id'], row['merchant'], row['category'], row['sub_category']))
+                min_a = row.get('min_amount', 0)
+                max_a = row.get('max_amount', 0)
+                range_txt = f"{min_a:,} ~ {max_a:,}" if min_a > 0 else "전체"
+                self.tree.insert("", "end", values=(row['id'], row['merchant'], range_txt, row['category'], row['sub_category']))
         except requests.exceptions.RequestException as e:
             messagebox.showerror("오류", f"카테고리 규칙을 불러오는 중 오류 발생: {e}")
         except Exception as e:
             messagebox.showerror("오류", f"카테고리 규칙 처리 중 오류 발생: {e}")
 
     def save_rule(self):
-        merchant, category, sub_category = self.ent_merchant.get().strip(), self.ent_category.get().strip(), self.ent_sub_category.get().strip()
+        merchant = self.ent_merchant.get().strip()
+        min_amt = self.ent_min_amt.get().strip().replace(',', '')
+        max_amt = self.ent_max_amt.get().strip().replace(',', '')
+        category = self.ent_category.get().strip()
+        sub_category = self.ent_sub_category.get().strip()
+
         if not merchant or not category:
             messagebox.showwarning("경고", "키워드와 대분류는 필수 입력 항목입니다.")
+            return
+
+        try:
+            min_val = int(min_amt) if min_amt else 0
+            max_val = int(max_amt) if max_amt else 0
+        except ValueError:
+            messagebox.showwarning("경고", "금액은 숫자만 입력 가능합니다.")
             return
 
         selected = self.tree.selection()
         rule_data = {
             "merchant": merchant,
+            "min_amount": min_val,
+            "max_amount": max_val,
             "category": category,
             "sub_category": sub_category
         }
@@ -211,9 +238,17 @@ class SettingsView(ttk.Frame):
         if not selected: return
         values = self.tree.item(selected[0], 'values')
         self.ent_merchant.delete(0, "end"); self.ent_merchant.insert(0, values[1])
-        self.ent_category.delete(0, "end"); self.ent_category.insert(0, values[2])
-        self.ent_sub_category.delete(0, "end"); self.ent_sub_category.insert(0, values[3])
+        
+        # 금액 범위 파싱 (예: "150,000 ~ 250,000")
+        range_parts = values[2].replace(',', '').split(' ~ ')
+        self.ent_min_amt.delete(0, "end"); self.ent_max_amt.delete(0, "end")
+        if len(range_parts) == 2:
+            self.ent_min_amt.insert(0, range_parts[0]); self.ent_max_amt.insert(0, range_parts[1])
+
+        self.ent_category.delete(0, "end"); self.ent_category.insert(0, values[3])
+        self.ent_sub_category.delete(0, "end"); self.ent_sub_category.insert(0, values[4])
 
     def clear_form(self):
-        self.ent_merchant.delete(0, "end"); self.ent_category.delete(0, "end"); self.ent_sub_category.delete(0, "end")
+        self.ent_merchant.delete(0, "end"); self.ent_min_amt.delete(0, "end"); self.ent_max_amt.delete(0, "end")
+        self.ent_category.delete(0, "end"); self.ent_sub_category.delete(0, "end")
         self.tree.selection_remove(self.tree.selection())

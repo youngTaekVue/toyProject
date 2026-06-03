@@ -1,7 +1,7 @@
 <template>
   <AppLayout pageTitle="Main Dashboard" breadcrumb="Pages / Dashboard" currentRoute="dashboard">
-    <!-- Consolidated App Dashboard Section -->
-    <section class="dashboard-section">
+    <!-- v-container fluid를 사용하여 v-row의 음수 마진을 상쇄하고 가로 스크롤을 방지합니다 -->
+    <v-container fluid class="dashboard-section pt-0">
       <h2>App Dashboard Overview</h2>
 
       <!-- App Overview and Key Metrics -->
@@ -230,7 +230,7 @@
           </div>
         </v-col>
       </v-row>
-    </section>
+    </v-container>
   </AppLayout>
 </template>
 

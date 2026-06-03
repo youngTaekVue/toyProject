@@ -23,7 +23,8 @@
     display: flex;
     flex-direction: column; /* Stack sidebar and main content vertically on small screens */
     min-height: 100vh; /* Use min-height for content flexibility */
-    width: 100vw;
+    width: 100%; /* 100vw 대신 100% 사용 */
+    overflow-x: hidden;
 }
 
 /* Sidebar Styles */
@@ -37,6 +38,7 @@
     flex-direction: column;
     justify-content: space-between;
     flex-shrink: 0;
+    overflow-x: hidden;
     z-index: 10;
     border-bottom: 1px solid rgba(255, 255, 255, 0.3); /* Separator for mobile */
 }
@@ -89,7 +91,7 @@
     text-decoration: none;
     color: var(--secondary-text);
     border-radius: 8px;
-    transition: all 0.3s ease;
+    transition: background 0.3s, color 0.3s, box-shadow 0.3s;
     font-weight: 500;
     font-size: clamp(10px, 1.2vw, 14px); /* Responsive typography */
     text-align: center;
@@ -161,6 +163,7 @@
 .main-content {
     flex-grow: 1;
     overflow-y: auto;
+    min-width: 0;
     padding: 16px; /* Smaller padding for mobile */
     background-color: #F8F9FA;
 }
