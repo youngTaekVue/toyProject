@@ -1,5 +1,4 @@
 <template>
-  <AppLayout pageTitle="Main Dashboard" breadcrumb="Pages / Dashboard" currentRoute="dashboard">
     <!-- v-container fluid를 사용하여 v-row의 음수 마진을 상쇄하고 가로 스크롤을 방지합니다 -->
     <v-container fluid class="dashboard-section pt-0">
       <h2>App Dashboard Overview</h2>
@@ -62,8 +61,8 @@
               <h4>Downloads Trend</h4>
               <p><span>(+10%) more</span> this month</p>
             </div>
-            <div class="chart-placeholder">
-              <!-- Chart will be rendered here by JS -->
+            <div class="chart-container">
+              <apexchart type="line" height="350" :options="downloadsChartOptions" :series="downloadsChartSeries"></apexchart>
             </div>
           </div>
         </v-col>
@@ -73,8 +72,8 @@
               <h4>Uninstall Rate</h4>
               <p><span>(-0.5%) decrease</span> from last month</p>
             </div>
-            <div class="chart-placeholder circle-placeholder">
-              <!-- Chart will be rendered here by JS -->
+            <div class="chart-container">
+              <apexchart type="radialBar" height="100%" :options="uninstallChartOptions" :series="uninstallChartSeries"></apexchart>
             </div>
           </div>
         </v-col>
@@ -118,8 +117,8 @@
               <h4>Average Session Time</h4>
               <p><span>(+10s) increase</span> from last week</p>
             </div>
-            <div class="chart-placeholder circle-placeholder">
-              <!-- Chart will be rendered here by JS -->
+            <div class="chart-container">
+              <apexchart type="bar" height="100%" :options="sessionChartOptions" :series="sessionChartSeries"></apexchart>
             </div>
           </div>
         </v-col>
@@ -231,11 +230,225 @@
         </v-col>
       </v-row>
     </v-container>
-  </AppLayout>
 </template>
 
 <script setup lang="ts">
-import AppLayout from '../components/AppLayout.vue'; // Updated import path
+import { ref } from 'vue';
+// AppLayout import removed as it's now handled by the router
+
+// Downloads Trend Chart
+const downloadsChartOptions = ref({
+  chart: {
+    id: 'downloads-trend',
+    toolbar: {
+      show: false,
+    },
+    zoom: {
+      enabled: false,
+    },
+    height: 350, // 높이 설정
+    type: 'line', // 차트 타입 설정
+  },
+  title: {
+    text: 'Traffic Sources', // 타이틀 추가
+  },
+  xaxis: {
+    categories: [
+      '01 Jan 2001',
+      '02 Jan 2001',
+      '03 Jan 2001',
+      '04 Jan 2001',
+      '05 Jan 2001',
+      '06 Jan 2001',
+      '07 Jan 2001',
+      '08 Jan 2001',
+      '09 Jan 2001',
+      '10 Jan 2001',
+      '11 Jan 2001',
+      '12 Jan 2001',
+    ],
+    labels: {
+      style: {
+        colors: '#67748e',
+      },
+    },
+  },
+  yaxis: [ // 두 개의 Y축 설정
+    {
+      title: {
+        text: 'Website Blog',
+      },
+      labels: {
+        style: {
+          colors: '#67748e',
+        },
+      },
+    },
+    {
+      opposite: true,
+      title: {
+        text: 'Social Media',
+      },
+      labels: {
+        style: {
+          colors: '#67748e',
+        },
+      },
+    },
+  ],
+  colors: ['#007bff', '#FF4560'], // 컬럼과 라인 색상
+  stroke: {
+    curve: 'smooth',
+    width: [0, 4], // 컬럼은 0, 라인은 4
+  },
+  plotOptions: {
+    bar: {
+      columnWidth: '50%',
+    },
+  },
+  dataLabels: {
+    enabled: true, // 데이터 레이블 활성화
+    enabledOnSeries: [1], // 두 번째 시리즈 (라인)에만 데이터 레이블 표시
+  },
+  grid: {
+    borderColor: '#e7e7e7',
+    row: {
+      colors: ['#f3f3f3', 'transparent'],
+      opacity: 0.5,
+    },
+  },
+  tooltip: {
+    theme: 'dark',
+    shared: true, // 툴팁 공유
+    intersect: false, // 툴팁 교차 비활성화
+  },
+});
+
+const downloadsChartSeries = ref([
+  {
+    name: 'Website Blog',
+    type: 'column', // 컬럼 차트
+    data: [440, 505, 414, 671, 227, 413, 201, 352, 752, 320, 257, 160],
+  },
+  {
+    name: 'Social Media',
+    type: 'line', // 라인 차트
+    data: [23, 42, 35, 27, 43, 22, 17, 31, 22, 22, 12, 16],
+  },
+]);
+
+// Uninstall Rate Chart
+const uninstallChartOptions = ref({
+  chart: {
+    id: 'uninstall-rate',
+  },
+  plotOptions: {
+    radialBar: {
+      hollow: {
+        size: '70%',
+      },
+      dataLabels: {
+        showOn: 'always',
+        name: {
+          show: true,
+          fontSize: '16px',
+          fontFamily: undefined,
+          offsetY: -10,
+        },
+        value: {
+          show: true,
+          fontSize: '22px',
+          fontFamily: undefined,
+          offsetY: 5,
+          formatter: function (val: string) {
+            return val + '%';
+          },
+        },
+      },
+    },
+  },
+  fill: {
+    type: 'gradient',
+    gradient: {
+      shade: 'dark',
+      type: 'horizontal',
+      shadeIntensity: 0.5,
+      gradientToColors: ['#00c6ff'],
+      inverseColors: true,
+      opacityFrom: 1,
+      opacityTo: 1,
+      stops: [0, 100],
+    },
+  },
+  stroke: {
+    lineCap: 'round',
+  },
+  labels: ['Uninstall Rate'],
+  colors: ['#007bff'],
+});
+
+const uninstallChartSeries = ref([55]); // Example value for 55% uninstall rate
+
+// Average Session Time Chart (Bar Chart)
+const sessionChartOptions = ref({
+  chart: {
+    id: 'average-session-time',
+    toolbar: {
+      show: false,
+    },
+  },
+  xaxis: {
+    categories: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    labels: {
+      style: {
+        colors: '#67748e',
+      },
+    },
+  },
+  yaxis: {
+    labels: {
+      style: {
+        colors: '#67748e',
+      },
+      formatter: function (val: number) {
+        return val + 's';
+      },
+    },
+  },
+  colors: ['#007bff'],
+  plotOptions: {
+    bar: {
+      horizontal: false,
+      columnWidth: '55%',
+      endingShape: 'rounded',
+    },
+  },
+  dataLabels: {
+    enabled: false,
+  },
+  grid: {
+    borderColor: '#e7e7e7',
+    row: {
+      colors: ['#f3f3f3', 'transparent'],
+      opacity: 0.5,
+    },
+  },
+  tooltip: {
+    theme: 'dark',
+    y: {
+      formatter: function (val: number) {
+        return val + 's';
+      },
+    },
+  },
+});
+
+const sessionChartSeries = ref([
+  {
+    name: 'Session Time',
+    data: [300, 320, 280, 350, 380, 400, 360], // in seconds
+  },
+]);
 </script>
 
 <style scoped>
@@ -306,20 +519,19 @@ import AppLayout from '../components/AppLayout.vue'; // Updated import path
 /* Layout Grid */
 /* .main-grid is now a v-row, so gap is handled by Vuetify */
 
-.charts-section {
+.chart-card {
   display: flex;
   flex-direction: column;
-  gap: 20px; /* Reduced gap */
+  height: 100%; /* Ensure the card itself takes full height of its v-col */
 }
 
-.chart-placeholder {
-  height: 180px; /* Base for xs */
+.chart-container {
+  flex-grow: 1; /* Allow it to take all available space */
   background: #f8f9fa;
-  border-radius: 10px; /* Reduced border-radius */
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-around;
-  padding: 15px; /* Reduced padding */
+  border-radius: 10px;
+  padding: 15px;
+  min-height: 250px; /* 최소 높이 설정 */
+  /* Removed display: flex, align-items, justify-content */
 }
 
 /* Project Table */
@@ -397,7 +609,7 @@ import AppLayout from '../components/AppLayout.vue'; // Updated import path
   .card-value { font-size: 17px; }
   .growth-positive, .growth-negative { font-size: 12px; }
   .card-icon { width: 42px; height: 42px; font-size: 17px; }
-  .chart-placeholder { height: 190px; }
+  /* .chart-container { height: 190px; } */ /* Removed fixed height */
   .project-table th { font-size: 11px; }
   .project-table td { font-size: 13px; }
   .badge { padding: 3px 10px; font-size: 10px; }
@@ -413,7 +625,7 @@ import AppLayout from '../components/AppLayout.vue'; // Updated import path
   .card-value { font-size: 18px; }
   .growth-positive, .growth-negative { font-size: 13px; }
   .card-icon { width: 44px; height: 44px; font-size: 18px; }
-  .chart-placeholder { height: 200px; }
+  /* .chart-container { height: 200px; } */ /* Removed fixed height */
   .project-table th { font-size: 12px; }
   .project-table td { font-size: 14px; }
   .badge { font-size: 11px; }
@@ -429,7 +641,7 @@ import AppLayout from '../components/AppLayout.vue'; // Updated import path
   .card-value { font-size: 20px; }
   .growth-positive, .growth-negative { font-size: 14px; }
   .card-icon { width: 48px; height: 48px; font-size: 20px; }
-  .chart-placeholder { height: 220px; }
+  /* .chart-container { height: 220px; } */ /* Removed fixed height */
   .project-table th { font-size: 13px; }
   .project-table td { font-size: 15px; }
   .badge { font-size: 12px; }
@@ -445,7 +657,7 @@ import AppLayout from '../components/AppLayout.vue'; // Updated import path
   .card-value { font-size: 22px; }
   .growth-positive, .growth-negative { font-size: 15px; }
   .card-icon { width: 52px; height: 52px; font-size: 22px; }
-  .chart-placeholder { height: 240px; }
+  /* .chart-container { height: 240px; } */ /* Removed fixed height */
   .project-table th { font-size: 14px; }
   .project-table td { font-size: 16px; }
   .badge { font-size: 13px; }
@@ -461,7 +673,7 @@ import AppLayout from '../components/AppLayout.vue'; // Updated import path
   .card-value { font-size: 24px; }
   .growth-positive, .growth-negative { font-size: 16px; }
   .card-icon { width: 56px; height: 56px; font-size: 24px; }
-  .chart-placeholder { height: 260px; }
+  /* .chart-container { height: 260px; } */ /* Removed fixed height */
   .project-table th { font-size: 15px; }
   .project-table td { font-size: 17px; }
   .badge { font-size: 14px; }

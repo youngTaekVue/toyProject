@@ -12,6 +12,15 @@
             <li><router-link to="/dashboard" active-class="active"><v-icon>mdi-view-dashboard</v-icon> <span>Dashboard</span></router-link></li>
             <li><router-link to="/analytics" active-class="active"><v-icon>mdi-chart-bar</v-icon> <span>Analytics</span></router-link></li>
             <li><router-link to="/billing" active-class="active"><v-icon>mdi-wallet</v-icon> <span>Billing</span></router-link></li>
+            <li>
+              <a @click="toggleDropdown" :class="{ 'active': isDropdownOpen }" class="collapsible-activator">
+                <v-icon>mdi-menu-down</v-icon> <span>Dropdown</span>
+              </a>
+              <ul v-if="isDropdownOpen" class="collapsible-submenu">
+                <li><router-link to="/dropdown/subitem1" active-class="active"><span>Sub-item 1</span></router-link></li>
+                <li><router-link to="/dropdown/subitem2" active-class="active"><span>Sub-item 2</span></router-link></li>
+              </ul>
+            </li>
             <li><router-link to="/profile" active-class="active"><v-icon>mdi-account-circle</v-icon> <span>Profile</span></router-link></li>
             <li><router-link to="/settings" active-class="active"><v-icon>mdi-cog</v-icon> <span>Settings</span></router-link></li>
           </ul>
@@ -32,8 +41,8 @@
     <main class="main-content">
       <header class="main-header">
         <div class="header-title">
-          <p class="breadcrumb">{{ breadcrumb }}</p>
-          <h1>{{ pageTitle }}</h1>
+          <p class="breadcrumb">{{ route.meta.breadcrumb }}</p>
+          <h1>{{ route.meta.pageTitle }}</h1>
         </div>
         <div class="header-actions">
           <div class="search-wrapper">
@@ -49,29 +58,23 @@
       </header>
 
       <!-- Slot for page-specific content -->
-      <slot></slot>
+      <router-view></router-view>
 
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { defineProps } from 'vue';
+import { ref } from 'vue';
+import { useRoute } from 'vue-router'; // useRoute 임포트
 
-const props = defineProps({
-  pageTitle: {
-    type: String,
-    required: true
-  },
-  breadcrumb: {
-    type: String,
-    required: true
-  },
-  currentRoute: {
-    type: String,
-    default: 'dashboard' // Default to dashboard if not provided
-  }
-});
+const route = useRoute(); // route 객체 가져오기
+
+const isDropdownOpen = ref(false);
+
+const toggleDropdown = () => {
+  isDropdownOpen.value = !isDropdownOpen.value;
+};
 </script>
 
 <style scoped>
@@ -164,17 +167,59 @@ const props = defineProps({
   font-size: 16px; /* Reduced size */
 }
 
-.sidebar-nav a.active, .sidebar-nav a:hover {
+.sidebar-nav a.active, .sidebar-nav a:hover, .sidebar-nav .collapsible-activator:hover {
   background: #fff;
   color: var(--primary-text);
   box-shadow: 4px 4px 10px var(--shadow-dark);
 }
 
-.sidebar-nav a.active i {
+.sidebar-nav a.active i, .sidebar-nav .collapsible-activator:hover i {
   background: var(--accent-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+
+/* Collapsible Menu Specific Styles */
+.collapsible-activator {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  text-decoration: none;
+  color: var(--secondary-text);
+  border-radius: 10px;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.collapsible-activator i {
+  transition: transform 0.3s ease;
+}
+
+.collapsible-activator.active i {
+  transform: rotate(180deg);
+}
+
+.collapsible-submenu {
+  list-style: none;
+  padding-left: 30px; /* Indent sub-items */
+  margin-top: 5px;
+  margin-bottom: 5px;
+}
+
+.collapsible-submenu li a {
+  padding: 8px 14px; /* Adjust padding for sub-items */
+  font-size: 13px; /* Slightly smaller font for sub-items */
+  color: var(--secondary-text);
+}
+
+.collapsible-submenu li a:hover, .collapsible-submenu li a.active {
+  background: #f0f2f5; /* Lighter background for sub-item hover/active */
+  color: var(--primary-text);
+  box-shadow: none; /* Remove shadow for sub-items */
+}
+
 
 /* Sidebar Help Box */
 .help-box {

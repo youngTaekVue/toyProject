@@ -208,6 +208,7 @@ router.put('/categories/:id', async (req, res) => {
         console.error("Error updating category rule:", error);
         res.status(500).json({ error: error.message });
     } finally {
+
         if (connection) connection.release();
     }
 });

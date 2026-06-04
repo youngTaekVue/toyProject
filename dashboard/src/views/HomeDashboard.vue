@@ -271,7 +271,6 @@
 </template>
 
 <script setup lang="ts">
-import AppLayout from '../components/AppLayout.vue';
 import { ref } from 'vue';
 import VueApexCharts from 'vue3-apexcharts';
 
