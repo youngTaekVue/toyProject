@@ -1,15 +1,10 @@
 <template>
-  <v-container fluid>
-    <v-row>
-      <v-col cols="12">
-        <h1 class="text-h5 mb-4">월별 지출 관리</h1>
-      </v-col>
-    </v-row>
-
+  <v-container fluid class="dashboard-section pt-0">
     <!-- KPI Section -->
-    <v-row v-if="displaySections.includes('kpi')">
+    <h2 class="text-h5 mb-4">주요 지표</h2>
+    <v-row class="summary-cards">
       <v-col cols="12" sm="6" md="3">
-        <v-card class="pa-3 text-center" outlined>
+        <v-card class="neumorphic-card pa-3 text-center">
           <div class="text-subtitle-2 text-grey">선택 월 총지출</div>
           <div class="text-h5 font-weight-bold">{{ formatCurrency(currentMonthTotalSpending) }}</div>
           <div :class="momChangeColor" class="text-caption">
@@ -18,20 +13,20 @@
         </v-card>
       </v-col>
       <v-col cols="12" sm="6" md="3">
-        <v-card class="pa-3 text-center" outlined>
+        <v-card class="neumorphic-card pa-3 text-center">
           <div class="text-subtitle-2 text-grey">일평균 지출</div>
           <div class="text-h5 font-weight-bold text-blue-darken-1">{{ formatCurrency(dailyAverageSpending) }}</div>
           <div class="text-caption text-grey">(해당 월 기준)</div>
         </v-card>
       </v-col>
       <v-col cols="12" sm="6" md="3">
-        <v-card class="pa-3 text-center" outlined>
+        <v-card class="neumorphic-card pa-3 text-center">
           <div class="text-subtitle-2 text-grey">전체 월평균</div>
           <div class="text-h5 font-weight-bold text-green-darken-1">{{ formatCurrency(overallMonthlyAverage) }}</div>
         </v-card>
       </v-col>
       <v-col cols="12" sm="6" md="3">
-        <v-card class="pa-3 text-center" outlined>
+        <v-card class="neumorphic-card pa-3 text-center">
           <div class="text-subtitle-2 text-grey">최대 지출 월</div>
           <div class="text-h5 font-weight-bold text-orange-darken-1">{{ maxSpendingMonth }}</div>
         </v-card>
@@ -45,33 +40,35 @@
           v-model="selectedMonth"
           :items="availableMonths"
           label="조회 월 선택"
-          outlined
-          dense
+          class="neumorphic-select"
+          hide-details
         ></v-select>
       </v-col>
     </v-row>
 
     <!-- Chart Section -->
-    <v-row v-if="displaySections.includes('chart')">
+    <h3 class="dashboard-section-title mt-4">월별 지출 추이</h3>
+    <v-row class="mt-4" v-if="displaySections.includes('chart')">
       <v-col cols="12">
-        <v-card outlined class="pa-4">
-          <v-card-title>월별 지출 추이</v-card-title>
+        <v-card class="neumorphic-card pa-4">
+          <v-card-title class="text-h6 font-weight-bold">지출 그래프</v-card-title>
           <apexchart type="line" height="350" :options="chartOptions" :series="chartSeries"></apexchart>
         </v-card>
       </v-col>
     </v-row>
 
     <!-- Category Analysis & Top Merchants Section -->
+    <h3 class="dashboard-section-title mt-4">상세 분석</h3>
     <v-row class="mt-4">
       <v-col cols="12" md="6" v-if="displaySections.includes('category_analysis')">
-        <v-card outlined class="pa-4">
-          <v-card-title>전월 대비 카테고리별 증감</v-card-title>
+        <v-card class="neumorphic-card pa-4">
+          <v-card-title class="text-h6 font-weight-bold">전월 대비 카테고리별 증감</v-card-title>
           <v-data-table
             :headers="categoryAnalysisHeaders"
             :items="categoryAnalysisData"
             hide-default-footer
             disable-pagination
-            class="elevation-1"
+            class="neumorphic-table"
           >
             <template v-slot:item.diff="{ item }">
               <span :class="getDiffColor(item.diff)">{{ item.diff }}</span>
@@ -80,26 +77,27 @@
         </v-card>
       </v-col>
       <v-col cols="12" md="6" v-if="displaySections.includes('top_merchants')">
-        <v-card outlined class="pa-4">
-          <v-card-title>선택 월 주요 소비처 Top 5</v-card-title>
+        <v-card class="neumorphic-card pa-4">
+          <v-card-title class="text-h6 font-weight-bold">선택 월 주요 소비처 Top 5</v-card-title>
           <v-data-table
             :headers="topMerchantsHeaders"
             :items="topMerchantsData"
             hide-default-footer
             disable-pagination
-            class="elevation-1"
+            class="neumorphic-table"
           ></v-data-table>
         </v-card>
       </v-col>
     </v-row>
 
     <!-- AI Advice Section -->
-    <v-row v-if="displaySections.includes('ai_advice')">
+    <h3 class="dashboard-section-title mt-4">AI 소비 진단</h3>
+    <v-row class="mt-4" v-if="displaySections.includes('ai_advice')">
       <v-col cols="12">
-        <v-card outlined class="pa-4">
-          <v-card-title>AI 소비 진단</v-card-title>
-          <v-card-subtitle>상태: {{ aiStatus }}</v-card-subtitle>
-          <v-card-text>{{ aiAdvice }}</v-card-text>
+        <v-card class="neumorphic-card pa-4">
+          <v-card-title class="text-h6 font-weight-bold">AI 소비 진단</v-card-title>
+          <v-card-subtitle class="text-subtitle-1 text-grey-darken-1">상태: {{ aiStatus }}</v-card-subtitle>
+          <v-card-text class="text-body-1">{{ aiAdvice }}</v-card-text>
         </v-card>
       </v-col>
     </v-row>
@@ -259,6 +257,7 @@ const autoClassify = (description: string, originalType: string, rules: Category
 
   for (const rule of rules) {
     const kw = rule.merchant ? String(rule.merchant).toLowerCase().trim() : '';
+    // 금액 범위 조건은 현재 Vue 컴포넌트에서 처리하지 않음 (Python TransactionUtil에만 있음)
     if (kw && content.includes(kw)) {
       category = rule.category ? String(rule.category).trim() : '미분류';
       subCategory = rule.sub_category ? String(rule.sub_category).trim() : '미분류';
@@ -442,7 +441,7 @@ const updateCategoryAnalysisData = (month: string) => {
     return acc;
   }, {} as Record<string, number>);
 
-  const currentMonthIndex = monthlySummary.value.findIndex(s => s.month === month);
+  const currentMonthIndex = monthlySummary.value.findIndex(s => s.month === selectedMonth.value);
   let prevMonthCategorySpending: Record<string, number> = {};
 
   if (currentMonthIndex > 0) {
@@ -526,11 +525,139 @@ watch(selectedMonth, () => {
 // }, { deep: true });
 </script>
 
-<style scoped>
-/* Add any specific styles for this component */
-.v-card {
-  border-radius: 8px;
+<style scoped lang="scss">
+// Import global variables - MUST BE FIRST
+@use '../../styles/settings.scss' as *;
+
+/* Main container styling */
+.dashboard-section {
+  margin-top: 40px;
 }
+
+/* Section titles */
+.dashboard-section-title {
+  font-size: 18px; /* Base for xs */
+  font-weight: 700;
+  margin-bottom: 20px;
+  margin-top: 40px; /* Consistent spacing for sections */
+  color: $primary-text;
+}
+
+/* Neumorphic Card style (copied from AppLayout for self-containment, or can be imported) */
+.neumorphic-card {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 15px 20px 0 rgba(0,0,0,0.04);
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  height: 100%; /* Ensure cards in v-col take full height */
+}
+
+/* Vuetify v-row adds negative margins, so we need to adjust */
+.summary-cards {
+  margin-bottom: 25px; /* Reduced margin */
+}
+
+/* Custom styling for v-select to give a soft, integrated look */
+.neumorphic-select.v-select :deep(.v-field) {
+  background-color: $bg-color; /* Use background color from theme */
+  border-radius: 10px;
+  box-shadow: inset 2px 2px 5px $shadow-dark, inset -3px -3px 7px $shadow-light; /* Inner shadow for embossed effect */
+  border: none; /* Remove default border */
+  transition: all 0.3s ease;
+  min-height: 48px; /* Standard Vuetify input height */
+}
+
+.neumorphic-select.v-select :deep(.v-field__outline) {
+  display: none; /* Hide default outline */
+}
+
+.neumorphic-select.v-select :deep(.v-field__input) {
+  color: $primary-text;
+  font-size: 14px;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  min-height: unset !important;
+  height: auto !important;
+  display: flex;
+  align-items: center;
+}
+
+.neumorphic-select.v-select :deep(.v-field__label) {
+  color: $secondary-text;
+  font-size: 14px;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  left: 12px !important;
+  transition: all 0.3s ease;
+}
+
+.neumorphic-select.v-select.v-field--active :deep(.v-field__label),
+.neumorphic-select.v-select.v-field--dirty :deep(.v-field__label) {
+  top: 0 !important;
+  transform: translateY(-100%) scale(0.75) !important;
+  left: 12px !important;
+  background: $accent-gradient; /* Use accent color for active label */
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.neumorphic-select.v-select:hover :deep(.v-field) {
+  box-shadow: inset 1px 1px 3px $shadow-dark, inset -1px -1px 3px $shadow-light; /* Subtle hover effect */
+}
+
+.neumorphic-select.v-select :deep(.v-field__append-inner) {
+  align-self: center;
+  padding-top: 0 !important;
+}
+
+/* Data Table Styling */
+.neumorphic-table.v-data-table {
+  background-color: transparent !important; /* Make table background transparent to show card background */
+}
+
+.neumorphic-table.v-data-table :deep(table) {
+  border-collapse: separate;
+  border-spacing: 0 8px; /* Add space between rows */
+}
+
+.neumorphic-table.v-data-table :deep(th) {
+  background-color: $bg-color !important; /* Header background */
+  color: $secondary-text !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  font-size: 0.75rem !important;
+  padding: 12px 16px !important;
+  border-bottom: none !important; /* Remove default border */
+}
+
+.neumorphic-table.v-data-table :deep(td) {
+  background-color: #fff !important; /* Row background */
+  color: $primary-text !important;
+  padding: 12px 16px !important;
+  border-bottom: none !important; /* Remove default border */
+  box-shadow: 0 2px 5px rgba(0,0,0,0.02); /* Subtle shadow for rows */
+  border-radius: 8px; /* Rounded corners for rows */
+}
+
+.neumorphic-table.v-data-table :deep(tbody tr) {
+  transition: all 0.2s ease-in-out;
+}
+
+.neumorphic-table.v-data-table :deep(tbody tr:hover) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+}
+
+/* General text colors for consistency */
+.text-h5, .text-h6, .text-body-1 {
+  color: $primary-text;
+}
+.text-subtitle-1, .text-subtitle-2, .text-caption, .text-grey, .text-grey-darken-1 {
+  color: $secondary-text;
+}
+
+/* Specific color overrides for KPI */
 .text-red-darken-1 {
   color: #ef5350; /* Material Design Red */
 }
@@ -542,5 +669,51 @@ watch(selectedMonth, () => {
 }
 .text-orange-darken-1 {
   color: #ffa726; /* Material Design Orange */
+}
+
+/* Responsive Font Sizes (Copied from AppDashboard.vue) */
+/* Small (sm) - 600px and up */
+@media (min-width: 600px) {
+  .dashboard-section-title { font-size: 19px; }
+  .summary-cards .text-h5 { font-size: 17px; }
+  .summary-cards .text-subtitle-2, .summary-cards .text-caption { font-size: 13px; }
+  .neumorphic-table :deep(th) { font-size: 0.8rem !important; }
+  .neumorphic-table :deep(td) { font-size: 0.85rem !important; }
+}
+
+/* Medium (md) - 840px and up */
+@media (min-width: 840px) {
+  .dashboard-section-title { font-size: 20px; }
+  .summary-cards .text-h5 { font-size: 18px; }
+  .summary-cards .text-subtitle-2, .summary-cards .text-caption { font-size: 14px; }
+  .neumorphic-table :deep(th) { font-size: 0.85rem !important; }
+  .neumorphic-table :deep(td) { font-size: 0.9rem !important; }
+}
+
+/* Large (lg) - 1145px and up */
+@media (min-width: 1145px) {
+  .dashboard-section-title { font-size: 22px; }
+  .summary-cards .text-h5 { font-size: 20px; }
+  .summary-cards .text-subtitle-2, .summary-cards .text-caption { font-size: 15px; }
+  .neumorphic-table :deep(th) { font-size: 0.9rem !important; }
+  .neumorphic-table :deep(td) { font-size: 0.95rem !important; }
+}
+
+/* Extra Large (xl) - 1545px and up */
+@media (min-width: 1545px) {
+  .dashboard-section-title { font-size: 24px; }
+  .summary-cards .text-h5 { font-size: 22px; }
+  .summary-cards .text-subtitle-2, .summary-cards .text-caption { font-size: 16px; }
+  .neumorphic-table :deep(th) { font-size: 0.95rem !important; }
+  .neumorphic-table :deep(td) { font-size: 1rem !important; }
+}
+
+/* Extra Extra Large (xxl) - 2138px and up */
+@media (min-width: 2138px) {
+  .dashboard-section-title { font-size: 26px; }
+  .summary-cards .text-h5 { font-size: 24px; }
+  .summary-cards .text-subtitle-2, .summary-cards .text-caption { font-size: 17px; }
+  .neumorphic-table :deep(th) { font-size: 1rem !important; }
+  .neumorphic-table :deep(td) { font-size: 1.05rem !important; }
 }
 </style>

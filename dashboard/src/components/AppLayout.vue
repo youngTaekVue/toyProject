@@ -77,20 +77,12 @@ const toggleDropdown = () => {
 };
 </script>
 
-<style scoped>
+<style scoped lang="scss">
+// Import global variables - MUST BE THE VERY FIRST LINE
+@use '../styles/settings.scss' as *;
+
 /* Import Premium Font */
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
-
-:root {
-  --bg-color: #F8F9FA;
-  --sidebar-bg: rgba(255, 255, 255, 0.8);
-  --card-bg: #F8F9FA;
-  --accent-gradient: linear-gradient(310deg, #007bff 0%, #00c6ff 100%); /* Blue gradient */
-  --shadow-dark: #d1d9e6;
-  --shadow-light: #ffffff;
-  --primary-text: #252f40;
-  --secondary-text: #67748e;
-}
 
 /* Removed global styles for html, body, and * from here.
    These should be in a global stylesheet (e.g., src/assets/main.css)
@@ -106,7 +98,7 @@ const toggleDropdown = () => {
 .sidebar {
   width: 260px;
   height: 100%;
-  background: var(--sidebar-bg);
+  background: $sidebar-bg;
   backdrop-filter: blur(10px);
   border-right: 1px solid rgba(255, 255, 255, 0.3);
   padding: 24px;
@@ -127,7 +119,7 @@ const toggleDropdown = () => {
 .logo-icon {
   width: 30px; /* Reduced size */
   height: 30px; /* Reduced size */
-  background: var(--accent-gradient);
+  background: $accent-gradient;
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -155,7 +147,7 @@ const toggleDropdown = () => {
   align-items: center;
   padding: 10px 14px; /* Reduced padding */
   text-decoration: none;
-  color: var(--secondary-text);
+  color: $secondary-text;
   border-radius: 10px; /* Reduced border-radius */
   transition: all 0.3s ease;
   font-weight: 500;
@@ -169,12 +161,12 @@ const toggleDropdown = () => {
 
 .sidebar-nav a.active, .sidebar-nav a:hover, .sidebar-nav .collapsible-activator:hover {
   background: #fff;
-  color: var(--primary-text);
-  box-shadow: 4px 4px 10px var(--shadow-dark);
+  color: $primary-text;
+  box-shadow: 4px 4px 10px $shadow-dark;
 }
 
 .sidebar-nav a.active i, .sidebar-nav .collapsible-activator:hover i {
-  background: var(--accent-gradient);
+  background: $accent-gradient;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -186,7 +178,7 @@ const toggleDropdown = () => {
   align-items: center;
   padding: 10px 14px;
   text-decoration: none;
-  color: var(--secondary-text);
+  color: $secondary-text;
   border-radius: 10px;
   transition: all 0.3s ease;
   font-weight: 500;
@@ -211,19 +203,19 @@ const toggleDropdown = () => {
 .collapsible-submenu li a {
   padding: 8px 14px; /* Adjust padding for sub-items */
   font-size: 13px; /* Slightly smaller font for sub-items */
-  color: var(--secondary-text);
+  color: $secondary-text;
 }
 
 .collapsible-submenu li a:hover, .collapsible-submenu li a.active {
   background: #f0f2f5; /* Lighter background for sub-item hover/active */
-  color: var(--primary-text);
+  color: $primary-text;
   box-shadow: none; /* Remove shadow for sub-items */
 }
 
 
 /* Sidebar Help Box */
 .help-box {
-  background: var(--accent-gradient);
+  background: $accent-gradient;
   border-radius: 14px; /* Reduced border-radius */
   padding: 18px; /* Reduced padding */
   color: white;
@@ -263,7 +255,7 @@ const toggleDropdown = () => {
   height: 100%;
   overflow-y: auto;
   padding: 25px 35px; /* Reduced padding */
-  background-color: #F8F9FA;
+  background-color: $bg-color;
 }
 
 .main-header {
@@ -273,7 +265,7 @@ const toggleDropdown = () => {
   margin-bottom: 30px; /* Reduced margin */
 }
 
-.breadcrumb { font-size: 11px; /* Reduced from 12px */ color: var(--secondary-text); margin-bottom: 3px; }
+.breadcrumb { font-size: 11px; /* Reduced from 12px */ color: $secondary-text; margin-bottom: 3px; }
 .main-header h1 { font-size: 22px; /* Reduced from 24px */ font-weight: 700; }
 
 .header-actions {
@@ -291,7 +283,7 @@ const toggleDropdown = () => {
 .search-wrapper i {
   position: absolute;
   left: 12px; /* Reduced left position */
-  color: var(--secondary-text);
+  color: $secondary-text;
   font-size: 14px; /* Reduced icon size */
 }
 
@@ -306,7 +298,7 @@ const toggleDropdown = () => {
 }
 
 .accent-btn {
-  background: var(--accent-gradient);
+  background: $accent-gradient;
   color: white;
   border: none;
   padding: 10px 20px; /* Reduced padding */
@@ -324,7 +316,7 @@ const toggleDropdown = () => {
   border-radius: 50%;
   border: none;
   background: transparent;
-  color: var(--secondary-text);
+  color: $secondary-text;
   cursor: pointer;
   font-size: 16px; /* Reduced icon size */
 }
@@ -353,7 +345,7 @@ const toggleDropdown = () => {
 
 .summary-cards h3, .summary-cards h4 { /* Added h4 for new dashboard cards */
   font-size: 13px; /* Reduced from 14px */
-  color: var(--secondary-text);
+  color: $secondary-text;
   margin-bottom: 4px;
 }
 .card-value { font-size: 18px; /* Reduced from 20px */ font-weight: 700; }
@@ -363,7 +355,7 @@ const toggleDropdown = () => {
 .card-icon {
   width: 44px; /* Reduced size */
   height: 44px; /* Reduced size */
-  background: var(--accent-gradient);
+  background: $accent-gradient;
   border-radius: 10px; /* Reduced border-radius */
   display: flex;
   align-items: center;
@@ -406,7 +398,7 @@ const toggleDropdown = () => {
   text-align: left;
   font-size: 11px; /* Reduced from 12px */
   text-transform: uppercase;
-  color: var(--secondary-text);
+  color: $secondary-text;
   padding: 10px 0; /* Reduced padding */
   border-bottom: 1px solid #f0f0f0;
 }
@@ -437,7 +429,7 @@ const toggleDropdown = () => {
 }
 .progress-bar {
   height: 100%;
-  background: var(--accent-gradient);
+  background: $accent-gradient;
   border-radius: 8px; /* Reduced border-radius */
 }
 
@@ -453,20 +445,16 @@ const toggleDropdown = () => {
 }
 .timeline-item i { font-size: 14px; /* Reduced size */ margin-top: 3px; }
 .timeline-content p { font-size: 13px; /* Reduced from 14px */ font-weight: 600; }
-.timeline-content span { font-size: 11px; /* Reduced from 12px */ color: var(--secondary-text); }
+.timeline-content span { font-size: 11px; /* Reduced from 12px */ color: $secondary-text; }
 
 /* New Dashboard Section Specific Styles */
-.dashboard-section {
-  margin-top: 40px;
-}
-
-.dashboard-section h2 {
+.dashboard-container h2 {
   font-size: 20px; /* Reduced from default */
   font-weight: 700;
   margin-bottom: 20px;
 }
 
-.dashboard-section h3 {
+.dashboard-container h3 {
   font-size: 16px; /* Reduced from default */
   font-weight: 600;
   margin-bottom: 15px;

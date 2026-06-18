@@ -4,7 +4,17 @@
  * Configures SASS variables and Vuetify overwrites
  */
 
-// https://vuetifyjs.com/features/sass-variables/`
+// https://vuetifyjs.com/features/sass-variables/
 // @use 'vuetify/settings' with (
 //   $color-pack: false
 // );
+
+// Global SCSS Variables from AppLayout.vue
+$bg-color: #F8F9FA;
+$sidebar-bg: rgba(255, 255, 255, 0.8);
+$card-bg: #F8F9FA;
+$accent-gradient: linear-gradient(310deg, #007bff 0%, #00c6ff 100%); /* Blue gradient */
+$shadow-dark: #d1d9e6;
+$shadow-light: #ffffff;
+$primary-text: #252f40;
+$secondary-text: #67748e;

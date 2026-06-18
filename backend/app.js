@@ -5,7 +5,7 @@ require('dotenv').config();
 const cors = require('cors');
 NODE_TLS_REJECT_UNAUTHORIZED=0
 const corsOptions = {
-    origin: ['http://localhost:63342','http://localhost:3000'],
+    origin: ['http://localhost:63342','http://localhost:3000', 'http://localhost:3001'], // Added Vite's default dev server origin
     optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
