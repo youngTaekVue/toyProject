@@ -50,10 +50,13 @@ class TransactionView(ttk.Frame):
         self.setup_ui()
         self.load_data_from_api() # Changed to load from API
 
+        self.progress_window = None # 진행 창 참조
+
     def setup_ui(self):
         # 1. 상단 바
         self.top_bar = ttk.Frame(self, padding=10); self.top_bar.pack(fill=tk.X)
-        ttk.Button(self.top_bar, text="가계부 엑셀 업로드", command=self.upload_file).pack(side=tk.LEFT, padx=5)
+        self.upload_button = ttk.Button(self.top_bar, text="가계부 엑셀 업로드", command=self.upload_file)
+        self.upload_button.pack(side=tk.LEFT, padx=5)
         ttk.Button(self.top_bar, text="나에게 공유", command=self.share_to_kakao).pack(side=tk.LEFT, padx=5)
         ttk.Button(self.top_bar, text="친구에게 공유", command=self.share_to_friend).pack(side=tk.LEFT, padx=5)
 
@@ -144,8 +147,8 @@ class TransactionView(ttk.Frame):
         if (not succ) and ("인증 필요" in str(err or "")):
             if not self.authenticate_kakao():
                 messagebox.showerror("실패", "카카오 인증이 필요합니다.\n브라우저에서 인증 후 코드를 입력해 주세요.")
-                return
-            succ, err = self.notifier.send_report(txt)
+                return # 들여쓰기 수정
+            succ, err = self.notifier.send_report(txt) # 들여쓰기 수정
         if succ:
             logger.log("INFO", "KakaoShare", "나에게 보내기 성공")
             messagebox.showinfo("성공", "카카오톡 전송 완료")
@@ -231,7 +234,8 @@ class TransactionView(ttk.Frame):
 
     def analyze_transportation_category(self):
         if self.df.empty: return
-        cur_m = self.shared_month_var.get(); m_df = self.df[self.df['월'] == cur_m]
+        cur_m = self.shared_month_var.get()
+        m_df = self.df[self.df['월'] == cur_m]
         trans_df = m_df[m_df['대분류'] == '교통'].copy()
         if trans_df.empty: return
         for _, r in trans_df.sort_values(by='abs_amt', ascending=False).head(15).iterrows():
@@ -298,21 +302,75 @@ class TransactionView(ttk.Frame):
         if months and not self.shared_month_var.get(): self.shared_month_var.set(months[0])
         if hasattr(self, 'cb_cat_filter'): self.cb_cat_filter['values'] = ["전체"] + sorted(self.df['대분류'].unique().tolist())
 
+    def _create_progress_window(self):
+        win = tk.Toplevel(self)
+        win.title("엑셀 업로드 중...")
+        # win.geometry("300x100") # 이 부분은 이제 수동으로 위치를 계산하여 설정합니다.
+
+        # 창이 닫히는 것을 방지 (X 버튼 비활성화)
+        win.protocol("WM_DELETE_WINDOW", lambda: None)
+
+        # 진행 창 크기 설정 (내부 위젯에 맞게)
+        win.update_idletasks() # 위젯이 배치되기 전에 크기를 계산하기 위해 업데이트
+        win_width = 300
+        win_height = 100
+
+        # 메인 창의 위치와 크기 가져오기
+        main_x = self.winfo_x()
+        main_y = self.winfo_y()
+        main_width = self.winfo_width()
+        main_height = self.winfo_height()
+
+        # 진행 창을 메인 창 중앙에 위치시키기 위한 계산
+        x = main_x + (main_width // 2) - (win_width // 2)
+        y = main_y + (main_height // 2) - (win_height // 2)
+
+        win.geometry(f"{win_width}x{win_height}+{x}+{y}")
+
+        win.transient(self.winfo_toplevel()) # 메인 창 위에 유지
+        win.grab_set() # 메인 창 조작 방지
+        win.resizable(False, False)
+
+        self.progress_label = ttk.Label(win, text="준비 중...", font=("맑은 고딕", 10))
+        self.progress_label.pack(pady=10)
+
+        self.progress_bar = ttk.Progressbar(win, mode='determinate', length=250)
+        self.progress_bar.pack(pady=5)
+
+        return win
+
     def upload_file(self):
         path = filedialog.askopenfilename(filetypes=[("Excel Files", "*.xlsx *.xls")])
         if not path: return
 
+        # UI 비활성화 및 진행 창 시작
+        self.upload_button.config(state=tk.DISABLED)
+        self.progress_window = self._create_progress_window()
+        # self.progress_bar.start() # Determinate mode에서는 start()가 필요 없음, value로 제어
+
+        # 백그라운드 스레드에서 업로드 작업 실행
+        threading.Thread(target=self._perform_upload_with_progress, args=(path,)).start()
+
+    def _perform_upload_with_progress(self, path):
         upload_messages = []
+        success = False
+        # total_steps = 5 # 엑셀 읽기, 거래내역 처리, 거래내역 저장, 재무현황 처리, 재무현황 저장
+        # current_step = 0 # 이 변수는 현재 사용되지 않으며, percentage를 직접 지정
 
         try:
+            # 1. 엑셀 파일 읽기 (20%)
+            self.after(0, self._update_progress_ui, 20, "엑셀 파일 읽는 중...")
             excel_data = pd.read_excel(path, sheet_name=None, header=None)
             def get_sheet(kw): return next((s for s in excel_data.keys() if kw in str(s).strip()), None)
+            # current_step += 1
 
-            # 1. 가계부 내역 (거래내역) 업로드 처리
+            # 2. 가계부 내역 (거래내역) 업로드 처리 (40%)
             acc_sheet_name = get_sheet("가계부 내역")
             if acc_sheet_name:
+                self.after(0, self._update_progress_ui, 40, "가계부 내역 처리 중...")
                 df_transactions = self.dashboard_util.process_excel_data(excel_data[acc_sheet_name])
-                # TransactionUtil의 save_new_transactions_to_db 메서드 사용 (already updated to use API)
+                # current_step += 1
+                self.after(0, self._update_progress_ui, 60, "가계부 내역 저장 중...")
                 saved_count = self.dashboard_util.save_new_transactions_to_db(df_transactions)
                 if saved_count > 0:
                     logger.log("INFO", "TransactionDB", f"가계부 내역 {saved_count}건 저장 완료")
@@ -321,30 +379,59 @@ class TransactionView(ttk.Frame):
                     upload_messages.append("새로운 가계부 내역이 없습니다.")
             else:
                 upload_messages.append("가계부 내역 시트를 찾을 수 없습니다.")
+            # current_step += 1 # 저장 단계까지 포함
 
-            # 2. 재무 현황 (뱅샐현황) 업로드 처리
+            # 3. 재무 현황 (뱅샐현황) 업로드 처리 (80%)
             financial_sheet_name = get_sheet("뱅샐현황")
             if financial_sheet_name:
+                self.after(0, self._update_progress_ui, 80, "재무 현황 처리 중...")
                 df_raw_financial = excel_data[financial_sheet_name]
                 rows_financial = FinancialUtil.parse_financial_status_table(df_raw_financial)
-                # FinancialUtil.save_financial_rows needs to be updated to use API
+                # current_step += 1
+                self.after(0, self._update_progress_ui, 90, "재무 현황 저장 중...")
                 count_financial = FinancialUtil.save_financial_rows(rows_financial)
                 logger.log("INFO", "FinancialDB", f"재무 현황 {count_financial}건 저장 완료")
                 upload_messages.append(f"재무 현황 {count_financial}건 업로드 완료.")
             else:
                 upload_messages.append("재무 현황 시트(뱅샐현황)를 찾을 수 없습니다.")
+            # current_step += 1 # 저장 단계까지 포함
 
+            success = True
+
+        except Exception as e:
+            traceback.print_exc()
+            upload_messages.append(f"오류 발생: {e}")
+            logger.log("ERROR", "FileUpload", f"엑셀 업로드 중 오류 발생: {e}")
+        finally:
+            # 메인 UI 스레드에서 결과 처리
+            self.after(0, self._complete_upload, success, upload_messages)
+
+    def _update_progress_ui(self, percentage, message):
+        if self.progress_window and self.progress_window.winfo_exists():
+            self.progress_bar['value'] = percentage
+            self.progress_label.config(text=f"{message} ({percentage}%)")
+            self.progress_window.update_idletasks() # UI 강제 업데이트
+
+    def _complete_upload(self, success, upload_messages):
+        # 진행 창 닫기
+        if self.progress_window and self.progress_window.winfo_exists():
+            self.progress_window.destroy()
+            self.progress_window = None
+
+        # UI 활성화
+        self.upload_button.config(state=tk.NORMAL)
+
+        if success:
             logger.log("INFO", "FileUpload", f"엑셀 업로드 성공: {'; '.join(upload_messages)}")
             messagebox.showinfo("업로드 완료", "\n".join(upload_messages))
-            self.load_data_from_api() # 가계부 내역 새로고침 (Changed to load from API)
+            self.load_data_from_api() # 가계부 내역 새로고침
             try:
                 self.winfo_toplevel().event_generate("<<FinancialDataChanged>>", when="tail")
             except tk.TclError:
                 pass
+        else:
+            messagebox.showerror("업로드 실패", "\n".join(upload_messages))
 
-        except Exception as e:
-            traceback.print_exc()
-            messagebox.showerror("오류", f"엑셀 업로드 중 오류가 발생했습니다: {e}")
 
     def authenticate_kakao(self):
         uri = os.getenv("KAKAO_REDIRECT_URI", "http://localhost:5000")
@@ -462,7 +549,7 @@ class TransactionView(ttk.Frame):
         def save_edit(event=None):
             new_value = entry.get().strip()
             entry.destroy()
-            
+
             if new_value == old_value: return
 
             transaction_id = current_values[0]
@@ -470,7 +557,7 @@ class TransactionView(ttk.Frame):
 
             # 1. API를 통한 DB 업데이트 요청
             succ = self.dashboard_util.update_transaction_via_api(transaction_id, {col_name: new_value})
-            
+
             if succ:
                 # 2. UI Treeview 업데이트
                 new_values = list(current_values)
@@ -482,7 +569,7 @@ class TransactionView(ttk.Frame):
                     idx = self.df[self.df['id'] == int(transaction_id)].index
                     if not idx.empty:
                         self.df.loc[idx, col_name] = new_value
-                
+
                 logger.log("INFO", "UI_Action", f"거래(ID:{transaction_id}) {col_name} 수정 완료: {new_value}")
             else:
                 messagebox.showerror("오류", "데이터베이스 업데이트에 실패했습니다.")
@@ -501,7 +588,7 @@ class TransactionView(ttk.Frame):
 
         # 'ID' 컬럼을 제외한 헤더 목록 생성
         display_cols = [c for c in tree["columns"] if c != "ID"]
-        
+
         lines = []
         lines.append("\t".join(display_cols))  # 첫 줄에 헤더 추가
 

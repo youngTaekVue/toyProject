@@ -1,13 +1,14 @@
+@use 'vuetify/settings' with (
+  $color-pack: false
+);
+
 /**
  * src/styles/settings.scss
  *
  * Configures SASS variables and Vuetify overwrites
  */
 
-// https://vuetifyjs.com/features/sass-variables/
-// @use 'vuetify/settings' with (
-//   $color-pack: false
-// );
+// Vuetify settings must be first
 
 // Global SCSS Variables from AppLayout.vue
 $bg-color: #F8F9FA;

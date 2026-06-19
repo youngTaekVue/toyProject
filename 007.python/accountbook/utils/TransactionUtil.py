@@ -104,7 +104,7 @@ class TransactionUtil:
                 kw, cat, sub = rule.get('merchant'), rule.get('category'), rule.get('sub_category')
                 # 금액 범위 조건 (최솟값, 최댓값)
                 min_amt = rule.get('min_amount')
-                max_amt = rule.get('max_amount')
+                max_amt = rule.get('max_amt')
             else:
                 kw, cat, sub = rule[0], rule[1], rule[2]
                 min_amt, max_amt = None, None
@@ -190,8 +190,8 @@ class TransactionUtil:
                 for _, r in existing_transactions_df.iterrows():
                     # Ensure consistent format for comparison
                     dt_str = pd.to_datetime(r['transaction_date']).strftime('%Y-%m-%d %H:%M:%S')
-                    existing_transactions.add((dt_str, int(r['amount']), str(r['description']).strip(), r['transaction_type']))
-
+                    # Corrected: Only one add call, with strip() applied to transaction_type
+                    existing_transactions.add((dt_str, int(r['amount']), str(r['description'] if pd.notna(r['description']) else '').strip(), str(r['transaction_type']).strip()))
             records_to_insert = []
             for _, row in new_transactions_df.iterrows():
                 desc = str(row['내용']).strip()
@@ -234,7 +234,7 @@ class TransactionUtil:
         # API에서 넘어오는 시간 데이터(보통 UTC ISO8601 문자열)를 한국 시간(KST)으로 변환합니다.
         # DB에 저장된 transaction_date가 UTC 기준일 경우 UI에서 9시간 차이가 발생할 수 있습니다.
         target_col = 'DT' if 'DT' in df.columns else 'transaction_date'
-        
+
         # utc=True를 지정하여 'Z'나 '+00:00'을 인식하고, tz_convert로 현지 시간대로 보정합니다.
         # 그 후 UI 표시를 위해 시간대 정보를 제거(naive)합니다.
         df['DT'] = pd.to_datetime(df[target_col], errors='coerce', utc=True).dt.tz_convert('Asia/Seoul').dt.tz_localize(None)
@@ -278,9 +278,9 @@ class TransactionUtil:
                 '대분류': 'category',
                 '소분류': 'sub_category'
             }
-            
+
             payload = {api_mapping[k]: v for k, v in update_data.items() if k in api_mapping}
-            
+
             response = requests.put(f"{API_BASE_URL}/transactions/{transaction_id}", json=payload)
             response.raise_for_status()
             return True

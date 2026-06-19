@@ -3,32 +3,51 @@
     <!-- KPI Section -->
     <h2 class="text-h5 mb-4">주요 지표</h2>
     <v-row class="summary-cards">
-      <v-col cols="12" sm="6" md="3">
-        <v-card class="neumorphic-card pa-3 text-center">
-          <div class="text-subtitle-2 text-grey">선택 월 총지출</div>
-          <div class="text-h5 font-weight-bold">{{ formatCurrency(currentMonthTotalSpending) }}</div>
-          <div :class="momChangeColor" class="text-caption">
+      <v-col cols="12" sm="6" md="3" v-for="n in 4" :key="`kpi-skeleton-${n}`">
+        <v-card class="neumorphic-card pa-3 text-center" v-if="loading">
+          <v-skeleton-loader type="card" class="mx-auto" height="100px"></v-skeleton-loader>
+        </v-card>
+        <v-card class="neumorphic-card pa-3 text-center" v-else>
+          <div class="text-subtitle-2 text-grey">
+            {{
+              n === 1
+                ? '선택 월 총지출'
+                : n === 2
+                ? '일평균 지출'
+                : n === 3
+                ? '전체 월평균'
+                : '최대 지출 월'
+            }}
+          </div>
+          <div
+            class="text-h5 font-weight-bold"
+            :class="{
+              'text-primary': n === 1, // Apply primary color to total spending
+              'text-kpiBlue': n === 2,
+              'text-kpiGreen': n === 3,
+              'text-kpiOrange': n === 4,
+            }"
+          >
+            {{
+              n === 1
+                ? formatCurrency(currentMonthTotalSpending)
+                : n === 2
+                ? formatCurrency(dailyAverageSpending)
+                : n === 3
+                ? formatCurrency(overallMonthlyAverage)
+                : maxSpendingMonth
+            }}
+          </div>
+          <div
+            :class="momChangeColor"
+            class="text-caption"
+            v-if="n === 1"
+          >
             {{ momChangeText }}
           </div>
-        </v-card>
-      </v-col>
-      <v-col cols="12" sm="6" md="3">
-        <v-card class="neumorphic-card pa-3 text-center">
-          <div class="text-subtitle-2 text-grey">일평균 지출</div>
-          <div class="text-h5 font-weight-bold text-blue-darken-1">{{ formatCurrency(dailyAverageSpending) }}</div>
-          <div class="text-caption text-grey">(해당 월 기준)</div>
-        </v-card>
-      </v-col>
-      <v-col cols="12" sm="6" md="3">
-        <v-card class="neumorphic-card pa-3 text-center">
-          <div class="text-subtitle-2 text-grey">전체 월평균</div>
-          <div class="text-h5 font-weight-bold text-green-darken-1">{{ formatCurrency(overallMonthlyAverage) }}</div>
-        </v-card>
-      </v-col>
-      <v-col cols="12" sm="6" md="3">
-        <v-card class="neumorphic-card pa-3 text-center">
-          <div class="text-subtitle-2 text-grey">최대 지출 월</div>
-          <div class="text-h5 font-weight-bold text-orange-darken-1">{{ maxSpendingMonth }}</div>
+          <div class="text-caption text-grey" v-else-if="n === 2">
+            (해당 월 기준)
+          </div>
         </v-card>
       </v-col>
     </v-row>
@@ -36,12 +55,19 @@
     <!-- Month Selector -->
     <v-row class="mt-4">
       <v-col cols="12" md="4">
+        <v-skeleton-loader
+          type="chip"
+          class="neumorphic-select"
+          v-if="loading"
+          height="48px"
+        ></v-skeleton-loader>
         <v-select
           v-model="selectedMonth"
           :items="availableMonths"
           label="조회 월 선택"
           class="neumorphic-select"
           hide-details
+          v-else
         ></v-select>
       </v-col>
     </v-row>
@@ -50,7 +76,10 @@
     <h3 class="dashboard-section-title mt-4">월별 지출 추이</h3>
     <v-row class="mt-4" v-if="displaySections.includes('chart')">
       <v-col cols="12">
-        <v-card class="neumorphic-card pa-4">
+        <v-card class="neumorphic-card pa-4" v-if="loading">
+          <v-skeleton-loader type="image" class="mx-auto" height="350px"></v-skeleton-loader>
+        </v-card>
+        <v-card class="neumorphic-card pa-4" v-else>
           <v-card-title class="text-h6 font-weight-bold">지출 그래프</v-card-title>
           <apexchart type="line" height="350" :options="chartOptions" :series="chartSeries"></apexchart>
         </v-card>
@@ -61,7 +90,10 @@
     <h3 class="dashboard-section-title mt-4">상세 분석</h3>
     <v-row class="mt-4">
       <v-col cols="12" md="6" v-if="displaySections.includes('category_analysis')">
-        <v-card class="neumorphic-card pa-4">
+        <v-card class="neumorphic-card pa-4" v-if="loading">
+          <v-skeleton-loader type="table-heading, list-item-two-line, list-item-two-line, list-item-two-line" class="mx-auto"></v-skeleton-loader>
+        </v-card>
+        <v-card class="neumorphic-card pa-4" v-else>
           <v-card-title class="text-h6 font-weight-bold">전월 대비 카테고리별 증감</v-card-title>
           <v-data-table
             :headers="categoryAnalysisHeaders"
@@ -77,7 +109,10 @@
         </v-card>
       </v-col>
       <v-col cols="12" md="6" v-if="displaySections.includes('top_merchants')">
-        <v-card class="neumorphic-card pa-4">
+        <v-card class="neumorphic-card pa-4" v-if="loading">
+          <v-skeleton-loader type="table-heading, list-item-two-line, list-item-two-line, list-item-two-line" class="mx-auto"></v-skeleton-loader>
+        </v-card>
+        <v-card class="neumorphic-card pa-4" v-else>
           <v-card-title class="text-h6 font-weight-bold">선택 월 주요 소비처 Top 5</v-card-title>
           <v-data-table
             :headers="topMerchantsHeaders"
@@ -94,7 +129,10 @@
     <h3 class="dashboard-section-title mt-4">AI 소비 진단</h3>
     <v-row class="mt-4" v-if="displaySections.includes('ai_advice')">
       <v-col cols="12">
-        <v-card class="neumorphic-card pa-4">
+        <v-card class="neumorphic-card pa-4" v-if="loading">
+          <v-skeleton-loader type="heading, paragraph" class="mx-auto"></v-skeleton-loader>
+        </v-card>
+        <v-card class="neumorphic-card pa-4" v-else>
           <v-card-title class="text-h6 font-weight-bold">AI 소비 진단</v-card-title>
           <v-card-subtitle class="text-subtitle-1 text-grey-darken-1">상태: {{ aiStatus }}</v-card-subtitle>
           <v-card-text class="text-body-1">{{ aiAdvice }}</v-card-text>
@@ -107,7 +145,8 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
 import axios from 'axios';
-import VueApexCharts from 'vue3-apexcharts'; // ApexCharts 임포트
+import VueApexCharts from 'vue3-apexcharts';
+import { VSkeletonLoader } from 'vuetify/lib/components/index.mjs'; // Explicitly import VSkeletonLoader
 
 interface Transaction {
   transaction_date: string;
@@ -127,6 +166,8 @@ interface CategoryRule {
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/python';
+
+const loading = ref<boolean>(true); // Loading state for skeleton loaders
 
 const allTransactions = ref<Transaction[]>([]);
 const categoryRules = ref<CategoryRule[]>([]);
@@ -238,8 +279,8 @@ const formatCurrency = (value: number): string => {
 };
 
 const getDiffColor = (diff: string): string => {
-  if (diff.startsWith('+')) return 'text-red-darken-1';
-  if (diff.startsWith('-')) return 'text-blue-darken-1';
+  if (diff.startsWith('+')) return 'text-kpiRed'; // Use theme color
+  if (diff.startsWith('-')) return 'text-kpiBlue'; // Use theme color
   return 'text-grey';
 };
 
@@ -273,6 +314,7 @@ const autoClassify = (description: string, originalType: string, rules: Category
 // --- Data Loading & Processing ---
 
 const loadData = async () => {
+  loading.value = true; // Set loading to true when data fetching starts
   try {
     // Fetch category rules
     const categoriesResponse = await axios.get(`${API_BASE_URL}/categories`);
@@ -318,6 +360,8 @@ const loadData = async () => {
   } catch (error) {
     console.error('Error loading data:', error);
     // Optionally show an alert to the user
+  } finally {
+    loading.value = false; // Set loading to false when data fetching completes (success or error)
   }
 };
 
@@ -345,7 +389,7 @@ const updateAnalysis = () => {
     const diff = currentMonthTotal - prevMonthTotal;
     const pct = prevMonthTotal !== 0 ? (diff / prevMonthTotal) * 100 : 0;
     momChangeText.value = `전월대비 ${diff > 0 ? '+' : ''}${formatCurrency(diff)} (${diff > 0 ? '+' : ''}${pct.toFixed(1)}%)`;
-    momChangeColor.value = diff > 0 ? 'text-red-darken-1' : 'text-blue-darken-1';
+    momChangeColor.value = diff > 0 ? 'text-kpiRed' : 'text-kpiBlue'; // Use theme colors
   } else {
     momChangeText.value = '전월 데이터 없음';
     momChangeColor.value = 'text-grey';
@@ -657,20 +701,6 @@ watch(selectedMonth, () => {
   color: $secondary-text;
 }
 
-/* Specific color overrides for KPI */
-.text-red-darken-1 {
-  color: #ef5350; /* Material Design Red */
-}
-.text-blue-darken-1 {
-  color: #42a5f5; /* Material Design Blue */
-}
-.text-green-darken-1 {
-  color: #66bb6a; /* Material Design Green */
-}
-.text-orange-darken-1 {
-  color: #ffa726; /* Material Design Orange */
-}
-
 /* Responsive Font Sizes (Copied from AppDashboard.vue) */
 /* Small (sm) - 600px and up */
 @media (min-width: 600px) {
@@ -716,4 +746,18 @@ watch(selectedMonth, () => {
   .neumorphic-table :deep(th) { font-size: 1rem !important; }
   .neumorphic-table :deep(td) { font-size: 1.05rem !important; }
 }
+
+// Removed specific color overrides for KPI as they are now handled by the Vuetify theme
+// .text-red-darken-1 {
+//   color: #ef5350; /* Material Design Red */
+// }
+// .text-blue-darken-1 {
+//   color: #42a5f5; /* Material Design Blue */
+// }
+// .text-green-darken-1 {
+//   color: #66bb6a; /* Material Design Green */
+// }
+// .text-orange-darken-1 {
+//   color: #ffa726; /* Material Design Orange */
+// }
 </style>

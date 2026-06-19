@@ -81,13 +81,15 @@ const autoClassify = (description, originalType, mappingRules) => {
 
 // GET all transactions
 router.get('/transactions', async (req, res) => {
+    console.log('GET /transactions: Attempting to fetch all transactions.');
     let connection;
     try {
         connection = await pool.getConnection();
         const [rows] = await connection.execute("SELECT * FROM transactions");
+        console.log(`GET /transactions: Successfully fetched ${rows.length} transactions.`);
         res.json(rows);
     } catch (error) {
-        console.error("Error fetching transactions:", error);
+        console.error("GET /transactions Error fetching transactions:", error);
         res.status(500).json({ error: error.message });
     } finally {
         if (connection) connection.release();
@@ -96,8 +98,10 @@ router.get('/transactions', async (req, res) => {
 
 // POST new transactions (from Excel upload)
 router.post('/transactions', async (req, res) => {
+    console.log('POST /transactions: Attempting to add new transactions.');
     const newTransactions = req.body; // Expecting an array of transaction objects
     if (!newTransactions || !Array.isArray(newTransactions) || newTransactions.length === 0) {
+        console.warn('POST /transactions: No transaction data provided or invalid format.');
         return res.status(400).json({ error: "No transaction data provided or invalid format." });
     }
 
@@ -130,17 +134,21 @@ router.post('/transactions', async (req, res) => {
             if (!existingTransactions.has(transactionKey)) {
                 await connection.execute(
                     "INSERT INTO transactions (transaction_date, transaction_type, description, amount, payment_method) VALUES (?, ?, ?, ?, ?)",
-                    [transactionDate, transactionType, description, amount, paymentMethod] // Pass Date object for insertion
+                    [transactionDate, transactionType, description, amount, paymentMethod]
                 );
                 savedCount++;
             }
         }
 
         await connection.commit();
+        console.log(`POST /transactions: Successfully added ${savedCount} new transactions.`);
         res.status(201).json({ message: `Successfully added ${savedCount} transactions.` });
     } catch (error) {
-        if (connection) await connection.rollback();
-        console.error("Error adding transactions:", error); // This will log the actual error on the Node.js console
+        if (connection) {
+            await connection.rollback();
+            console.error("POST /transactions: Transaction rolled back due to error.");
+        }
+        console.error("POST /transactions Error adding transactions:", error);
         res.status(500).json({ error: error.message });
     } finally {
         if (connection) connection.release();
@@ -149,13 +157,15 @@ router.post('/transactions', async (req, res) => {
 
 // GET category mapping rules
 router.get('/categories', async (req, res) => {
+    console.log('GET /categories: Attempting to fetch category mapping rules.');
     let connection;
     try {
         connection = await pool.getConnection();
         const [rows] = await connection.execute("SELECT id, merchant, category, sub_category FROM category ORDER BY category, merchant");
+        console.log(`GET /categories: Successfully fetched ${rows.length} category rules.`);
         res.json(rows);
     } catch (error) {
-        console.error("Error fetching categories:", error);
+        console.error("GET /categories Error fetching categories:", error);
         res.status(500).json({ error: error.message });
     } finally {
         if (connection) connection.release();
@@ -164,8 +174,10 @@ router.get('/categories', async (req, res) => {
 
 // POST new category rule
 router.post('/categories', async (req, res) => {
+    console.log('POST /categories: Attempting to add a new category rule.');
     const { merchant, category, sub_category } = req.body;
     if (!merchant || !category) {
+        console.warn('POST /categories: Merchant and category are required for adding a rule.');
         return res.status(400).json({ error: "Merchant and category are required." });
     }
 
@@ -176,9 +188,10 @@ router.post('/categories', async (req, res) => {
             "INSERT INTO category (merchant, category, sub_category) VALUES (?, ?, ?)",
             [merchant, category, sub_category || null]
         );
+        console.log(`POST /categories: Successfully added new category rule with ID ${result.insertId}.`);
         res.status(201).json({ id: result.insertId, message: "Category rule added successfully." });
     } catch (error) {
-        console.error("Error adding category rule:", error);
+        console.error("POST /categories Error adding category rule:", error);
         res.status(500).json({ error: error.message });
     } finally {
         if (connection) connection.release();
@@ -188,8 +201,10 @@ router.post('/categories', async (req, res) => {
 // PUT update category rule
 router.put('/categories/:id', async (req, res) => {
     const { id } = req.params;
+    console.log(`PUT /categories/${id}: Attempting to update category rule.`);
     const { merchant, category, sub_category } = req.body;
     if (!merchant || !category) {
+        console.warn(`PUT /categories/${id}: Merchant and category are required for updating a rule.`);
         return res.status(400).json({ error: "Merchant and category are required." });
     }
 
@@ -201,14 +216,15 @@ router.put('/categories/:id', async (req, res) => {
             [merchant, category, sub_category || null, id]
         );
         if (result.affectedRows === 0) {
+            console.warn(`PUT /categories/${id}: Category rule with ID ${id} not found.`);
             return res.status(404).json({ error: "Category rule not found." });
         }
+        console.log(`PUT /categories/${id}: Successfully updated category rule.`);
         res.json({ message: "Category rule updated successfully." });
     } catch (error) {
-        console.error("Error updating category rule:", error);
+        console.error(`PUT /categories/${id} Error updating category rule:`, error);
         res.status(500).json({ error: error.message });
     } finally {
-
         if (connection) connection.release();
     }
 });
@@ -216,7 +232,7 @@ router.put('/categories/:id', async (req, res) => {
 // DELETE category rule
 router.delete('/categories/:id', async (req, res) => {
     const { id } = req.params;
-
+    console.log(`DELETE /categories/${id}: Attempting to delete category rule.`);
     let connection;
     try {
         connection = await pool.getConnection();
@@ -225,11 +241,13 @@ router.delete('/categories/:id', async (req, res) => {
             [id]
         );
         if (result.affectedRows === 0) {
+            console.warn(`DELETE /categories/${id}: Category rule with ID ${id} not found.`);
             return res.status(404).json({ error: "Category rule not found." });
         }
+        console.log(`DELETE /categories/${id}: Successfully deleted category rule.`);
         res.json({ message: "Category rule deleted successfully." });
     } catch (error) {
-        console.error("Error deleting category rule:", error);
+        console.error(`DELETE /categories/${id} Error deleting category rule:`, error);
         res.status(500).json({ error: error.message });
     } finally {
         if (connection) connection.release();
@@ -239,8 +257,10 @@ router.delete('/categories/:id', async (req, res) => {
 
 // POST financial status records
 router.post('/financial_status', async (req, res) => {
+    console.log('POST /financial_status: Attempting to add new financial records.');
     const financialRecords = req.body; // Expecting an array of financial record objects
     if (!financialRecords || !Array.isArray(financialRecords) || financialRecords.length === 0) {
+        console.warn('POST /financial_status: No financial data provided or invalid format.');
         return res.status(400).json({ error: "No financial data provided or invalid format." });
     }
 
@@ -266,10 +286,14 @@ router.post('/financial_status', async (req, res) => {
         }
 
         await connection.commit();
+        console.log(`POST /financial_status: Successfully added ${savedCount} financial records with snapshot_id ${nextSnapshotId}.`);
         res.status(201).json({ message: `Successfully added ${savedCount} financial records with snapshot_id ${nextSnapshotId}.` });
     } catch (error) {
-        if (connection) await connection.rollback();
-        console.error("Error adding financial records:", error);
+        if (connection) {
+            await connection.rollback();
+            console.error("POST /financial_status: Transaction rolled back due to error.");
+        }
+        console.error("POST /financial_status Error adding financial records:", error);
         res.status(500).json({ error: error.message });
     } finally {
         if (connection) connection.release();
@@ -278,6 +302,7 @@ router.post('/financial_status', async (req, res) => {
 
 // GET financial data (latest snapshot)
 router.get('/financial_status/latest', async (req, res) => {
+    console.log('GET /financial_status/latest: Attempting to fetch latest financial status.');
     let connection;
     try {
         connection = await pool.getConnection();
@@ -285,6 +310,7 @@ router.get('/financial_status/latest', async (req, res) => {
         const latestSnapshotId = maxSnapshotIdRows[0].max_id;
 
         if (latestSnapshotId === 0) {
+            console.log('GET /financial_status/latest: No financial data found.');
             return res.json([]); // No financial data yet
         }
 
@@ -292,9 +318,10 @@ router.get('/financial_status/latest', async (req, res) => {
             "SELECT item_name, category, institution, amount, note FROM financial WHERE snapshot_id = ?",
             [latestSnapshotId]
         );
+        console.log(`GET /financial_status/latest: Successfully fetched ${rows.length} records for snapshot ID ${latestSnapshotId}.`);
         res.json(rows);
     } catch (error) {
-        console.error("Error fetching latest financial status:", error);
+        console.error("GET /financial_status/latest Error fetching latest financial status:", error);
         res.status(500).json({ error: error.message });
     } finally {
         if (connection) connection.release();
@@ -303,15 +330,18 @@ router.get('/financial_status/latest', async (req, res) => {
 
 // GET distinct snapshot IDs for financial history
 router.get('/financial_status/snapshots', async (req, res) => {
+    console.log('GET /financial_status/snapshots: Attempting to fetch distinct financial snapshot IDs.');
     let connection;
     try {
         connection = await pool.getConnection();
         const [rows] = await connection.execute(
             "SELECT DISTINCT snapshot_id FROM financial WHERE snapshot_id IS NOT NULL ORDER BY snapshot_id DESC LIMIT 20"
         );
-        res.json(rows.map(row => row.snapshot_id));
+        const snapshotIds = rows.map(row => row.snapshot_id);
+        console.log(`GET /financial_status/snapshots: Successfully fetched ${snapshotIds.length} snapshot IDs.`);
+        res.json(snapshotIds);
     } catch (error) {
-        console.error("Error fetching financial snapshots:", error);
+        console.error("GET /financial_status/snapshots Error fetching financial snapshots:", error);
         res.status(500).json({ error: error.message });
     } finally {
         if (connection) connection.release();
@@ -320,6 +350,7 @@ router.get('/financial_status/snapshots', async (req, res) => {
 
 // GET current and previous financial rows for delta calculation
 router.get('/financial_status/compare', async (req, res) => {
+    console.log('GET /financial_status/compare: Attempting to fetch financial data for comparison.');
     let connection;
     try {
         connection = await pool.getConnection();
@@ -337,6 +368,7 @@ router.get('/financial_status/compare', async (req, res) => {
                 [snapshotIds[0]]
             );
             currentRows = curr;
+            console.log(`GET /financial_status/compare: Fetched ${currentRows.length} current records for snapshot ID ${snapshotIds[0]}.`);
         }
 
         if (snapshotIds.length > 1) {
@@ -345,11 +377,13 @@ router.get('/financial_status/compare', async (req, res) => {
                 [snapshotIds[1]]
             );
             previousRows = prev;
+            console.log(`GET /financial_status/compare: Fetched ${previousRows.length} previous records for snapshot ID ${snapshotIds[1]}.`);
         }
 
+        console.log('GET /financial_status/compare: Successfully fetched financial data for comparison.');
         res.json({ current: currentRows, previous: previousRows });
     } catch (error) {
-        console.error("Error fetching financial data for comparison:", error);
+        console.error("GET /financial_status/compare Error fetching financial data for comparison:", error);
         res.status(500).json({ error: error.message });
     } finally {
         if (connection) connection.release();
