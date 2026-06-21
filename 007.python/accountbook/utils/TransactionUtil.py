@@ -104,7 +104,7 @@ class TransactionUtil:
                 kw, cat, sub = rule.get('merchant'), rule.get('category'), rule.get('sub_category')
                 # 금액 범위 조건 (최솟값, 최댓값)
                 min_amt = rule.get('min_amount')
-                max_amt = rule.get('max_amt')
+                max_amt = rule.get('max_amount')
             else:
                 kw, cat, sub = rule[0], rule[1], rule[2]
                 min_amt, max_amt = None, None
@@ -173,55 +173,92 @@ class TransactionUtil:
             print(f"Error fetching transactions from API: {e}")
             return pd.DataFrame()
 
+    def _to_kst_naive(self, dt):
+        """API(UTC) / 엑셀(KST naive) 입력을 KST naive datetime으로 통일합니다."""
+        parsed = pd.to_datetime(dt, errors='coerce')
+        if pd.isna(parsed):
+            return None
+        if parsed.tzinfo is not None:
+            return parsed.tz_convert('Asia/Seoul').tz_localize(None)
+        return parsed
+
+    def _normalize_transaction_key(self, dt, amount, description, transaction_type):
+        """DB(UTC)와 엑셀(KST) 간 날짜 형식 차이를 맞춰 중복 비교 키를 생성합니다."""
+        dt_kst = self._to_kst_naive(dt)
+        if dt_kst is None:
+            return None
+        return (
+            dt_kst.strftime('%Y-%m-%d %H:%M:%S'),
+            int(amount),
+            str(description).strip(),
+            str(transaction_type or '').strip()
+        )
+
     def save_new_transactions_to_db(self, new_transactions_df):
         """
         새로운 거래 내역 DataFrame을 API를 통해 DB에 저장합니다.
         기존 DB 데이터와 비교하여 중복을 제외하고 삽입합니다.
-        """
-        if new_transactions_df.empty:
-            return 0 # No new records to save
 
-        saved_count = 0
+        Returns:
+            dict: saved, duplicate, skipped, total, new_items(신규 건 요약 목록)
+        """
+        empty_result = {'saved': 0, 'duplicate': 0, 'skipped': 0, 'total': 0, 'new_items': []}
+        if new_transactions_df.empty:
+            return empty_result
+
+        result = {'saved': 0, 'duplicate': 0, 'skipped': 0, 'total': len(new_transactions_df), 'new_items': []}
         try:
-            # Fetch existing transactions from API to avoid duplicates
             existing_transactions_df = self.fetch_transactions_from_api()
             existing_transactions = set()
             if not existing_transactions_df.empty:
                 for _, r in existing_transactions_df.iterrows():
-                    # Ensure consistent format for comparison
-                    dt_str = pd.to_datetime(r['transaction_date']).strftime('%Y-%m-%d %H:%M:%S')
-                    # Corrected: Only one add call, with strip() applied to transaction_type
-                    existing_transactions.add((dt_str, int(r['amount']), str(r['description'] if pd.notna(r['description']) else '').strip(), str(r['transaction_type']).strip()))
+                    key = self._normalize_transaction_key(
+                        r['transaction_date'], r['amount'], r['description'], r['transaction_type']
+                    )
+                    if key:
+                        existing_transactions.add(key)
+
             records_to_insert = []
             for _, row in new_transactions_df.iterrows():
                 desc = str(row['내용']).strip()
-                # Check if the transaction already exists
-                if desc and not pd.isna(row['DT']):
-                    # Format for comparison
-                    current_transaction_tuple = (
-                        row['DT'].strftime('%Y-%m-%d %H:%M:%S'),
-                        int(row['금액']),
-                        desc,
-                        row['타입']
-                    )
-                    if current_transaction_tuple not in existing_transactions:
-                        records_to_insert.append({
-                            "transaction_date": row['DT'].isoformat(), # ISO format for JSON
-                            "transaction_type": row['타입'],
-                            "description": desc,
-                            "amount": int(row['금액']),
-                            "payment_method": row.get('결제수단', '')
-                        })
+                if not desc or pd.isna(row['DT']):
+                    result['skipped'] += 1
+                    continue
+
+                current_key = self._normalize_transaction_key(row['DT'], row['금액'], desc, row['타입'])
+                if not current_key:
+                    result['skipped'] += 1
+                    continue
+
+                if current_key in existing_transactions:
+                    result['duplicate'] += 1
+                    continue
+
+                dt_kst = self._to_kst_naive(row['DT'])
+                dt_iso = pd.Timestamp(dt_kst).tz_localize('Asia/Seoul').isoformat()
+
+                records_to_insert.append({
+                    "transaction_date": dt_iso,
+                    "transaction_type": str(row['타입'] or '').strip(),
+                    "description": desc,
+                    "amount": int(row['금액']),
+                    "payment_method": row.get('결제수단', '')
+                })
+                result['new_items'].append({
+                    '일시': current_key[0][:16],
+                    '내용': desc,
+                    '금액': int(row['금액']),
+                    '타입': current_key[3] or '-',
+                })
 
             if records_to_insert:
                 response = requests.post(f"{API_BASE_URL}/transactions", json=records_to_insert)
                 response.raise_for_status()
-                # Assuming the API returns a success message or count
-                saved_count = len(records_to_insert)
+                result['saved'] = len(records_to_insert)
         except requests.exceptions.RequestException as e:
             print(f"Error saving transactions to API: {e}")
-            raise # Re-raise to be caught by TransactionView's try-except
-        return saved_count
+            raise
+        return result
 
     def process_transactions_dataframe(self, df):
         """
@@ -234,7 +271,7 @@ class TransactionUtil:
         # API에서 넘어오는 시간 데이터(보통 UTC ISO8601 문자열)를 한국 시간(KST)으로 변환합니다.
         # DB에 저장된 transaction_date가 UTC 기준일 경우 UI에서 9시간 차이가 발생할 수 있습니다.
         target_col = 'DT' if 'DT' in df.columns else 'transaction_date'
-
+        
         # utc=True를 지정하여 'Z'나 '+00:00'을 인식하고, tz_convert로 현지 시간대로 보정합니다.
         # 그 후 UI 표시를 위해 시간대 정보를 제거(naive)합니다.
         df['DT'] = pd.to_datetime(df[target_col], errors='coerce', utc=True).dt.tz_convert('Asia/Seoul').dt.tz_localize(None)
@@ -278,9 +315,9 @@ class TransactionUtil:
                 '대분류': 'category',
                 '소분류': 'sub_category'
             }
-
+            
             payload = {api_mapping[k]: v for k, v in update_data.items() if k in api_mapping}
-
+            
             response = requests.put(f"{API_BASE_URL}/transactions/{transaction_id}", json=payload)
             response.raise_for_status()
             return True

@@ -371,12 +371,35 @@ class TransactionView(ttk.Frame):
                 df_transactions = self.dashboard_util.process_excel_data(excel_data[acc_sheet_name])
                 # current_step += 1
                 self.after(0, self._update_progress_ui, 60, "가계부 내역 저장 중...")
-                saved_count = self.dashboard_util.save_new_transactions_to_db(df_transactions)
-                if saved_count > 0:
-                    logger.log("INFO", "TransactionDB", f"가계부 내역 {saved_count}건 저장 완료")
-                    upload_messages.append(f"가계부 내역 {saved_count}건 업로드 완료.")
-                else:
-                    upload_messages.append("새로운 가계부 내역이 없습니다.")
+                save_result = self.dashboard_util.save_new_transactions_to_db(df_transactions)
+                total = save_result['total']
+                saved = save_result['saved']
+                duplicate = save_result['duplicate']
+                skipped = save_result['skipped']
+                summary = f"가계부 내역 신규 {saved}건, "
+                if skipped:
+                    summary += f", 제외 {skipped}건"
+                upload_messages.append(summary + ".")
+                if saved > 0:
+                    logger.log("INFO", "TransactionDB", f"가계부 내역 신규 {saved}건 저장 (중복 {duplicate}건 제외)")
+                    preview = save_result.get('new_items', [])[:10]
+                    for item in preview:
+                        logger.log(
+                            "INFO", "TransactionDB",
+                            f"  신규: {item['일시']} | {item['타입']} | {item['내용']} | {item['금액']:,}원"
+                        )
+                    if len(save_result.get('new_items', [])) > 10:
+                        logger.log("INFO", "TransactionDB", f"  ... 외 {len(save_result['new_items']) - 10}건 (로그 탭에서 확인)")
+                    detail_lines = [
+                        f"· {i['일시']} | {i['타입']} | {i['내용'][:20]}{'…' if len(i['내용']) > 20 else ''} | {i['금액']:,}원"
+                        for i in save_result.get('new_items', [])[:5]
+                    ]
+                    # if detail_lines:
+                    #     upload_messages.append("신규 내역:\n" + "\n".join(detail_lines))
+                    #     if saved > 5:
+                    #         upload_messages.append(f"(외 {saved - 5}건 — 로그 탭에서 전체 확인)")
+                elif duplicate > 0:
+                    logger.log("INFO", "TransactionDB", f"가계부 내역 전부 중복 ({duplicate}건), 저장 없음")
             else:
                 upload_messages.append("가계부 내역 시트를 찾을 수 없습니다.")
             # current_step += 1 # 저장 단계까지 포함
