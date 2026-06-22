@@ -162,7 +162,6 @@ router.get('/categories', async (req, res) => {
     try {
         connection = await pool.getConnection();
         const [rows] = await connection.execute("SELECT id, merchant, category, sub_category FROM category ORDER BY category, merchant");
-        console.log(`GET /categories: Successfully fetched ${rows.length} category rules.`);
         res.json(rows);
     } catch (error) {
         console.error("GET /categories Error fetching categories:", error);
@@ -188,10 +187,9 @@ router.post('/categories', async (req, res) => {
             "INSERT INTO category (merchant, category, sub_category) VALUES (?, ?, ?)",
             [merchant, category, sub_category || null]
         );
-        console.log(`POST /categories: Successfully added new category rule with ID ${result.insertId}.`);
         res.status(201).json({ id: result.insertId, message: "Category rule added successfully." });
     } catch (error) {
-        console.error("POST /categories Error adding category rule:", error);
+        console.error("Error adding category rule:", error);
         res.status(500).json({ error: error.message });
     } finally {
         if (connection) connection.release();
@@ -219,7 +217,6 @@ router.put('/categories/:id', async (req, res) => {
             console.warn(`PUT /categories/${id}: Category rule with ID ${id} not found.`);
             return res.status(404).json({ error: "Category rule not found." });
         }
-        console.log(`PUT /categories/${id}: Successfully updated category rule.`);
         res.json({ message: "Category rule updated successfully." });
     } catch (error) {
         console.error(`PUT /categories/${id} Error updating category rule:`, error);
@@ -244,7 +241,6 @@ router.delete('/categories/:id', async (req, res) => {
             console.warn(`DELETE /categories/${id}: Category rule with ID ${id} not found.`);
             return res.status(404).json({ error: "Category rule not found." });
         }
-        console.log(`DELETE /categories/${id}: Successfully deleted category rule.`);
         res.json({ message: "Category rule deleted successfully." });
     } catch (error) {
         console.error(`DELETE /categories/${id} Error deleting category rule:`, error);
@@ -384,6 +380,83 @@ router.get('/financial_status/compare', async (req, res) => {
         res.json({ current: currentRows, previous: previousRows });
     } catch (error) {
         console.error("GET /financial_status/compare Error fetching financial data for comparison:", error);
+        res.status(500).json({ error: error.message });
+    } finally {
+        if (connection) connection.release();
+    }
+});
+
+// NEW: GET financial data for Treemap visualization
+router.get('/financial_treemap_data', async (req, res) => {
+    console.log('GET /financial_treemap_data: Attempting to fetch financial data for treemap.');
+    let connection;
+    try {
+        connection = await pool.getConnection();
+        const [maxSnapshotIdRows] = await connection.execute("SELECT COALESCE(MAX(snapshot_id), 0) AS max_id FROM financial");
+        const latestSnapshotId = maxSnapshotIdRows[0].max_id;
+
+        if (latestSnapshotId === 0) {
+            console.log('GET /financial_treemap_data: No financial data found for treemap.');
+            return res.json([]);
+        }
+
+        const [rawRows] = await connection.execute(
+            "SELECT item_name, category, institution, amount FROM financial WHERE snapshot_id = ?",
+            [latestSnapshotId]
+        );
+
+        // Process data into hierarchical structure for ApexCharts Treemap
+        const treemapDataMap = new Map(); // Map to build hierarchy
+
+        rawRows.forEach(row => {
+            const mainCategory = row.category; // '자산' or '부채'
+            const subCategory = row.institution || '기타'; // Use institution as sub-category, fallback to '기타'
+            const itemName = row.item_name;
+            let amount = row.amount;
+
+            // 부채인 경우 amount를 음수로 변환
+            if (mainCategory === '부채') {
+                amount = -Math.abs(amount); // Ensure it's negative
+            } else {
+                amount = Math.abs(amount); // Ensure it's positive for assets
+            }
+
+            // ApexCharts Treemap은 children 배열을 기대합니다.
+            // Multi-Dimensional Treemap을 위해 최상위 노드를 '자산'과 '부채'로 나눕니다.
+            // 그리고 그 아래에 각 항목들을 직접 넣습니다.
+
+            // 최상위 '자산' 또는 '부채' 노드
+            if (!treemapDataMap.has(mainCategory)) {
+                treemapDataMap.set(mainCategory, {
+                    x: mainCategory,
+                    y: 0, // 이 값은 사용되지 않지만, 구조를 위해 유지
+                    children: [] // 자산/부채 아래에 바로 항목들을 넣을 것임
+                });
+            }
+            const mainCatNode = treemapDataMap.get(mainCategory);
+
+            // 세부 항목 추가
+            mainCatNode.children.push({
+                x: `${itemName} (${subCategory})`, // 항목명 (기관)
+                y: amount
+            });
+        });
+
+        // Convert Maps to arrays for final JSON output
+        const finalTreemapData = [];
+        for (const [mainCat, mainCatNode] of treemapDataMap.entries()) {
+            finalTreemapData.push({
+                x: mainCatNode.x,
+                y: mainCatNode.y, // 이 값은 ApexCharts에서 무시될 수 있음 (children이 있으면)
+                children: mainCatNode.children
+            });
+        }
+        
+        console.log(`GET /financial_treemap_data: Successfully prepared treemap data with ${finalTreemapData.length} top-level categories.`);
+        res.json(finalTreemapData);
+
+    } catch (error) {
+        console.error("GET /financial_treemap_data Error fetching or processing treemap data:", error);
         res.status(500).json({ error: error.message });
     } finally {
         if (connection) connection.release();
