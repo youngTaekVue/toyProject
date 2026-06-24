@@ -18,6 +18,7 @@ const calendarRouter = require('./routes/browser/calendar');
 const mapkeyRouter = require('./routes/browser/mapkey');
 const busRouter = require('./routes/browser/bus');
 const pythonRouter = require('./routes/python/python'); // Updated path
+const healthRouter = require('./routes/health/health'); // New health router
 //const analytics = require('./routes/browser/analytics');
 
 app.use(express.json({ limit: '50mb' })); // JSON 형식 요청 본문 처리, limit 증가
@@ -31,6 +32,7 @@ app.use('/calendar', calendarRouter);
 app.use('/mapkey', mapkeyRouter);
 app.use('/bus', busRouter);
 app.use('/python', pythonRouter); // Uncommented and enabled
+app.use('/health', healthRouter); // Mount the new health router
 //app.use('/analytics', analytics);
 
 // 에러 핸들링 미들웨어 (기본 예시)

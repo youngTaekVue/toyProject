@@ -7,6 +7,7 @@ import ProfileView from '@/views/ProfileView.vue'
 import SettingsView from '@/views/SettingsView.vue'
 import Subitem1View from '@/views/accountBook/Subitem1View.vue'
 import Subitem2View from '@/views/accountBook/Subitem2View.vue'
+import HealthDashboard from '@/views/health/HealthDashboard.vue'
 
 const routes = [
   {
@@ -43,6 +44,12 @@ const routes = [
         name: 'Subitem2',
         component: Subitem2View,
         meta: { pageTitle: 'Sub-item 2', icon: 'mdi-circle-small', breadcrumb: 'Pages / Dropdown / Sub-item 2' }
+      },
+      {
+        path: '/health/healthDashboard',
+        name: 'healthDashboard',
+        component: HealthDashboard,
+        meta: { pageTitle: 'Sub-item 1', icon: 'mdi-circle-small', breadcrumb: 'Pages / Dropdown / Sub-item 1' }
       },
       {
         path: '/profile',

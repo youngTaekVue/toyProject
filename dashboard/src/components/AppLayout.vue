@@ -20,6 +20,9 @@
                 <li><router-link to="/dropdown/subitem1" active-class="active"><span>Sub-item 1</span></router-link></li>
                 <li><router-link to="/dropdown/subitem2" active-class="active"><span>Sub-item 2</span></router-link></li>
               </ul>
+              <ul v-if="isDropdownOpen" class="collapsible-submenu">
+                <li><router-link to="/health/healthDashboard" active-class="active"><span>healthDashboard</span></router-link></li>
+              </ul>
             </li>
             <li><router-link to="/profile" active-class="active"><v-icon>mdi-account-circle</v-icon> <span>Profile</span></router-link></li>
             <li><router-link to="/settings" active-class="active"><v-icon>mdi-cog</v-icon> <span>Settings</span></router-link></li>
