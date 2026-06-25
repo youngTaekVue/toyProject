@@ -1,41 +1,44 @@
 const express = require('express');
 const router = express.Router();
-const mysql = require('mysql2/promise'); // Use promise-based version
-const dotenv = require('dotenv');
-const path = require('path');
+// const mysql = require('mysql2/promise'); // 더 이상 필요 없음
+// const dotenv = require('dotenv'); // 더 이상 필요 없음
+// const path = require('path'); // 더 이상 필요 없음
 const { parse } = require('csv-parser');
 const iconv = require('iconv-lite');
 const { Readable } = require('stream');
 
-// Load environment variables from .env file
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+// 공유 데이터베이스 연결 풀 가져오기
+const { getDbPool } = require('../../db');
 
-// Database configuration
-const dbConfig = {
-    host: process.env.DB_ACCOUNT_HOST || 'localhost',
-    port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 3306,
-    user: process.env.DB_ACCOUNT_USER,
-    password: process.env.DB_ACCOUNT_PASSWORD,
-    database: process.env.DB_ACCOUNT_NAME,
-    charset: 'utf8mb4',
-};
+// Load environment variables from .env file (db.js에서 처리하므로 여기서는 제거)
+// dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
-let pool;
+// Database configuration (db.js에서 처리하므로 여기서는 제거)
+// const dbConfig = {
+//     host: process.env.DB_ACCOUNT_HOST || 'localhost',
+//     port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 3306,
+//     user: process.env.DB_ACCOUNT_USER,
+//     password: process.env.DB_ACCOUNT_PASSWORD,
+//     database: process.env.DB_ACCOUNT_NAME,
+//     charset: 'utf8mb4',
+// };
 
-async function initDbPool() {
-    try {
-        pool = mysql.createPool(dbConfig);
-        // Test connection
-        await pool.getConnection();
-        console.log("Database connection pool created and tested successfully.");
-    } catch (error) {
-        console.error("Failed to initialize database pool:", error);
-        process.exit(1); // Exit if DB connection fails
-    }
-}
+// let pool; // 더 이상 필요 없음
 
-// Initialize DB pool when the module is loaded
-initDbPool();
+// async function initDbPool() { // 더 이상 필요 없음
+//     try {
+//         pool = mysql.createPool(dbConfig);
+//         // Test connection
+//         await pool.getConnection();
+//         console.log("Database connection pool created and tested successfully.");
+//     } catch (error) {
+//         console.error("Failed to initialize database pool:", error);
+//         process.exit(1); // Exit if DB connection fails
+//     }
+// }
+
+// Initialize DB pool when the module is loaded (db.js에서 처리하므로 여기서는 제거)
+// initDbPool();
 
 // --- Helper Functions (Re-implementing Python's TransactionUtil/FinancialUtil logic) ---
 
@@ -84,7 +87,7 @@ router.get('/transactions', async (req, res) => {
     console.log('GET /transactions: Attempting to fetch all transactions.');
     let connection;
     try {
-        connection = await pool.getConnection();
+        connection = await getDbPool().getConnection();
         const [rows] = await connection.execute("SELECT * FROM transactions");
         console.log(`GET /transactions: Successfully fetched ${rows.length} transactions.`);
         res.json(rows);
@@ -107,7 +110,7 @@ router.post('/transactions', async (req, res) => {
 
     let connection;
     try {
-        connection = await pool.getConnection();
+        connection = await getDbPool().getConnection();
         await connection.beginTransaction();
 
         // Fetch existing transactions for duplication check
@@ -160,7 +163,7 @@ router.get('/categories', async (req, res) => {
     console.log('GET /categories: Attempting to fetch category mapping rules.');
     let connection;
     try {
-        connection = await pool.getConnection();
+        connection = await getDbPool().getConnection();
         const [rows] = await connection.execute("SELECT id, merchant, category, sub_category FROM category ORDER BY category, merchant");
         res.json(rows);
     } catch (error) {
@@ -182,7 +185,7 @@ router.post('/categories', async (req, res) => {
 
     let connection;
     try {
-        connection = await pool.getConnection();
+        connection = await getDbPool().getConnection();
         const [result] = await connection.execute(
             "INSERT INTO category (merchant, category, sub_category) VALUES (?, ?, ?)",
             [merchant, category, sub_category || null]
@@ -208,7 +211,7 @@ router.put('/categories/:id', async (req, res) => {
 
     let connection;
     try {
-        connection = await pool.getConnection();
+        connection = await getDbPool().getConnection();
         const [result] = await connection.execute(
             "UPDATE category SET merchant=?, category=?, sub_category=? WHERE id=?",
             [merchant, category, sub_category || null, id]
@@ -232,7 +235,7 @@ router.delete('/categories/:id', async (req, res) => {
     console.log(`DELETE /categories/${id}: Attempting to delete category rule.`);
     let connection;
     try {
-        connection = await pool.getConnection();
+        connection = await getDbPool().getConnection();
         const [result] = await connection.execute(
             "DELETE FROM category WHERE id=?",
             [id]
@@ -262,7 +265,7 @@ router.post('/financial_status', async (req, res) => {
 
     let connection;
     try {
-        connection = await pool.getConnection();
+        connection = await getDbPool().getConnection();
         await connection.beginTransaction();
 
         // Simplified approach: get max snapshot_id and increment
@@ -301,7 +304,7 @@ router.get('/financial_status/latest', async (req, res) => {
     console.log('GET /financial_status/latest: Attempting to fetch latest financial status.');
     let connection;
     try {
-        connection = await pool.getConnection();
+        connection = await getDbPool().getConnection();
         const [maxSnapshotIdRows] = await connection.execute("SELECT COALESCE(MAX(snapshot_id), 0) AS max_id FROM financial");
         const latestSnapshotId = maxSnapshotIdRows[0].max_id;
 
@@ -329,7 +332,7 @@ router.get('/financial_status/snapshots', async (req, res) => {
     console.log('GET /financial_status/snapshots: Attempting to fetch distinct financial snapshot IDs.');
     let connection;
     try {
-        connection = await pool.getConnection();
+        connection = await getDbPool().getConnection();
         const [rows] = await connection.execute(
             "SELECT DISTINCT snapshot_id FROM financial WHERE snapshot_id IS NOT NULL ORDER BY snapshot_id DESC LIMIT 20"
         );
@@ -349,7 +352,7 @@ router.get('/financial_status/compare', async (req, res) => {
     console.log('GET /financial_status/compare: Attempting to fetch financial data for comparison.');
     let connection;
     try {
-        connection = await pool.getConnection();
+        connection = await getDbPool().getConnection();
         const [snapshotIdsRows] = await connection.execute(
             "SELECT DISTINCT snapshot_id FROM financial WHERE snapshot_id IS NOT NULL ORDER BY snapshot_id DESC LIMIT 2"
         );
@@ -391,7 +394,7 @@ router.get('/financial_treemap_data', async (req, res) => {
     console.log('GET /financial_treemap_data: Attempting to fetch financial data for treemap.');
     let connection;
     try {
-        connection = await pool.getConnection();
+        connection = await getDbPool().getConnection();
         const [maxSnapshotIdRows] = await connection.execute("SELECT COALESCE(MAX(snapshot_id), 0) AS max_id FROM financial");
         const latestSnapshotId = maxSnapshotIdRows[0].max_id;
 

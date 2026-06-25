@@ -1,103 +1,83 @@
 const express = require('express');
 const router = express.Router();
-const { OAuth2Client } = require('google-auth-library');
 const { google } = require('googleapis');
-const dotenv = require('dotenv');
-const path = require('path');
+require('dotenv').config();
 
-// Load environment variables from .env file
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
-// --- 추가된 디버깅 라인 ---
-console.log('Loaded GOOGLE_FIT_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID ? '*****' : 'Not Loaded');
-console.log('Loaded GOOGLE_FIT_CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET ? '*****' : 'Not Loaded');
-console.log('Loaded GOOGLE_FIT_REDIRECT_URI:', process.env.GOOGLE_FIT_REDIRECT_URI ? process.env.GOOGLE_FIT_REDIRECT_URI : 'Not Loaded');
-// --- 디버깅 라인 끝 ---
+// Configure the OAuth2 client
+const oauth2Client = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.GOOGLE_REDIRECT_URI
+);
+console.log('ENV CHECK:', {
+    CLIENT_ID: process.env.GOOGLE_CLIENT_ID ? 'OK' : 'MISSING',
+    REDIRECT_URI: process.env.GOOGLE_FIT_REDIRECT_URI // 👈 출력값 문자열이 제대로 나오는지 확인!
+});
+// Define the scopes required for Google Fit
+const scopes = [
+    'https://www.googleapis.com/auth/fitness.activity.read',
+    'https://www.googleapis.com/auth/fitness.body.read',
+    'https://www.googleapis.com/auth/fitness.nutrition.read',
+    // Add other scopes as needed
+];
 
-// Google OAuth2 Configuration
-const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const REDIRECT_URI = process.env.GOOGLE_FIT_REDIRECT_URI; // e.g., http://localhost:3000/health/google-fit/callback
+// Store tokens (in a real application, this would be associated with a user in a database)
+let tokens = null;
 
-// Ensure environment variables are loaded
-if (!CLIENT_ID || !CLIENT_SECRET || !REDIRECT_URI) {
-    console.error("Missing Google Fit environment variables. Please check .env file.");
-    // In a production app, you might want to throw an error or disable the routes
-    // process.exit(1);
-}
-
-const oAuth2Client = new OAuth2Client(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
-
-// Define the scopes needed for Google Fit API
-const FITNESS_ACTIVITY_READ_SCOPE = 'https://www.googleapis.com/auth/fitness.activity.read';
-const FITNESS_BODY_READ_SCOPE = 'https://www.googleapis.com/auth/fitness.body.read';
-const SCOPES = [FITNESS_ACTIVITY_READ_SCOPE, FITNESS_BODY_READ_SCOPE];
-console.log(SCOPES);
-// --- Google Fit API Endpoints ---
-
-// 1. Start Google Fit OAuth flow
-router.get('/google-fit/auth', (req, res) => {
-    console.log('Starting Google Fit OAuth flow...');
-    const authorizeUrl = oAuth2Client.generateAuthUrl({
-        access_type: 'offline', // To get a refresh token
-        scope: SCOPES,
-        prompt: 'consent', // To ensure refresh token is always returned
+// Route to initiate Google OAuth consent flow
+router.get('/google-auth', (req, res) => {
+    const authorizeUrl = oauth2Client.generateAuthUrl({
+        access_type: 'offline', // Request a refresh token
+        scope: scopes,
+        prompt: 'consent' // Always ask for consent to ensure refresh token is granted
     });
-    // --- 추가된 디버깅 라인 ---
-    console.log('Redirecting to Google Auth URL:', authorizeUrl);
-    // --- 디버깅 라인 끝 ---
+
+
+
     res.redirect(authorizeUrl);
 });
 
-// 2. Google Fit OAuth callback
+// OAuth callback route
 router.get('/google-fit/callback', async (req, res) => {
-    console.log('Google Fit OAuth callback received.');
-    const { code } = req.query;
-
-    if (!code) {
-        console.error('Google Fit OAuth callback: No code received.');
-        return res.status(400).send('Authorization code not provided.');
-    }
-
+    const code = req.query.code;
     try {
-        const { tokens } = await oAuth2Client.getToken(code);
-        oAuth2Client.setCredentials(tokens);
-
-        console.log('Google Fit OAuth callback: Successfully obtained tokens.');
-        console.log('Access Token:', tokens.access_token);
-        console.log('Refresh Token:', tokens.refresh_token); // Store this securely in your DB for future use
-
-        // In a real application, you would save these tokens (especially refresh_token)
-        // to your database associated with the user.
-        // For now, they are stored in the oAuth2Client instance in memory.
-
-        res.send('Google Fit authorization successful! You can now fetch data.');
+        const { tokens: newTokens } = await oauth2Client.getToken(code);
+        oauth2Client.setCredentials(newTokens);
+        tokens = newTokens; // Store tokens
+        console.log('Successfully authenticated with Google Fit. Tokens:', tokens);
+        // Redirect to your dashboard or a success page
+        res.send('<h1>Google Fit authentication successful! You can close this window.</h1><script>window.close();</script>');
     } catch (error) {
-        console.error('Google Fit OAuth callback error:', error.message);
-        res.status(500).send('Error during Google Fit authorization.');
+        console.error('Error during Google Fit authentication:', error);
+        res.status(500).send('Authentication failed: ' + error.message);
     }
 });
 
-// 3. Fetch Google Fit data (example: daily steps)
-router.get('/google-fit/data', async (req, res) => {
-    console.log('Fetching Google Fit data...');
-    // Check if credentials (including access_token) are set
-    if (!oAuth2Client.credentials || !oAuth2Client.credentials.access_token) {
-        console.warn('Google Fit data fetch: No access token available. User needs to authorize first.');
-        return res.status(401).send('Please authorize with Google Fit first by visiting /health/google-fit/auth');
+// Placeholder for Google Fit API endpoint
+router.get('/google-fit-data', async (req, res) => {
+    if (!tokens) {
+        return res.status(401).json({ message: 'Not authenticated with Google Fit. Please authorize first.' });
     }
 
     try {
-        // The 'googleapis' library, when used with an OAuth2Client that has a refresh_token,
-        // will automatically handle refreshing the access token if it's expired.
-        // No explicit manual refresh check is typically needed here.
+        // Set the credentials for the client
+        oauth2Client.setCredentials(tokens);
 
-        const fitness = google.fitness({ version: 'v1', auth: oAuth2Client });
+        // Check if the access token is expired and refresh if necessary
+        if (oauth2Client.isTokenExpiring()) {
+            console.log('Access token expiring, refreshing...');
+            const { credentials } = await oauth2Client.refreshAccessToken();
+            oauth2Client.setCredentials(credentials);
+            tokens = credentials; // Update stored tokens
+            console.log('Tokens refreshed:', tokens);
+        }
 
-        // Example: Fetch daily step count for the last 7 days
+        const fitness = google.fitness({ version: 'v1', auth: oauth2Client });
+
+        // Example: Fetch daily steps for the last 7 days
         const now = new Date();
         const endTimeMillis = now.getTime();
-        // Last 7 days, starting from the beginning of 7 days ago
-        const startTimeMillis = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).setHours(0, 0, 0, 0);
+        const startTimeMillis = now.setDate(now.getDate() - 7); // 7 days ago
 
         const response = await fitness.users.dataset.aggregate({
             userId: 'me',
@@ -106,20 +86,18 @@ router.get('/google-fit/data', async (req, res) => {
                     dataTypeName: 'com.google.step_count.delta',
                     dataSourceId: 'derived:com.google.step_count.delta:com.google.android.gms:estimated_steps'
                 }],
-                bucketByTime: { durationMillis: 86400000 }, // Daily buckets (24 hours in milliseconds)
+                bucketByTime: { durationMillis: 86400000 }, // Daily buckets
                 startTimeMillis: startTimeMillis,
                 endTimeMillis: endTimeMillis,
             },
         });
 
-        console.log('Google Fit data fetch successful.');
-        res.json(response.data);
+        res.status(200).json({ message: 'Google Fit data fetched successfully!', data: response.data });
     } catch (error) {
         console.error('Error fetching Google Fit data:', error.message);
-        // Handle token expiration specifically if refresh token is not used or fails
-        if (error.response && error.response.status === 401) {
-            // If the access token is invalid or expired and refresh failed (or no refresh token)
-            return res.status(401).send('Access token expired or invalid. Please re-authorize.');
+        // If the error is due to invalid credentials, prompt re-authentication
+        if (error.code === 401 || error.message.includes('invalid_token')) {
+            return res.status(401).json({ message: 'Google Fit authentication expired or invalid. Please re-authorize.', error: error.message });
         }
         res.status(500).json({ message: 'Failed to fetch Google Fit data', error: error.message });
     }

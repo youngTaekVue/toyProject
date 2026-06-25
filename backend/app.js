@@ -3,12 +3,20 @@ const app = express();
 require('dotenv').config();
 
 const cors = require('cors');
-NODE_TLS_REJECT_UNAUTHORIZED=0
+// NODE_TLS_REJECT_UNAUTHORIZED=0 // 이 라인은 제거합니다. 환경 변수로 설정해야 합니다.
+
 const corsOptions = {
-    origin: ['http://localhost:63342','http://localhost:3000', 'http://localhost:3001'], // Added Vite's default dev server origin
+    origin: ['http://localhost:63342', 'http://localhost:3000', 'http://localhost:3001'], // Added Vite's default dev server origin
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // 모든 필요한 HTTP 메서드 허용
+    allowedHeaders: ['Content-Type', 'Authorization'], // 프론트엔드에서 보낼 수 있는 헤더 허용
+    credentials: true, // 자격 증명(쿠키, 인증 헤더 등)을 허용할지 여부
     optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
+
+// 공유 데이터베이스 연결 풀 초기화
+const { initDbPool } = require('./db');
+initDbPool(); // 서버 시작 시 DB 풀 초기화
 
 // 라우터 불러오기
 const commonRouter = require('./routes/browser/common');
