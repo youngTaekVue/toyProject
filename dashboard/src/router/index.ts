@@ -8,6 +8,7 @@ import SettingsView from '@/views/SettingsView.vue'
 import Subitem1View from '@/views/accountBook/Subitem1View.vue'
 import Subitem2View from '@/views/accountBook/Subitem2View.vue'
 import HealthDashboard from '@/views/health/HealthDashboard.vue'
+import ErrorStatisticsDashboard from '@/views/errorStatistics/Dashboard.vue'
 
 const routes = [
   {
@@ -26,6 +27,12 @@ const routes = [
         name: 'Analytics',
         component: AnalyticsView,
         meta: { pageTitle: 'Analytics', icon: 'mdi-chart-bar', breadcrumb: 'Pages / Analytics' }
+      },
+      {
+        path: '/error-statistics',
+        name: 'ErrorStatistics',
+        component: ErrorStatisticsDashboard,
+        meta: { pageTitle: 'API Failures', icon: 'mdi-alert-circle-outline', breadcrumb: 'Pages / API Failures' }
       },
       {
         path: '/billing',
