@@ -27,6 +27,7 @@ const mapkeyRouter = require('./routes/browser/mapkey');
 const busRouter = require('./routes/browser/bus');
 const pythonRouter = require('./routes/python/python'); // Updated path
 const healthRouter = require('./routes/health/health'); // New health router
+const errorStatisticsRouter = require('./routes/browser/errorStatistics'); // Error statistics router
 //const analytics = require('./routes/browser/analytics');
 
 app.use(express.json({ limit: '50mb' })); // JSON 형식 요청 본문 처리, limit 증가
@@ -34,6 +35,7 @@ app.use(express.static('public')); // 정적 파일 서비스
 
 // 라우터 마운트
 app.use('/api', commonRouter);
+app.use('/api/errorStatistics', errorStatisticsRouter);
 app.use('/weather', weatherRouter);
 app.use('/news', newsRouter);
 app.use('/calendar', calendarRouter);

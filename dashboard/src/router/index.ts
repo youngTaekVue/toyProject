@@ -9,6 +9,7 @@ import Subitem1View from '@/views/accountBook/Subitem1View.vue'
 import Subitem2View from '@/views/accountBook/Subitem2View.vue'
 import HealthDashboard from '@/views/health/HealthDashboard.vue'
 import ErrorStatisticsDashboard from '@/views/errorStatistics/Dashboard.vue'
+import ErrorStatisticsDetail from '@/views/errorStatistics/ErrorDetailView.vue'
 
 const routes = [
   {
@@ -32,7 +33,13 @@ const routes = [
         path: '/error-statistics',
         name: 'ErrorStatistics',
         component: ErrorStatisticsDashboard,
-        meta: { pageTitle: 'API Failures', icon: 'mdi-alert-circle-outline', breadcrumb: 'Pages / API Failures' }
+        meta: { pageTitle: '■ 요양기관별 청구 오류 통합 모니터링 대시보드', icon: 'mdi-alert-circle-outline', breadcrumb: 'Pages / Error Monitoring' }
+      },
+      {
+        path: '/error-statistics/detail',
+        name: 'ErrorStatisticsDetail',
+        component: ErrorStatisticsDetail,
+        meta: { pageTitle: '오류 상세 내역', icon: 'mdi-alert-circle-outline', breadcrumb: 'Pages / Error Monitoring / Detail' }
       },
       {
         path: '/billing',
