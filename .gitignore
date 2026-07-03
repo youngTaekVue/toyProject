@@ -13,5 +13,6 @@ dist/
 006.weather/file
 007.python/.env
 007.python/**/logs/
+*.xlsx
 *.json
 *.png

@@ -261,129 +261,108 @@ router.get('/data/:fileKey', async (req, res) => {
   }
 });
 
-// 3. Update state in Excel file and save
+// 3. [최종 해결] 청구건 내 모든 하위 로우(rows) 일괄 매칭 및 H열 상태 변경 기능
 router.put('/status', async (req, res) => {
-  const { fileKey, fileKeys, hospital, patient, birthDate, category, state } = req.body;
-  
-  // Support both array fileKeys and single fileKey
-  const targetFileKeys = fileKeys && Array.isArray(fileKeys) 
-    ? fileKeys 
-    : (fileKey ? [fileKey] : []);
+  const { fileKey, hospital, category, state, rows: targetRows } = req.body;
 
-  if (targetFileKeys.length === 0) {
-    return res.status(400).json({ error: 'No fileKey or fileKeys provided' });
+  if (!fileKey) {
+    return res.status(400).json({ error: '정확한 fileKey가 제공되지 않았습니다.' });
   }
 
-  let isAnyUpdated = false;
-
   try {
-    for (const fKey of targetFileKeys) {
-      const filePath = path.join(FILES_DIR, `${fKey}.xlsx`);
-      if (!fs.existsSync(filePath)) continue;
-
-      const workbook = new ExcelJS.Workbook();
-      await workbook.xlsx.readFile(filePath);
-
-      // Select the worksheet representing the hospital name or fall back to the first sheet
-      let worksheet = workbook.getWorksheet(hospital) || workbook.getWorksheet(hospital.trim());
-      if (!worksheet) {
-        // Find sheet by name (case-insensitive & trim matching)
-        worksheet = workbook.worksheets.find(ws => ws.name.trim().toLowerCase() === hospital.trim().toLowerCase()) 
-                    || workbook.worksheets[0];
-      }
-
-      if (!worksheet) continue;
-
-      let isUpdated = false;
-      let headers = [];
-      let currentCategory = '';
-      let stateColIndex = -1; // 1-indexed column number for exceljs
-
-      // Find the matching row and update it
-      worksheet.eachRow({ includeEmpty: false }, (row, rowIndex) => {
-        const rawValues = [];
-        const maxCol = Math.max(worksheet.columnCount || 0, worksheet.actualColumnCount || 0, 15);
-        for (let colNum = 1; colNum <= maxCol; colNum++) {
-          const val = row.getCell(colNum).value;
-          rawValues.push(val === undefined ? null : val);
-        }
-
-        if (rawValues.length === 0) return;
-
-        // Skip rows that act as separators (e.g. ===...=== or ---...---)
-        if (rawValues.some(hasSeparatorPattern)) return;
-
-        const firstCell = typeof rawValues[0] === 'string' ? rawValues[0].trim() : '';
-
-        // Check category
-        if (/청구실패\s*사유/i.test(firstCell)) {
-          currentCategory = normalizeSectionCategory(firstCell);
-          headers = [];
-          return;
-        }
-
-        // Check header
-        if (isHeaderRow(rawValues)) {
-          // Build headers array to map column indices
-          headers = rawValues.map(normalizeHeaderValue);
-          
-          // Find existing '진행상태' or '상태' column index
-          stateColIndex = rawValues.findIndex(val => {
-            const norm = String(val).trim().toLowerCase();
-            return norm === '진행상태' || norm === '상태';
-          });
-
-          if (stateColIndex === -1) {
-            // If not exists, we append '진행상태' at the end of the header row
-            stateColIndex = rawValues.length; // 0-indexed index (which corresponds to next column index)
-            // In exceljs, write to next cell
-            row.getCell(stateColIndex + 1).value = '진행상태';
-            row.commit();
-          }
-          
-          return;
-        }
-
-        if (!headers.length) return;
-
-        // Extract row data object
-        const rowObject = buildRowObject(headers, rawValues);
-
-        const rowPatient = parsePatientName(rowObject.details, rowObject.patient ? String(rowObject.patient).trim() : '-');
-        const rowBirthDate = parseBirthDate(rowObject.details, rowObject.birthDate ? String(rowObject.birthDate).trim() : '-');
-        const rowCategory = currentCategory || (rowObject.category ? String(rowObject.category).trim() : '미분류');
-
-        // Check match with basic fields (hospital, patient, birthDate, category)
-        const isMatch = (
-          rowPatient === patient &&
-          rowBirthDate === birthDate &&
-          rowCategory === category
-        );
-
-        if (isMatch) {
-          // Found the row! Update the state cell
-          // stateColIndex is 0-indexed, exceljs cells are 1-indexed
-          row.getCell(stateColIndex + 1).value = state;
-          row.commit();
-          isUpdated = true;
-        }
-      });
-
-      if (isUpdated) {
-        await workbook.xlsx.writeFile(filePath);
-        isAnyUpdated = true;
-      }
+    const filePath = path.join(FILES_DIR, `${fileKey}.xlsx`);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: `지정한 엑셀 파일(${fileKey})을 찾을 수 없습니다.` });
     }
 
-    if (isAnyUpdated) {
-      return res.json({ success: true, message: 'Excel row status updated successfully across files' });
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
+
+    let worksheet = workbook.getWorksheet(hospital) || workbook.getWorksheet(hospital.trim());
+    if (!worksheet) {
+      worksheet = workbook.worksheets.find(ws => ws.name.trim().toLowerCase() === hospital.trim().toLowerCase())
+          || workbook.worksheets[0];
+    }
+
+    if (!worksheet) {
+      return res.status(404).json({ error: `${hospital}에 해당하는 시트를 엑셀에서 찾을 수 없습니다.` });
+    }
+
+    let isUpdated = false;
+    let headers = [];
+    let currentCategory = '';
+    const targetStateColIndex = 8; // H열 고정
+
+    worksheet.eachRow({ includeEmpty: false }, (row, rowIndex) => {
+      const rawValues = [];
+      const maxCol = Math.max(worksheet.columnCount || 0, worksheet.actualColumnCount || 0, 15);
+      for (let colNum = 1; colNum <= maxCol; colNum++) {
+        const val = row.getCell(colNum).value;
+        rawValues.push(val === undefined ? null : val);
+      }
+
+      if (rawValues.length === 0) return;
+      if (rawValues.some(hasSeparatorPattern)) return;
+
+      const firstCell = typeof rawValues[0] === 'string' ? rawValues[0].trim() : '';
+
+      if (/청구실패\s*사유/i.test(firstCell)) {
+        currentCategory = normalizeSectionCategory(firstCell);
+        headers = [];
+        return;
+      }
+
+      if (isHeaderRow(rawValues)) {
+        headers = rawValues.map(normalizeHeaderValue);
+
+        // H열 진행상태 헤더 스타일 지정
+        const headerCell = row.getCell(targetStateColIndex);
+        headerCell.value = '진행상태';
+        headerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC8E6C9' } };
+        headerCell.font = { name: '맑은 고딕', size: 11, bold: true, color: { argb: 'FF2E7D32' } };
+        headerCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        row.commit();
+        return;
+      }
+
+      if (!headers.length) return;
+
+      const rowObject = buildRowObject(headers, rawValues);
+      const rowPatient = parsePatientName(rowObject.details, rowObject.patient ? String(rowObject.patient).trim() : '-');
+      const rowBirthDate = parseBirthDate(rowObject.details, rowObject.birthDate ? String(rowObject.birthDate).trim() : '-');
+      const rowCategory = currentCategory || (rowObject.category ? String(rowObject.category).trim() : '미분류');
+
+      // 🌟 [핵심 변경] 프론트엔드에서 보낸 하위 원본 rows 배열과 대조하여 하나라도 매칭되는지 스크리닝
+      const isMatch = targetRows && Array.isArray(targetRows) && targetRows.some(tRow => {
+        return (
+            tRow.patient === rowPatient &&
+            tRow.birthDate === rowBirthDate &&
+            tRow.category === rowCategory
+        );
+      });
+
+      if (isMatch) {
+        const stateCell = row.getCell(targetStateColIndex);
+        stateCell.value = state;
+        stateCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        stateCell.font = { name: '맑은 고딕', size: 10, bold: state === '최종완료' };
+
+        row.commit();
+        isUpdated = true;
+      }
+    });
+
+    if (isUpdated) {
+      worksheet.getColumn(targetStateColIndex).width = 14;
+      await workbook.xlsx.writeFile(filePath);
+      return res.json({ success: true, message: `H열 상태가 [${state}]로 일괄 갱신되었습니다.` });
     } else {
-      return res.status(404).json({ error: 'Matching claim row not found in the target sheets' });
+      return res.status(404).json({ error: '엑셀 내부에서 매칭되는 청구 대상을 찾지 못했습니다.' });
     }
 
   } catch (error) {
-    console.error('Error updating status in excel:', error);
-    return res.status(500).json({ error: 'Failed to update Excel row status' });
+    console.error('Error updating status:', error);
+    return res.status(500).json({ error: '서버 오류가 발생했습니다.' });
   }
 });
 
