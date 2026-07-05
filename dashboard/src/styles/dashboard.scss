@@ -244,7 +244,7 @@
 /* Neumorphic Cards */
 .neumorphic-card {
     background: #fff;
-    border-radius: 12px;
+    border-radius: 9px;
     box-shadow: 0 10px 15px 0 rgba(0,0,0,0.03);
     padding: 16px;
     border: 1px solid rgba(255, 255, 255, 0.3);
@@ -493,3 +493,287 @@
 @media (min-width: 1536px) {
     /* Further refinements for very large screens if needed */
 }
+
+/* ==========================================================================
+   Premium Flat Component & Table Styles (Global Alignment)
+   ========================================================================== */
+.table-card {
+  background: #ffffff !important;
+  border-radius: 9px !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.08) !important;
+  overflow: hidden !important;
+  display: flex;
+  flex-direction: column;
+}
+.table-card-title {
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+.table-card-header {
+  border-bottom: 1px solid #f1f5f9 !important;
+  background-color: #ffffff !important;
+}
+
+/* Dashboard Table Styles */
+.dashboard-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.dashboard-table th {
+  background-color: #f1f5f9 !important;
+  color: #334155 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  padding: 10px 14px !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  white-space: nowrap !important;
+  text-transform: none !important;
+}
+.dashboard-table td {
+  padding: 10px 14px !important;
+  font-size: 12.5px !important;
+  color: #334155 !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+}
+.dashboard-table tr:hover {
+  background-color: #f8fafc !important;
+}
+
+/* Sleek Search Input styling */
+.search-box {
+  width: 180px;
+}
+.search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.search-input-icon {
+  position: absolute;
+  left: 10px;
+  color: #94a3b8;
+  font-size: 16px !important;
+  pointer-events: none;
+}
+.sleek-search-input {
+  width: 100%;
+  height: 32px;
+  box-sizing: border-box;
+  padding: 6px 10px 6px 32px;
+  font-size: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background-color: #f8fafc;
+  color: #334155;
+  outline: none;
+  transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
+  font-family: 'Plus Jakarta Sans', 'Pretendard', sans-serif;
+}
+.sleek-search-input:focus {
+  border-color: #3b82f6;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.08);
+}
+
+/* Progress bar inside tables */
+.custom-progress-track {
+  width: 50px;
+  height: 6px;
+  background-color: #f1f5f9;
+  border-radius: 100px;
+  overflow: hidden;
+  position: relative;
+  display: inline-block;
+}
+.custom-progress-bar {
+  height: 100%;
+  background-color: #f59e0b;
+  border-radius: 100px;
+  transition: width 0.4s ease;
+}
+.custom-progress-bar.resolved {
+  background-color: #10b981;
+}
+
+/* Custom Badges */
+.custom-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 4px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.badge-unconfirmed {
+  background-color: #f1f5f9;
+  color: #64748b;
+}
+.badge-pending {
+  background-color: #fffbeb;
+  color: #d97706;
+}
+.badge-resolved {
+  background-color: #ecfdf5;
+  color: #059669;
+}
+
+/* Custom Buttons */
+.sleek-btn {
+  border: 1px solid transparent;
+  background-color: #f1f5f9;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+  white-space: nowrap;
+}
+.sleek-btn-primary-outline {
+  border-color: #cbd5e1;
+  background-color: #ffffff;
+  color: #334155;
+}
+.sleek-btn-primary-outline:hover {
+  background-color: #f8fafc;
+  border-color: #94a3b8;
+}
+.sleek-btn-flat-success {
+  background-color: #ecfdf5;
+  color: #059669;
+  border-color: rgba(16, 185, 129, 0.05);
+}
+.sleek-btn-flat-success:hover {
+  background-color: #d1fae5;
+}
+.sleek-btn-flat-warning {
+  background-color: #fff1f2;
+  color: #e11d48;
+  border-color: rgba(225, 29, 72, 0.05);
+}
+.sleek-btn-flat-warning:hover {
+  background-color: #ffe4e6;
+}
+.sleek-btn-flat-info {
+  background-color: #f0f9ff;
+  color: #0284c7;
+  border-color: rgba(2, 132, 199, 0.05);
+}
+.sleek-btn-flat-info:hover {
+  background-color: #e0f2fe;
+}
+
+/* Custom Pagination styles */
+.custom-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.pag-btn {
+  border: 1px solid #e2e8f0;
+  background-color: #ffffff;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  outline: none;
+}
+.pag-btn:hover:not(:disabled) {
+  background-color: #f8fafc;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+.pag-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.pag-info {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #64748b;
+}
+.border-t {
+  border-top: 1px solid #f1f5f9;
+}
+
+/* Card Fixed Heights (Dashboard Table Symmetry) */
+.hospital-card-fixed, .emr-card-fixed {
+  height: 650px !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+.hospital-card-fixed :deep(.v-table), .emr-card-fixed :deep(.v-table) {
+  flex: 1 1 auto !important;
+}
+.hospital-card-fixed :deep(.v-table__wrapper), .emr-card-fixed :deep(.v-table__wrapper) {
+  flex: 1 1 auto !important;
+}
+
+/* Text Colors */
+.text-green { color: #10b981 !important; }
+.text-orange { color: #f59e0b !important; }
+
+/* Custom Tab Group Styles (Dashboard Metric Switchers) */
+.custom-tab-group {
+  display: flex;
+  background-color: #f1f5f9;
+  padding: 3px;
+  border-radius: 8px;
+  gap: 2px;
+  height: 28px;
+  box-sizing: border-box;
+  align-items: center;
+}
+.custom-tab-btn {
+  border: none;
+  background: transparent;
+  padding: 0 12px;
+  height: 100%;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #64748b;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+  outline: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+.custom-tab-btn.active {
+  background-color: #ffffff;
+  color: #2563eb;
+  border: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Outer Chart Container Style */
+.chart-container-inner {
+  background-color: #f8fafc !important;
+  border-radius: 9px !important;
+  margin-top: 8px !important;
+  border: 1px solid rgba(15, 23, 42, 0.02) !important;
+  width: 100% !important;
+}
+
+/* Symmetrical Fixed Height for Charts */
+.chart-card-fixed {
+  height: 350px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+}
+

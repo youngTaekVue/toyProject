@@ -1,10 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const request = require('request');
-require("dotenv").config();
 
-
-// 1. Naver API Client ID와 Client Secret을 여기에 입력하세요.
 const client_id = process.env.CLIENT_ID;
 const client_secret = process.env.CLIENT_SECRET;
 
@@ -12,10 +9,8 @@ router.get('/dataList', function (req, res) {
     const api_base_url = 'https://openapi.naver.com/v1/search/news';
     const param = req.query.id === undefined ? '' : req.query.id;
 
- //   console.log("param " + param);
     let params = {
-        // query: req.query.query || '오늘날씨', // URL 쿼리 파라미터에서 query 값을 가져옵니다.
-        query: req.query.query || param + '날씨', // URL 쿼리 파라미터에서 query 값을 가져옵니다.
+        query: req.query.query || param + '날씨', 
         display: 10,
         start: 1,
         sort: 'date'

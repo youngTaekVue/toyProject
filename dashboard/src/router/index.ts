@@ -1,15 +1,15 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import AppLayout from '@/components/AppLayout.vue' // AppLayout 임포트
-import AppDashboard from '@/views/AppDashboard.vue'
+import AppLayout from '@/components/layout/AppLayout.vue'
+import AppDashboard from '@/views/AppDashboardView.vue'
 import AnalyticsView from '@/views/AnalyticsView.vue'
 import BillingView from '@/views/BillingView.vue'
 import ProfileView from '@/views/ProfileView.vue'
 import SettingsView from '@/views/SettingsView.vue'
-import Subitem1View from '@/views/accountBook/Subitem1View.vue'
-import Subitem2View from '@/views/accountBook/Subitem2View.vue'
-import HealthDashboard from '@/views/health/HealthDashboard.vue'
-import ErrorStatisticsDashboard from '@/views/errorStatistics/Dashboard.vue'
-import ErrorStatisticsDetail from '@/views/errorStatistics/ErrorDetailView.vue'
+import Subitem1View from '@/views/account-book/AccountSubitem1View.vue'
+import Subitem2View from '@/views/account-book/AccountSubitem2View.vue'
+import HealthDashboard from '@/views/health/HealthDashboardView.vue'
+import ErrorStatisticsDashboard from '@/views/error-statistics/ErrorDashboardView.vue'
+import ErrorStatisticsDetail from '@/views/error-statistics/ErrorDetailView.vue'
 
 const routes = [
   {

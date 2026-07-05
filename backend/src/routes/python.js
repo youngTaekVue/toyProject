@@ -1,46 +1,11 @@
 const express = require('express');
 const router = express.Router();
-// const mysql = require('mysql2/promise'); // 더 이상 필요 없음
-// const dotenv = require('dotenv'); // 더 이상 필요 없음
-// const path = require('path'); // 더 이상 필요 없음
 const { parse } = require('csv-parser');
 const iconv = require('iconv-lite');
 const { Readable } = require('stream');
 
-// 공유 데이터베이스 연결 풀 가져오기
-const { getDbPool } = require('../../db');
-
-// Load environment variables from .env file (db.js에서 처리하므로 여기서는 제거)
-// dotenv.config({ path: path.resolve(__dirname, '../../.env') });
-
-// Database configuration (db.js에서 처리하므로 여기서는 제거)
-// const dbConfig = {
-//     host: process.env.DB_ACCOUNT_HOST || 'localhost',
-//     port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 3306,
-//     user: process.env.DB_ACCOUNT_USER,
-//     password: process.env.DB_ACCOUNT_PASSWORD,
-//     database: process.env.DB_ACCOUNT_NAME,
-//     charset: 'utf8mb4',
-// };
-
-// let pool; // 더 이상 필요 없음
-
-// async function initDbPool() { // 더 이상 필요 없음
-//     try {
-//         pool = mysql.createPool(dbConfig);
-//         // Test connection
-//         await pool.getConnection();
-//         console.log("Database connection pool created and tested successfully.");
-//     } catch (error) {
-//         console.error("Failed to initialize database pool:", error);
-//         process.exit(1); // Exit if DB connection fails
-//     }
-// }
-
-// Initialize DB pool when the module is loaded (db.js에서 처리하므로 여기서는 제거)
-// initDbPool();
-
-// --- Helper Functions (Re-implementing Python's TransactionUtil/FinancialUtil logic) ---
+// 공유 데이터베이스 연결 풀 가져오기 (src/config/db.js)
+const { getDbPool } = require('../config/db');
 
 // Helper function to format Date objects to 'YYYY-MM-DD HH:MM:SS'
 const formatDbDate = (dateObj) => {
@@ -53,14 +18,13 @@ const formatDbDate = (dateObj) => {
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
-// Placeholder for auto_classify logic (needs full re-implementation)
+// Placeholder for auto_classify logic
 const autoClassify = (description, originalType, mappingRules) => {
     const content = description.toLowerCase().trim();
     let category = '미분류';
     let subCategory = '미분분류';
     let type = originalType;
 
-    // Financial/Transfer keywords
     const financialKws = ['카드대금', '결제대금', '보험', '이자', '적금', '송금', '이체', '대출', '상환', '현금서비스'];
     if (financialKws.some(kw => content.includes(kw))) {
         return { category: '금융/이체', subCategory: '자동분류', type: '이체' };
@@ -99,10 +63,10 @@ router.get('/transactions', async (req, res) => {
     }
 });
 
-// POST new transactions (from Excel upload)
+// POST new transactions
 router.post('/transactions', async (req, res) => {
     console.log('POST /transactions: Attempting to add new transactions.');
-    const newTransactions = req.body; // Expecting an array of transaction objects
+    const newTransactions = req.body; 
     if (!newTransactions || !Array.isArray(newTransactions) || newTransactions.length === 0) {
         console.warn('POST /transactions: No transaction data provided or invalid format.');
         return res.status(400).json({ error: "No transaction data provided or invalid format." });
@@ -113,10 +77,8 @@ router.post('/transactions', async (req, res) => {
         connection = await getDbPool().getConnection();
         await connection.beginTransaction();
 
-        // Fetch existing transactions for duplication check
         const [existingRows] = await connection.execute("SELECT transaction_date, amount, description, transaction_type FROM transactions");
         const existingTransactions = new Set(existingRows.map(r => {
-            // Format the Date object from DB consistently
             const dbDate = formatDbDate(r.transaction_date);
             return `${dbDate}|${r.amount}|${r.description.trim()}|${r.transaction_type}`;
         }));
@@ -129,9 +91,7 @@ router.post('/transactions', async (req, res) => {
             const transactionType = String(transaction.transaction_type);
             const paymentMethod = String(transaction.payment_method || '');
 
-            // Format the new transaction date consistently for the key
             const newTransactionDateFormatted = formatDbDate(transactionDate);
-
             const transactionKey = `${newTransactionDateFormatted}|${amount}|${description}|${transactionType}`;
 
             if (!existingTransactions.has(transactionKey)) {
@@ -253,11 +213,10 @@ router.delete('/categories/:id', async (req, res) => {
     }
 });
 
-
 // POST financial status records
 router.post('/financial_status', async (req, res) => {
     console.log('POST /financial_status: Attempting to add new financial records.');
-    const financialRecords = req.body; // Expecting an array of financial record objects
+    const financialRecords = req.body; 
     if (!financialRecords || !Array.isArray(financialRecords) || financialRecords.length === 0) {
         console.warn('POST /financial_status: No financial data provided or invalid format.');
         return res.status(400).json({ error: "No financial data provided or invalid format." });
@@ -268,7 +227,6 @@ router.post('/financial_status', async (req, res) => {
         connection = await getDbPool().getConnection();
         await connection.beginTransaction();
 
-        // Simplified approach: get max snapshot_id and increment
         const [maxSnapshotIdRows] = await connection.execute("SELECT COALESCE(MAX(snapshot_id), 0) AS max_id FROM financial");
         const nextSnapshotId = maxSnapshotIdRows[0].max_id + 1;
 
@@ -310,7 +268,7 @@ router.get('/financial_status/latest', async (req, res) => {
 
         if (latestSnapshotId === 0) {
             console.log('GET /financial_status/latest: No financial data found.');
-            return res.json([]); // No financial data yet
+            return res.json([]); 
         }
 
         const [rows] = await connection.execute(
@@ -389,7 +347,7 @@ router.get('/financial_status/compare', async (req, res) => {
     }
 });
 
-// NEW: GET financial data for Treemap visualization
+// GET financial data for Treemap visualization
 router.get('/financial_treemap_data', async (req, res) => {
     console.log('GET /financial_treemap_data: Attempting to fetch financial data for treemap.');
     let connection;
@@ -408,49 +366,40 @@ router.get('/financial_treemap_data', async (req, res) => {
             [latestSnapshotId]
         );
 
-        // Process data into hierarchical structure for ApexCharts Treemap
-        const treemapDataMap = new Map(); // Map to build hierarchy
+        const treemapDataMap = new Map(); 
 
         rawRows.forEach(row => {
-            const mainCategory = row.category; // '자산' or '부채'
-            const subCategory = row.institution || '기타'; // Use institution as sub-category, fallback to '기타'
+            const mainCategory = row.category; 
+            const subCategory = row.institution || '기타'; 
             const itemName = row.item_name;
             let amount = row.amount;
 
-            // 부채인 경우 amount를 음수로 변환
             if (mainCategory === '부채') {
-                amount = -Math.abs(amount); // Ensure it's negative
+                amount = -Math.abs(amount); 
             } else {
-                amount = Math.abs(amount); // Ensure it's positive for assets
+                amount = Math.abs(amount); 
             }
 
-            // ApexCharts Treemap은 children 배열을 기대합니다.
-            // Multi-Dimensional Treemap을 위해 최상위 노드를 '자산'과 '부채'로 나눕니다.
-            // 그리고 그 아래에 각 항목들을 직접 넣습니다.
-
-            // 최상위 '자산' 또는 '부채' 노드
             if (!treemapDataMap.has(mainCategory)) {
                 treemapDataMap.set(mainCategory, {
                     x: mainCategory,
-                    y: 0, // 이 값은 사용되지 않지만, 구조를 위해 유지
-                    children: [] // 자산/부채 아래에 바로 항목들을 넣을 것임
+                    y: 0, 
+                    children: [] 
                 });
             }
             const mainCatNode = treemapDataMap.get(mainCategory);
 
-            // 세부 항목 추가
             mainCatNode.children.push({
-                x: `${itemName} (${subCategory})`, // 항목명 (기관)
+                x: `${itemName} (${subCategory})`, 
                 y: amount
             });
         });
 
-        // Convert Maps to arrays for final JSON output
         const finalTreemapData = [];
         for (const [mainCat, mainCatNode] of treemapDataMap.entries()) {
             finalTreemapData.push({
                 x: mainCatNode.x,
-                y: mainCatNode.y, // 이 값은 ApexCharts에서 무시될 수 있음 (children이 있으면)
+                y: mainCatNode.y, 
                 children: mainCatNode.children
             });
         }
@@ -465,6 +414,5 @@ router.get('/financial_treemap_data', async (req, res) => {
         if (connection) connection.release();
     }
 });
-
 
 module.exports = router;

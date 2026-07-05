@@ -158,6 +158,11 @@ interface Transaction {
   sub_category?: string; // Added for processed data
 }
 
+interface ProcessedTransaction extends Transaction {
+  DT: Date;
+  month: string;
+}
+
 interface CategoryRule {
   id: number;
   merchant: string;
@@ -171,7 +176,7 @@ const loading = ref<boolean>(true); // Loading state for skeleton loaders
 
 const allTransactions = ref<Transaction[]>([]);
 const categoryRules = ref<CategoryRule[]>([]);
-const filteredTransactions = ref<Transaction[]>([]); // Transactions filtered by type '지출' and processed
+const filteredTransactions = ref<ProcessedTransaction[]>([]); // Transactions filtered by type '지출' and processed
 const availableMonths = ref<string[]>([]);
 const selectedMonth = ref<string | null>(null);
 const monthlySummary = ref<{ month: string; amount: number }[]>([]);
@@ -250,18 +255,18 @@ const chartOptions = ref({
 
 // Category Analysis Data
 const categoryAnalysisHeaders = [
-  { title: '카테고리', value: 'category', align: 'start' },
-  { title: '지난달', value: 'prevMonthAmount', align: 'end' },
-  { title: '선택달', value: 'currentMonthAmount', align: 'end' },
-  { title: '증감', value: 'diff', align: 'end' },
+  { title: '카테고리', value: 'category', align: 'start' as const },
+  { title: '지난달', value: 'prevMonthAmount', align: 'end' as const },
+  { title: '선택달', value: 'currentMonthAmount', align: 'end' as const },
+  { title: '증감', value: 'diff', align: 'end' as const },
 ];
 const categoryAnalysisData = ref<any[]>([]);
 
 // Top Merchants Data
 const topMerchantsHeaders = [
-  { title: '카테고리', value: 'category', align: 'start' },
-  { title: '소비처', value: 'merchant', align: 'start' },
-  { title: '금액', value: 'amount', align: 'end' },
+  { title: '카테고리', value: 'category', align: 'start' as const },
+  { title: '소비처', value: 'merchant', align: 'start' as const },
+  { title: '금액', value: 'amount', align: 'end' as const },
 ];
 const topMerchantsData = ref<any[]>([]);
 
