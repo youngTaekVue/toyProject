@@ -374,7 +374,8 @@ router.get('/financial_treemap_data', async (req, res) => {
             const itemName = row.item_name;
             let amount = row.amount;
 
-            if (mainCategory === '부채') {
+            const isDebt = mainCategory.includes('부채') || mainCategory.includes('대출') || mainCategory.includes('카드');
+            if (isDebt) {
                 amount = -Math.abs(amount); 
             } else {
                 amount = Math.abs(amount); 
@@ -409,6 +410,64 @@ router.get('/financial_treemap_data', async (req, res) => {
 
     } catch (error) {
         console.error("GET /financial_treemap_data Error fetching or processing treemap data:", error);
+        res.status(500).json({ error: error.message });
+    } finally {
+        if (connection) connection.release();
+    }
+});
+
+// GET financial history for trends chart
+router.get('/financial_status/history', async (req, res) => {
+    console.log('GET /financial_status/history: Attempting to fetch financial history for trends.');
+    let connection;
+    try {
+        connection = await getDbPool().getConnection();
+        const query = `
+            SELECT 
+                snapshot_id,
+                DATE_FORMAT(MIN(uploaded_at), '%Y-%m-%d') AS date,
+                SUM(CASE WHEN category LIKE '%부채%' OR category LIKE '%대출%' OR category LIKE '%카드%' THEN 0 ELSE ABS(amount) END) AS total_assets,
+                SUM(CASE WHEN category LIKE '%부채%' OR category LIKE '%대출%' OR category LIKE '%카드%' THEN ABS(amount) ELSE 0 END) AS total_liabilities,
+                SUM(CASE WHEN category LIKE '%부채%' OR category LIKE '%대출%' OR category LIKE '%카드%' THEN -ABS(amount) ELSE ABS(amount) END) AS net_assets
+            FROM financial
+            WHERE snapshot_id IS NOT NULL
+            GROUP BY snapshot_id
+            ORDER BY snapshot_id ASC
+        `;
+        const [rows] = await connection.execute(query);
+        console.log(`GET /financial_status/history: Successfully fetched ${rows.length} snapshots.`);
+        res.json(rows);
+    } catch (error) {
+        console.error("GET /financial_status/history Error fetching financial history:", error);
+        res.status(500).json({ error: error.message });
+    } finally {
+        if (connection) connection.release();
+    }
+});
+
+// GET all financial snapshot items raw history
+router.get('/financial_status/history/all', async (req, res) => {
+    console.log('GET /financial_status/history/all: Fetching all historical snapshot records.');
+    let connection;
+    try {
+        connection = await getDbPool().getConnection();
+        const query = `
+            SELECT 
+                snapshot_id,
+                DATE_FORMAT(uploaded_at, '%Y-%m-%d') AS date,
+                item_name,
+                category,
+                institution,
+                amount
+            FROM financial
+            WHERE snapshot_id IS NOT NULL
+            ORDER BY snapshot_id ASC
+        `;
+        const [rows] = await connection.execute(query);
+        console.log(`GET /financial_status/history/all: Fetched ${rows.length} records.`);
+        res.json(rows);
+    } catch (error) {
+        console.error("GET /financial_status/history/all Error fetching historical records:", error);
         res.status(500).json({ error: error.message });
     } finally {
         if (connection) connection.release();

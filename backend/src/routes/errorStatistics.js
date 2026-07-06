@@ -11,4 +11,7 @@ router.get('/data/:fileKey', errorStatisticsController.getFileData);
 // 3. Update status of Excel row items
 router.put('/status', errorStatisticsController.updateStatus);
 
+// 4. Send email via SMTP
+router.post('/sendMail', errorStatisticsController.sendMail);
+
 module.exports = router;

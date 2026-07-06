@@ -102,6 +102,7 @@ type RowState = '미확인' | '회신대기' | '최종완료';
 interface ErrorDetail {
   no: number;
   fileKey: string;
+  sheetName?: string;
   hospital: string;
   institutionId: string;
   emr: string;
@@ -148,12 +149,42 @@ const emrPage = ref(1);
 
 const selectedStatusFilter = ref<'all' | 'active' | 'resolved'>('all');
 
+function cleanCategoryHeader(str: string): string {
+  let res = str.trim();
+  // 바깥쪽 대괄호 [ ] 껍질 제거
+  if (res.startsWith('[') && res.endsWith(']')) {
+    res = res.substring(1, res.length - 1).trim();
+  }
+  const match = res.match(/청구실패\s*사유\s*[:：]?\s*(.*)$/i);
+  if (match && match[1]) {
+    res = match[1].trim();
+  }
+  if (res.startsWith('■')) {
+    res = res.substring(1).trim();
+  }
+  if (res.endsWith(']')) {
+    res = res.substring(0, res.length - 1).trim();
+  }
+  return res;
+}
+
 function getGroupKey(row: ErrorDetail): string {
   let cleanDetails = row.details || '';
-  if (cleanDetails.includes('===')) {
-    cleanDetails = cleanDetails.split(/={3,}/)[0].trim();
+  let errorTitle = row.category && !row.category.includes('미분류') ? row.category : '미분류';
+  if (errorTitle === '미분류') {
+    if (cleanDetails.includes('===')) {
+      const parts = cleanDetails.split(/={3,}/);
+      if (parts[1] && parts[1].trim() !== '') {
+        errorTitle = cleanCategoryHeader(parts[1]);
+      } else {
+        errorTitle = parts[0].trim().substring(0, 40);
+      }
+    } else {
+      errorTitle = cleanDetails.substring(0, 40);
+    }
+  } else {
+    errorTitle = cleanCategoryHeader(errorTitle);
   }
-  const errorTitle = row.category && !row.category.includes('미분류') ? row.category : cleanDetails.substring(0, 40);
   return `${row.fileKey}|${row.hospital.trim()}|${errorTitle}`;
 }
 
@@ -189,10 +220,21 @@ const allGroupedClaimCases = computed<ClaimCase[]>(() => {
   return Object.entries(groups).map(([groupKey, rows]) => {
     const first = rows[0];
     let cleanDetails = first.details || '';
-    if (cleanDetails.includes('===')) {
-      cleanDetails = cleanDetails.split(/={3,}/)[0].trim();
+    let errorTitle = first.category && !first.category.includes('미분류') ? first.category : '미분류';
+    if (errorTitle === '미분류') {
+      if (cleanDetails.includes('===')) {
+        const parts = cleanDetails.split(/={3,}/);
+        if (parts[1] && parts[1].trim() !== '') {
+          errorTitle = cleanCategoryHeader(parts[1]);
+        } else {
+          errorTitle = parts[0].trim().substring(0, 40);
+        }
+      } else {
+        errorTitle = cleanDetails.substring(0, 40);
+      }
+    } else {
+      errorTitle = cleanCategoryHeader(errorTitle);
     }
-    const errorTitle = first.category && !first.category.includes('미분류') ? first.category : cleanDetails.substring(0, 40);
 
     return {
       key: groupKey, hospital: first.hospital.trim(), institutionId: first.institutionId,

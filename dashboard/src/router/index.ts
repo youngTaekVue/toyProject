@@ -10,6 +10,7 @@ import Subitem2View from '@/views/account-book/AccountSubitem2View.vue'
 import HealthDashboard from '@/views/health/HealthDashboardView.vue'
 import ErrorStatisticsDashboard from '@/views/error-statistics/ErrorDashboardView.vue'
 import ErrorStatisticsDetail from '@/views/error-statistics/ErrorDetailView.vue'
+import MailDispatcherView from '@/views/error-statistics/MailDispatcherView.vue'
 
 const routes = [
   {
@@ -40,6 +41,12 @@ const routes = [
         name: 'ErrorStatisticsDetail',
         component: ErrorStatisticsDetail,
         meta: { pageTitle: '오류 상세 내역', icon: 'mdi-alert-circle-outline', breadcrumb: 'Pages / Error Monitoring / Detail' }
+      },
+      {
+        path: '/error-statistics/mail-dispatcher',
+        name: 'MailDispatcher',
+        component: MailDispatcherView,
+        meta: { pageTitle: '메일 자동 발송기', icon: 'mdi-email-send-outline', breadcrumb: 'Pages / Reports / Mail Dispatcher' }
       },
       {
         path: '/billing',

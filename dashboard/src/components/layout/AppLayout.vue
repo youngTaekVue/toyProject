@@ -63,6 +63,11 @@
                                         <v-icon>mdi-alert-circle-outline</v-icon> <span>Error Monitoring</span>
                                     </router-link>
                                 </li>
+                                <li>
+                                    <router-link to="/error-statistics/mail-dispatcher" active-class="active">
+                                        <v-icon>mdi-email-send-outline</v-icon> <span>Mail Dispatcher</span>
+                                    </router-link>
+                                </li>
                             </ul>
                         </li>
                         <li>
@@ -155,6 +160,11 @@
                                     <li>
                                         <router-link to="/error-statistics" active-class="active" @click="isMobileDrawerOpen = false">
                                             <v-icon>mdi-alert-circle-outline</v-icon> <span>Error Monitoring</span>
+                                        </router-link>
+                                    </li>
+                                    <li>
+                                        <router-link to="/error-statistics/mail-dispatcher" active-class="active" @click="isMobileDrawerOpen = false">
+                                            <v-icon>mdi-email-send-outline</v-icon> <span>Mail Dispatcher</span>
                                         </router-link>
                                     </li>
                                 </ul>

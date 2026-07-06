@@ -53,9 +53,17 @@ function normalizeHeaderValue(value) {
 }
 
 function normalizeSectionCategory(value) {
-  const text = value.trim();
+  let text = value.trim();
+  // 바깥쪽 대괄호 [ ] 껍질 제거
+  if (text.startsWith('[') && text.endsWith(']')) {
+    text = text.substring(1, text.length - 1).trim();
+  }
   const match = text.match(/청구실패\s*사유\s*[:：]?\s*(.*)$/i);
-  if (match && match[1]) return match[1].trim();
+  if (match && match[1]) {
+    let res = match[1].trim();
+    if (res.endsWith(']')) res = res.substring(0, res.length - 1).trim();
+    return res;
+  }
   const cleaned = text.replace(/^\?+\s*/g, '').trim();
   return cleaned || '미분류';
 }
@@ -208,6 +216,7 @@ async function parseExcelFile(fileKey) {
       const emr = rowObject.emr && String(rowObject.emr).trim() !== '' ? String(rowObject.emr).trim() : '미지정';
       const category = currentCategory || (rowObject.category ? String(rowObject.category).trim() : '미분류');
       const details = rowObject.details ? String(rowObject.details).trim() : '-';
+      const api = rowObject.api ? String(rowObject.api).trim() : (rowObject.endpoint ? String(rowObject.endpoint).trim() : '');
 
       const visitDate = parseVisitDate(details);
       const uuid = extractUuid(details);
@@ -227,6 +236,7 @@ async function parseExcelFile(fileKey) {
       loadedRows.push({
         no,
         fileKey,
+        sheetName: String(sheetName || '').trim(),
         hospital,
         institutionId,
         emr,
@@ -236,7 +246,8 @@ async function parseExcelFile(fileKey) {
         uuid,
         patient,
         birthDate,
-        state
+        state,
+        api
       });
     });
   });
@@ -255,14 +266,19 @@ async function updateClaimState(fileKey, hospital, category, state, targetRows) 
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(filePath);
 
-  let worksheet = workbook.getWorksheet(hospital) || workbook.getWorksheet(hospital.trim());
+  const targetSheetName = (targetRows && targetRows[0] && targetRows[0].sheetName)
+    ? targetRows[0].sheetName
+    : hospital;
+
+  let worksheet = workbook.getWorksheet(targetSheetName) || workbook.getWorksheet(targetSheetName.trim());
   if (!worksheet) {
-    worksheet = workbook.worksheets.find(ws => ws.name.trim().toLowerCase() === hospital.trim().toLowerCase())
+    worksheet = workbook.worksheets.find(ws => ws.name.trim().toLowerCase() === targetSheetName.trim().toLowerCase())
+        || workbook.worksheets.find(ws => ws.name.trim().toLowerCase() === hospital.trim().toLowerCase())
         || workbook.worksheets[0];
   }
 
   if (!worksheet) {
-    const err = new Error(`${hospital}에 해당하는 시트를 엑셀에서 찾을 수 없습니다.`);
+    const err = new Error(`${targetSheetName}에 해당하는 시트를 엑셀에서 찾을 수 없습니다.`);
     err.status = 404;
     throw err;
   }
@@ -340,8 +356,154 @@ async function updateClaimState(fileKey, hospital, category, state, targetRows) 
   }
 }
 
+async function updateClaimStateMultiple(fileKey, state, updates) {
+  const filePath = path.join(FILES_DIR, `${fileKey}.xlsx`);
+  if (!fs.existsSync(filePath)) {
+    const err = new Error(`지정한 엑셀 파일(${fileKey})을 찾을 수 없습니다.`);
+    err.status = 404;
+    throw err;
+  }
+
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(filePath);
+
+  let anyUpdated = false;
+
+  for (const update of updates) {
+    const { hospital, rows: targetRows } = update;
+    const targetSheetName = (targetRows && targetRows[0] && targetRows[0].sheetName)
+      ? targetRows[0].sheetName
+      : hospital;
+
+    let worksheet = workbook.getWorksheet(targetSheetName) || workbook.getWorksheet(targetSheetName.trim());
+    if (!worksheet) {
+      worksheet = workbook.worksheets.find(ws => ws.name.trim().toLowerCase() === targetSheetName.trim().toLowerCase())
+          || workbook.worksheets.find(ws => ws.name.trim().toLowerCase() === hospital.trim().toLowerCase())
+          || workbook.worksheets[0];
+    }
+
+    if (!worksheet) continue;
+
+    let headers = [];
+    let currentCategory = '';
+    const targetStateColIndex = 8; // H열 고정
+
+    worksheet.eachRow({ includeEmpty: false }, (row, rowIndex) => {
+      const rawValues = [];
+      const maxCol = Math.max(worksheet.columnCount || 0, worksheet.actualColumnCount || 0, 15);
+      for (let colNum = 1; colNum <= maxCol; colNum++) {
+        const val = row.getCell(colNum).value;
+        rawValues.push(val === undefined ? null : val);
+      }
+
+      if (rawValues.length === 0) return;
+      if (rawValues.some(hasSeparatorPattern)) return;
+
+      const firstCell = typeof rawValues[0] === 'string' ? rawValues[0].trim() : '';
+
+      if (/청구실패\s*사유/i.test(firstCell)) {
+        currentCategory = normalizeSectionCategory(firstCell);
+        headers = [];
+        return;
+      }
+
+      if (isHeaderRow(rawValues)) {
+        headers = rawValues.map(normalizeHeaderValue);
+
+        const headerCell = row.getCell(targetStateColIndex);
+        headerCell.value = '진행상태';
+        headerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC8E6C9' } };
+        headerCell.font = { name: '맑은 고딕', size: 11, bold: true, color: { argb: 'FF2E7D32' } };
+        headerCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        row.commit();
+        return;
+      }
+
+      if (!headers.length) return;
+
+      const rowObject = buildRowObject(headers, rawValues);
+      const rowPatient = parsePatientName(rowObject.details, rowObject.patient ? String(rowObject.patient).trim() : '-');
+      const rowBirthDate = parseBirthDate(rowObject.details, rowObject.birthDate ? String(rowObject.birthDate).trim() : '-');
+      const rowCategory = currentCategory || (rowObject.category ? String(rowObject.category).trim() : '미분류');
+
+      const isMatch = targetRows && Array.isArray(targetRows) && targetRows.some(tRow => {
+        return (
+            tRow.patient === rowPatient &&
+            tRow.birthDate === rowBirthDate &&
+            tRow.category === rowCategory
+        );
+      });
+
+      if (isMatch) {
+        const stateCell = row.getCell(targetStateColIndex);
+        stateCell.value = state;
+        stateCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        stateCell.font = { name: '맑은 고딕', size: 10, bold: state === '최종완료' };
+
+        row.commit();
+        anyUpdated = true;
+      }
+    });
+
+    if (anyUpdated) {
+      worksheet.getColumn(targetStateColIndex).width = 14;
+    }
+  }
+
+  if (anyUpdated) {
+    await workbook.xlsx.writeFile(filePath);
+    return { success: true, message: `선택된 병원들의 진행상태가 [${state}]로 일괄 갱신되었습니다.` };
+  } else {
+    const err = new Error('엑셀 내부에서 매칭되는 대상을 찾지 못했습니다.');
+    err.status = 404;
+    throw err;
+  }
+}
+
+async function sendMailViaSmtp(to, cc, subject, body) {
+  let nodemailer;
+  try {
+    nodemailer = require('nodemailer');
+  } catch (e) {
+    const err = new Error("백엔드에 nodemailer 모듈이 설치되어 있지 않습니다. backend 폴더에서 'npm install'을 실행해 주세요.");
+    err.status = 500;
+    throw err;
+  }
+  const user = process.env.NAVER_USER;
+  const pass = process.env.NAVER_PASS;
+
+  if (!user || !pass) {
+    console.warn('NAVER_USER 또는 NAVER_PASS 환경변수가 설정되지 않아 시뮬레이션 모드로 작동합니다.');
+    return {
+      success: true,
+      simulated: true,
+      message: '시뮬레이션 전송에 성공했습니다. (.env 에 NAVER_USER, NAVER_PASS 설정 시 실제 발송됩니다.)'
+    };
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: 'smtp.naver.com',
+    port: 465,
+    secure: true, // SSL 사용
+    auth: { user, pass }
+  });
+
+  const mailOptions = {
+    from: user, // 네이버는 로그인한 본인 계정만 보낸사람으로 지정 가능
+    to,
+    cc,
+    subject,
+    text: body
+  };
+
+  await transporter.sendMail(mailOptions);
+  return { success: true, message: '네이버 SMTP를 통해 메일이 성공적으로 발송되었습니다.' };
+}
+
 module.exports = {
   getExcelFilesList,
   parseExcelFile,
-  updateClaimState
+  updateClaimState,
+  updateClaimStateMultiple,
+  sendMailViaSmtp
 };

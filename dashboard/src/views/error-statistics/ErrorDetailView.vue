@@ -60,6 +60,7 @@ type RowState = '미확인' | '회신대기' | '최종완료';
 interface ErrorDetail {
   no: number;
   fileKey: string;
+  sheetName?: string;
   hospital: string;
   institutionId: string;
   emr: string;

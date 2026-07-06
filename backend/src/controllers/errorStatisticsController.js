@@ -41,8 +41,38 @@ async function updateStatus(req, res) {
     return res.status(error.status || 500).json({ error: error.message || '서버 오류가 발생했습니다.' });
   }
 }
+
+async function updateMultipleStatus(req, res) {
+  const { fileKey, state, updates } = req.body;
+  try {
+    if (!fileKey || !updates || !Array.isArray(updates)) {
+      return res.status(400).json({ error: '필수 매개변수(fileKey, updates 배열)가 누락되었습니다.' });
+    }
+    const result = await errorStatisticsService.updateClaimStateMultiple(fileKey, state, updates);
+    return res.json(result);
+  } catch (error) {
+    console.error('Error in updateMultipleStatus controller:', error);
+    return res.status(error.status || 500).json({ error: error.message || '서버 오류가 발생했습니다.' });
+  }
+}
+
+async function sendMail(req, res) {
+  const { to, cc, subject, body } = req.body;
+  try {
+    if (!to || !subject || !body) {
+      return res.status(400).json({ error: '필수 매개변수(to, subject, body)가 누락되었습니다.' });
+    }
+    const result = await errorStatisticsService.sendMailViaSmtp(to, cc, subject, body);
+    return res.json(result);
+  } catch (error) {
+    console.error('Error in sendMail controller:', error);
+    return res.status(error.status || 500).json({ error: error.message || '이메일 발송 중 오류가 발생했습니다.' });
+  }
+}
 module.exports = {
   getFiles,
   getFileData,
-  updateStatus
+  updateStatus,
+  updateMultipleStatus,
+  sendMail
 };

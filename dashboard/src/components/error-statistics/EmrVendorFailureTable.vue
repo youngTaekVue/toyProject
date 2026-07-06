@@ -185,15 +185,21 @@ function formatNumber(num: number): string {
   color: #475569 !important;
   font-size: 11px !important;
   font-weight: 700 !important;
-  padding: 10px 14px !important;
-  border-bottom: 1px solid #f0f0f0 !important;
+  padding: 12px 14px !important;
+  border-bottom: 1px solid #e2e8f0 !important;
   white-space: nowrap !important;
 }
 .dashboard-table :deep(td) {
-  padding: 10px 14px !important;
+  padding: 12px 14px !important;
   font-size: 12.5px !important;
   color: #334155 !important;
   border-bottom: 1px solid #f0f0f0 !important;
+  height: auto !important;
+  min-height: 52px !important;
+  vertical-align: middle !important;
+}
+.dashboard-table :deep(tr) {
+  height: auto !important;
 }
 .dashboard-table :deep(tr:hover) { background-color: #f8fafc !important; }
 

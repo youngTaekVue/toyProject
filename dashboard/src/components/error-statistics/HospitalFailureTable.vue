@@ -190,6 +190,27 @@
 
         <!-- 모달 바디 -->
         <v-card-text class="settings-dialog-body" style="max-height: 480px; overflow-y: auto;">
+          <!-- 0. 이메일 제목 템플릿 설정 -->
+          <div class="settings-section">
+            <div class="section-label-wrapper d-flex align-center justify-space-between" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <div class="d-flex align-center">
+                <v-icon size="16" class="mr-1 text-slate-500">mdi-format-title</v-icon>
+                <span class="section-label font-weight-bold">이메일 제목 템플릿</span>
+              </div>
+              <span class="text-caption text-slate-400">
+                치환 키: <code>{요양기관명}</code>, <code>{차수}</code>
+              </span>
+            </div>
+            <v-text-field
+              v-model="emailTitleTemplate"
+              variant="outlined"
+              density="comfortable"
+              hide-details
+              placeholder="예: [청구실패오류] {요양기관명} 청구 보정 요청 건 ({차수})"
+              class="sleek-text-field mb-2"
+            ></v-text-field>
+          </div>
+
           <!-- 1. 기본 고정 소개 문구 -->
           <div class="settings-section">
             <div class="section-label-wrapper d-flex align-center justify-space-between" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -368,6 +389,7 @@ function formatNumber(num: number): string {
 
 const settingsDialog = ref(false);
 const introText = ref(localStorage.getItem('claim_intro_text') || '이메일 또는 메신저로 전달되는 자동화 문구입니다.');
+const emailTitleTemplate = ref(localStorage.getItem('claim_title_template') || '[청구실패오류] {요양기관명} 청구 보정 요청 건 ({차수})');
 const customInstructions = ref<Record<string, string>>(
   JSON.parse(localStorage.getItem('claim_custom_instructions') || '{}')
 );
@@ -411,6 +433,7 @@ watch(uniqueCategories, (newCats) => {
 function saveSettings() {
   localStorage.setItem('claim_intro_text', introText.value);
   localStorage.setItem('claim_custom_instructions', JSON.stringify(customInstructions.value));
+  localStorage.setItem('claim_title_template', emailTitleTemplate.value);
   settingsDialog.value = false;
   alert('설정이 저장되었습니다! 복사 시 반영됩니다.');
 }
@@ -459,6 +482,42 @@ function formatTextToHtml(text: string | null | undefined): string {
  * 클립보드에 복사될 요양기관별 청구 실패 텍스트 및 HTML 포맷을 생성하는 헬퍼 함수
  * 💡 이 함수 내부의 문구(인사말, 고정 문구, 조치 가이드 등)를 수정하여 서식을 자유롭게 조절해 보세요!
  */
+function appendApiSuffix(category: string, err?: any): string {
+  const c = category || '';
+  if (c.includes('/api/')) {
+    return c;
+  }
+  if (err && err.api) {
+    return `${c} (${err.api})`;
+  }
+  if (c.includes('진료비 영수증 조회')) {
+    return c + ' (/api/get_medical_bill/v2)';
+  }
+  if (c.includes('진료비 영수증 목록 조회')) {
+    return c + ' (/api/get_medical_bill_list/v2)';
+  }
+  if (c.includes('진료비 세부내역 조회')) {
+    return c + ' (/api/get_medical_bill_detail/v2)';
+  }
+  if (c.includes('진료비 세부내역 항목별 내용 조회')) {
+    return c + ' (/api/get_medical_bill_detail_list/v2)';
+  }
+  if (c.includes('원외처방전 조회')) {
+    return c + ' (/api/get_prescription/v2)';
+  }
+  if (c.includes('원외 처방전 약품 목록 조회')) {
+    return c + ' (/api/get_prescription_list/v2)';
+  }
+  if (c.includes('원외 처방전 질병분류 조회')) {
+    return c + ' (/api/get_diagnosis_info/v2)';
+  }
+  return c;
+}
+
+/**
+ * 클립보드에 복사될 요양기관별 청구 실패 텍스트 및 HTML 포맷을 생성하는 헬퍼 함수
+ * 💡 이 함수 내부의 문구(인사말, 고정 문구, 조치 가이드 등)를 수정하여 서식을 자유롭게 조절해 보세요!
+ */
 function formatClipboardText(hospital: string, institutionId: string, errors: any[]) {
   // 1. 중복 사유 추출
   const categories = Array.from(new Set(errors.map(e => normalizeCategoryName(e.category))));
@@ -497,7 +556,7 @@ function formatClipboardText(hospital: string, institutionId: string, errors: an
   
   categories.forEach((cat, catIdx) => {
     const catErrors = errors.filter(e => normalizeCategoryName(e.category) === cat);
-    plain += `${catIdx + 1}) ${cat}\n`;
+    plain += `${catIdx + 1}) ${appendApiSuffix(cat, catErrors[0])}\n`;
     plain += `No | 병원기관번호 | 병원명 | 병원EMR | 청구실패사유 | 진료내역\n`;
     plain += `------------------------------------------------------------\n`;
     catErrors.forEach((err, idx) => {
@@ -512,7 +571,8 @@ function formatClipboardText(hospital: string, institutionId: string, errors: an
     const inst = getInstruction(cat);
     if (inst !== '해당사항없음') {
       const cleanInst = inst.replace(/\[size=\d+?\](.*?)\[\/size\]/g, '$1');
-      plainInstructions += `- ${cat}: ${cleanInst}\n`;
+      const catErrors = errors.filter(e => normalizeCategoryName(e.category) === cat);
+      plainInstructions += `- ${appendApiSuffix(cat, catErrors[0])}: ${cleanInst}\n`;
     }
   });
 
@@ -541,7 +601,7 @@ function formatClipboardText(hospital: string, institutionId: string, errors: an
 
     htmlTables += `
   <div style="margin-top: 20px; margin-bottom: 8px; font-size: 14px; font-weight: bold; color: #1f4e78;">
-    ${catIdx + 1}) ${cat}
+    ${catIdx + 1}) ${appendApiSuffix(cat, catErrors[0])}
   </div>
   <table style="width: 70%; border-collapse: collapse; border: 1.5px solid #1f4e78; margin-bottom: 20px; font-size: 11px;">
     <thead>
@@ -566,9 +626,10 @@ function formatClipboardText(hospital: string, institutionId: string, errors: an
     .map(cat => {
       const inst = getInstruction(cat);
       if (inst === '해당사항없음') return '';
+      const catErrors = errors.filter(e => normalizeCategoryName(e.category) === cat);
       return `
     <li style="margin-bottom: 6px;">
-      <strong>${cat}</strong><br> ${formatTextToHtml(inst)}
+      <strong>${appendApiSuffix(cat, catErrors[0])}</strong><br> ${formatTextToHtml(inst)}
     </li>`;
     })
     .filter(Boolean)
@@ -719,6 +780,28 @@ function copyHospitalErrors(item: any) {
   width: 100%;
   border-collapse: collapse;
 }
+.dashboard-table :deep(th) {
+  background-color: #f8fafc !important;
+  color: #475569 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  padding: 12px 14px !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  white-space: nowrap !important;
+}
+.dashboard-table :deep(td) {
+  padding: 12px 14px !important;
+  font-size: 12.5px !important;
+  color: #334155 !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+  height: auto !important;
+  min-height: 52px !important;
+  vertical-align: middle !important;
+}
+.dashboard-table :deep(tr) {
+  height: auto !important;
+}
+.dashboard-table :deep(tr:hover) { background-color: #f8fafc !important; }
 .custom-progress-track {
   width: 50px;
   height: 6px;

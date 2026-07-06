@@ -4,11 +4,11 @@
     <h2 class="text-h5 mb-4">주요 지표</h2>
     <v-row class="summary-cards">
       <v-col cols="12" sm="6" md="3" v-for="n in 4" :key="`kpi-skeleton-${n}`">
-        <v-card class="neumorphic-card pa-3 text-center" v-if="loading">
+        <v-card class="neumorphic-card pa-4 text-center" v-if="loading">
           <v-skeleton-loader type="card" class="mx-auto" height="100px"></v-skeleton-loader>
         </v-card>
-        <v-card class="neumorphic-card pa-3 text-center" v-else>
-          <div class="text-subtitle-2 text-grey">
+        <v-card class="neumorphic-card pa-4 text-center" v-else>
+          <div class="text-subtitle-2 text-grey-darken-1 mb-1">
             {{
               n === 1
                 ? '선택 월 총지출'
@@ -22,7 +22,7 @@
           <div
             class="text-h5 font-weight-bold"
             :class="{
-              'text-primary': n === 1, // Apply primary color to total spending
+              'text-default': n === 1,
               'text-kpiBlue': n === 2,
               'text-kpiGreen': n === 3,
               'text-kpiOrange': n === 4,
@@ -40,12 +40,12 @@
           </div>
           <div
             :class="momChangeColor"
-            class="text-caption"
+            class="text-caption mt-1"
             v-if="n === 1"
           >
             {{ momChangeText }}
           </div>
-          <div class="text-caption text-grey" v-else-if="n === 2">
+          <div class="text-caption text-grey mt-1" v-else-if="n === 2">
             (해당 월 기준)
           </div>
         </v-card>
@@ -54,21 +54,24 @@
 
     <!-- Month Selector -->
     <v-row class="mt-4">
-      <v-col cols="12" md="4">
+      <v-col cols="12" md="4" class="d-flex flex-column">
         <v-skeleton-loader
           type="chip"
-          class="neumorphic-select"
+          class="neumorphic-select-skeleton"
           v-if="loading"
-          height="48px"
+          height="40px"
         ></v-skeleton-loader>
-        <v-select
-          v-model="selectedMonth"
-          :items="availableMonths"
-          label="조회 월 선택"
-          class="neumorphic-select"
-          hide-details
-          v-else
-        ></v-select>
+        <div v-else class="select-container">
+          <span class="custom-select-label font-weight-bold mb-1.5 d-block">조회 월 선택</span>
+          <v-select
+            v-model="selectedMonth"
+            :items="availableMonths"
+            class="neumorphic-select"
+            hide-details
+            variant="outlined"
+            density="compact"
+          ></v-select>
+        </div>
       </v-col>
     </v-row>
 
@@ -280,7 +283,8 @@ const displaySections = ref<string[]>(['kpi', 'chart', 'category_analysis', 'top
 // --- Helper Functions ---
 
 const formatCurrency = (value: number): string => {
-  return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(value);
+  if (value === undefined || value === null || isNaN(value)) return '0원';
+  return new Intl.NumberFormat('ko-KR').format(value) + '원';
 };
 
 const getDiffColor = (diff: string): string => {
@@ -592,14 +596,45 @@ watch(selectedMonth, () => {
   color: $primary-text;
 }
 
-/* Neumorphic Card style (copied from AppLayout for self-containment, or can be imported) */
+/* Flat KPI Card style (Python style) */
+.flat-kpi-card {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 10px !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.text-kpiBlue {
+  color: #1e88e5 !important;
+}
+.text-kpiGreen {
+  color: #4caf50 !important;
+}
+.text-kpiOrange {
+  color: #ffa726 !important;
+}
+.text-default {
+  color: $primary-text !important;
+}
+
+/* Modern Soft Minimal Card style */
 .neumorphic-card {
-  background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 15px 20px 0 rgba(0,0,0,0.04);
-  padding: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.02);
+  padding: 20px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
   height: 100%; /* Ensure cards in v-col take full height */
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.neumorphic-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.05), 0 2px 5px rgba(0, 0, 0, 0.03);
 }
 
 /* Vuetify v-row adds negative margins, so we need to adjust */
@@ -607,62 +642,68 @@ watch(selectedMonth, () => {
   margin-bottom: 25px; /* Reduced margin */
 }
 
-/* Custom styling for v-select to give a soft, integrated look */
-.neumorphic-select.v-select :deep(.v-field) {
-  background-color: $bg-color; /* Use background color from theme */
-  border-radius: 10px;
-  box-shadow: inset 2px 2px 5px $shadow-dark, inset -3px -3px 7px $shadow-light; /* Inner shadow for embossed effect */
-  border: none; /* Remove default border */
-  transition: all 0.3s ease;
-  min-height: 48px; /* Standard Vuetify input height */
+/* Soft Minimal styling for v-select with custom label */
+.select-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 }
 
+.custom-select-label {
+  font-size: 13px;
+  color: $secondary-text;
+  font-weight: 600;
+}
+
+.neumorphic-select-skeleton {
+  border-radius: 8px !important;
+  margin-top: 24px;
+}
+
+.neumorphic-select.v-select :deep(.v-field) {
+  background-color: #ffffff !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02) !important;
+  transition: all 0.2s ease;
+}
+
+/* Vuetify outline border override */
 .neumorphic-select.v-select :deep(.v-field__outline) {
-  display: none; /* Hide default outline */
+  --v-field-border-width: 1px !important;
+  --v-field-border-opacity: 1 !important;
+  color: rgba(226, 232, 240, 1) !important;
+}
+
+/* Hover & Focused outline color override */
+.neumorphic-select.v-select :deep(.v-field:hover .v-field__outline),
+.neumorphic-select.v-select :deep(.v-field--focused .v-field__outline) {
+  color: #007bff !important;
+}
+
+/* Hover & Focused shadow override */
+.neumorphic-select.v-select :deep(.v-field:hover) {
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.08) !important;
+}
+
+.neumorphic-select.v-select :deep(.v-field--focused) {
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.15) !important;
 }
 
 .neumorphic-select.v-select :deep(.v-field__input) {
   color: $primary-text;
   font-size: 14px;
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
-  min-height: unset !important;
-  height: auto !important;
-  display: flex;
-  align-items: center;
-}
-
-.neumorphic-select.v-select :deep(.v-field__label) {
-  color: $secondary-text;
-  font-size: 14px;
-  top: 50% !important;
-  transform: translateY(-50%) !important;
-  left: 12px !important;
-  transition: all 0.3s ease;
-}
-
-.neumorphic-select.v-select.v-field--active :deep(.v-field__label),
-.neumorphic-select.v-select.v-field--dirty :deep(.v-field__label) {
-  top: 0 !important;
-  transform: translateY(-100%) scale(0.75) !important;
-  left: 12px !important;
-  background: $accent-gradient; /* Use accent color for active label */
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.neumorphic-select.v-select:hover :deep(.v-field) {
-  box-shadow: inset 1px 1px 3px $shadow-dark, inset -1px -1px 3px $shadow-light; /* Subtle hover effect */
+  padding-left: 12px !important;
 }
 
 .neumorphic-select.v-select :deep(.v-field__append-inner) {
   align-self: center;
   padding-top: 0 !important;
+  padding-right: 8px !important;
 }
 
-/* Data Table Styling */
+/* Modern Soft Minimal Data Table Styling */
 .neumorphic-table.v-data-table {
-  background-color: transparent !important; /* Make table background transparent to show card background */
+  background-color: transparent !important;
 }
 
 .neumorphic-table.v-data-table :deep(table) {
@@ -687,15 +728,6 @@ watch(selectedMonth, () => {
   border-bottom: none !important; /* Remove default border */
   box-shadow: 0 2px 5px rgba(0,0,0,0.02); /* Subtle shadow for rows */
   border-radius: 8px; /* Rounded corners for rows */
-}
-
-.neumorphic-table.v-data-table :deep(tbody tr) {
-  transition: all 0.2s ease-in-out;
-}
-
-.neumorphic-table.v-data-table :deep(tbody tr:hover) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
 }
 
 /* General text colors for consistency */
