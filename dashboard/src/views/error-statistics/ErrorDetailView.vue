@@ -32,6 +32,7 @@
         :itemsPerPage="itemsPerPage"
         :sortKey="sortKey"
         :sortOrder="sortOrder"
+        :currentFileKey="currentFileKey"
         @sort="handleSort"
         @toggle-row-state="toggleRowState"
       />

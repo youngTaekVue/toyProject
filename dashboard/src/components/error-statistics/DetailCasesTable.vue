@@ -21,6 +21,7 @@
         <thead>
         <tr>
           <th class="text-center" style="width: 55px;">No</th>
+          <th v-if="currentFileKey === 'all'" class="text-left" style="width: 140px;">데이터 차수</th>
           <th class="text-left cursor-pointer user-select-none" @click="$emit('sort', 'hospital')" style="min-width: 160px;">
             요양기관명
             <v-icon size="x-small" :color="sortKey === 'hospital' ? 'blue-darken-2' : 'grey-lighten-1'">
@@ -46,6 +47,11 @@
         <tbody>
         <tr v-for="(row, idx) in paginatedRows" :key="row.key">
           <td class="text-center text-slate-400 font-weight-medium">{{ (currentPage - 1) * itemsPerPage + idx + 1 }}</td>
+          <td v-if="currentFileKey === 'all'" class="text-left text-slate-500 font-weight-medium">
+            <span class="filekey-badge">
+              {{ formatFileKey(row.fileKey) }}
+            </span>
+          </td>
           <td class="text-left font-weight-bold text-slate-800 text-truncate" :title="row.hospital">{{ row.hospital }}</td>
           <td class="text-left text-body-2 font-weight-medium text-wrap-pretty">{{ row.category }}</td>
           <td class="text-right font-weight-bold text-slate-700">{{ formatNumber(row.count) }} 건</td>
@@ -79,6 +85,15 @@
           <span class="custom-badge" :class="getStatusBadgeClass(row.state)">
             {{ row.state }}
           </span>
+        </div>
+
+        <div v-if="currentFileKey === 'all'" class="mb-2">
+          <div class="mobile-field-label">데이터 차수</div>
+          <div class="mobile-field-value text-slate-600">
+            <span class="filekey-badge">
+              {{ formatFileKey(row.fileKey) }}
+            </span>
+          </div>
         </div>
 
         <div class="mb-2">
@@ -130,6 +145,7 @@ const props = defineProps<{
   searchQuery: string;
   sortKey: string;
   sortOrder: 'asc' | 'desc';
+  currentFileKey?: string;
 }>();
 
 const emit = defineEmits<{
@@ -169,6 +185,22 @@ function getRowButtonLabel(state: string): string {
 
 function formatNumber(num: number): string {
   return new Intl.NumberFormat().format(num || 0);
+}
+
+function formatFileKey(key: string): string {
+  if (!key) return '-';
+  const clean = key.replace(/_/g, '-');
+  if (/^\d{8}$/.test(key)) {
+    return `${key.substring(0, 4)}.${key.substring(4, 6)}.${key.substring(6, 8)}`;
+  }
+  const parts = key.split('_');
+  if (parts.length === 2 && /^\d{8}$/.test(parts[0]) && /^\d{8}$/.test(parts[1])) {
+    const f1 = `${parts[0].substring(0, 4)}.${parts[0].substring(4, 6)}.${parts[0].substring(6, 8)}`;
+    const f2 = `${parts[1].substring(0, 4)}.${parts[1].substring(4, 6)}.${parts[1].substring(6, 8)}`;
+    if (f1 === f2) return f1;
+    return `${f1} ~ ${f2}`;
+  }
+  return clean;
 }
 </script>
 
@@ -248,6 +280,21 @@ function formatNumber(num: number): string {
   font-size: 11px;
   font-weight: 700;
   border-radius: 4px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.filekey-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 6px;
+  background-color: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
   line-height: 1;
   white-space: nowrap;
 }
