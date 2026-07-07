@@ -521,7 +521,7 @@ function appendApiSuffix(category: string, err?: any): string {
 function getClaimFailureReason(err: any): string {
   if (err.visitDate && err.visitDate !== '-' && err.uuid && err.uuid !== '-') {
     const categoryBase = err.category && err.category.includes('(') ? err.category.split('(')[0].trim() : (err.category || '');
-    return `${categoryBase} (진료일자: ${err.visitDate.replace(/-/g, '')} / UUID: ${err.uuid}`;
+    return `${categoryBase} 진료일자: ${err.visitDate.replace(/-/g, '')} / UUID: ${err.uuid}`;
   }
   return err.category || '-';
 }
@@ -560,7 +560,7 @@ function formatClipboardText(hospital: string, institutionId: string, errors: an
   const cleanIntro = (introText.value || '').replace(/\[size=\d+?\](.*?)\[\/size\]/g, '$1');
   plain += `${cleanIntro}\n\n`;
 
-  plain += `■ ${hospital} - 청구 오류 내역 취합 현황\n\n`;
+  plain += `■ ${hospital} - 청구 오류 내역 취합 현황 \n\n`;
 
   categories.forEach((cat, catIdx) => {
     const catErrors = errors.filter(e => normalizeCategoryName(e.category) === cat);
@@ -570,7 +570,7 @@ function formatClipboardText(hospital: string, institutionId: string, errors: an
     catErrors.forEach((err, idx) => {
       const reasonVal = err.category && err.category.includes('(') ? err.category.split('(')[0].trim() : (err.category || '-');
       const detailsVal = (err.visitDate && err.visitDate !== '-' && err.uuid && err.uuid !== '-') 
-        ? `(진료일자: ${err.visitDate.replace(/-/g, '')} / UUID: ${err.uuid}` 
+        ? `진료일자: ${err.visitDate.replace(/-/g, '')} / UUID: ${err.uuid}`
         : (err.details || '-');
       if (idx > 0) {
         plain += `========================================================================\n`;
@@ -606,7 +606,7 @@ function formatClipboardText(hospital: string, institutionId: string, errors: an
     const htmlRows = catErrors.map((err, idx) => {
       const reasonVal = err.category && err.category.includes('(') ? err.category.split('(')[0].trim() : (err.category || '-');
       const detailsVal = (err.visitDate && err.visitDate !== '-' && err.uuid && err.uuid !== '-') 
-        ? `(진료일자: ${err.visitDate.replace(/-/g, '')} / UUID: ${err.uuid}` 
+        ? `진료일자: ${err.visitDate.replace(/-/g, '')} / UUID: ${err.uuid}`
         : (err.details || '-');
       const separator = idx > 0 ? `
       <tr style="height: 20px;">
@@ -678,7 +678,7 @@ function formatClipboardText(hospital: string, institutionId: string, errors: an
   html += `<p>${formatTextToHtml(introText.value)}</p>`;
   html += htmlGuidesSection;
   html += `<div style="margin-top: 25px; margin-bottom: 5px; font-size: 16px; font-weight: bold; color: #002060;">`;
-  html += `  ■ ${hospital} - 청구 오류 내역 취합 현황`;
+  html += `  ■ ${hospital} - 청구 오류 내역 취합 현황(20260706~20260707)`;
   html += `</div>`;
 
   html += htmlTables;
