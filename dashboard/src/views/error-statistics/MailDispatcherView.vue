@@ -1328,7 +1328,7 @@ function appendApiSuffix(category: string, err?: any): string {
   if (err && err.api) {
     return `${c} (${err.api})`;
   }
-  if (c.includes('진료비 영수증 조회')) {
+  if (c.includes('영수증 조회')) {
     return c + ' (/api/get_medical_bill/v2)';
   }
   if (c.includes('진료비 영수증 목록 조회')) {

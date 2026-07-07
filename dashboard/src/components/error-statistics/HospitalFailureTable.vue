@@ -31,19 +31,19 @@
         <tr>
           <th class="text-center" style="width: 50px;">No</th>
           <th class="text-left cursor-pointer user-select-none" @click="$emit('sort', 'hospital')">
-            요양기관명 
+            요양기관명
             <v-icon size="x-small" :color="sortKey === 'hospital' ? 'blue-darken-2' : 'grey-lighten-1'">
               {{ sortKey === 'hospital' ? (sortOrder === 'asc' ? 'mdi-arrow-up' : 'mdi-arrow-down') : 'mdi-swap-vertical' }}
             </v-icon>
           </th>
           <th class="text-right cursor-pointer user-select-none" @click="$emit('sort', 'count')" style="width: 90px;">
-            실패 건수 
+            실패 건수
             <v-icon size="x-small" :color="sortKey === 'count' ? 'blue-darken-2' : 'grey-lighten-1'">
               {{ sortKey === 'count' ? (sortOrder === 'asc' ? 'mdi-arrow-up' : 'mdi-arrow-down') : 'mdi-swap-vertical' }}
             </v-icon>
           </th>
           <th class="text-right cursor-pointer user-select-none" @click="$emit('sort', 'resolutionRate')" style="width: 135px;">
-            해결률 
+            해결률
             <v-icon size="x-small" :color="sortKey === 'resolutionRate' ? 'blue-darken-2' : 'grey-lighten-1'">
               {{ sortKey === 'resolutionRate' ? (sortOrder === 'asc' ? 'mdi-arrow-up' : 'mdi-arrow-down') : 'mdi-swap-vertical' }}
             </v-icon>
@@ -76,12 +76,12 @@
             <div class="d-flex align-center justify-center flex-wrap" style="gap: 6px;">
               <!-- 1. 상세보기 -->
               <button class="sleek-btn sleek-btn-primary-outline" @click.prevent="$emit('open-detail', item)">상세보기</button>
-              
+
               <!-- 2. 내역 복사 -->
               <button class="sleek-btn sleek-btn-info-outline" @click.prevent="copyHospitalErrors(item)">
                 📋 복사
               </button>
-              
+
               <!-- 4. 상태 처리 -->
               <button class="sleek-btn" :class="getHospitalButtonClass(item)" @click.prevent="$emit('toggle-state', item)">
                 {{ getHospitalButtonLabelFromItem(item) }}
@@ -101,7 +101,7 @@
         <div class="mb-3 d-flex align-center justify-space-between">
           <span class="mobile-card-no">#{{ (hospitalPage - 1) * itemsPerPage + idx + 1 }}</span>
         </div>
-        
+
         <!-- 요양기관명 -->
         <div class="mb-3">
           <div class="mobile-field-label">요양기관명</div>
@@ -144,11 +144,11 @@
           <div class="mobile-field-label mb-2">액션</div>
           <div class="d-flex flex-wrap" style="gap: 8px;">
             <button class="sleek-btn sleek-btn-primary-outline flex-grow-1" style="flex: 1 1 45%;" @click.prevent="$emit('open-detail', item)">상세보기</button>
-            
+
             <button class="sleek-btn sleek-btn-info-outline flex-grow-1" style="flex: 1 1 45%;" @click.prevent="copyHospitalErrors(item)">
               📋 복사
             </button>
-            
+
             <button class="sleek-btn flex-grow-1" style="flex: 1 1 45%;" :class="getHospitalButtonClass(item)" @click.prevent="$emit('toggle-state', item)">
               {{ getHospitalButtonLabelFromItem(item) }}
             </button>
@@ -447,7 +447,7 @@ function applyFormatToIntro(before: string, after: string) {
   const selected = text.substring(start, end);
   const replacement = before + (selected || '텍스트') + after;
   introText.value = text.substring(0, start) + replacement + text.substring(end);
-  
+
   // 포커싱 복구 및 포커싱 영역 재설정
   setTimeout(() => {
     el.focus();
@@ -465,7 +465,7 @@ function formatTextToHtml(text: string | null | undefined): string {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
-  
+
   // **텍스트** -> <strong>텍스트</strong>
   escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   // *텍스트* -> <em>텍스트</em>
@@ -474,7 +474,7 @@ function formatTextToHtml(text: string | null | undefined): string {
   escaped = escaped.replace(/\[size=(\d+?)\](.*?)\[\/size\]/g, '<span style="font-size: $1px;">$2</span>');
   // 줄바꿈 -> <br>
   escaped = escaped.replace(/\n/g, '<br>');
-  
+
   return escaped;
 }
 
@@ -490,7 +490,7 @@ function appendApiSuffix(category: string, err?: any): string {
   if (err && err.api) {
     return `${c} (${err.api})`;
   }
-  if (c.includes('진료비 영수증 조회')) {
+  if (c.includes('영수증 조회')) {
     return c + ' (/api/get_medical_bill/v2)';
   }
   if (c.includes('진료비 영수증 목록 조회')) {
@@ -521,7 +521,7 @@ function appendApiSuffix(category: string, err?: any): string {
 function formatClipboardText(hospital: string, institutionId: string, errors: any[]) {
   // 1. 중복 사유 추출
   const categories = Array.from(new Set(errors.map(e => normalizeCategoryName(e.category))));
-  
+
   // 2. 오류 사유별 조치 지침 문구 매핑 함수 (필요에 따라 문구를 추가하거나 변경하세요)
   const getInstruction = (cat: string): string => {
     const normCat = normalizeCategoryName(cat);
@@ -547,13 +547,13 @@ function formatClipboardText(hospital: string, institutionId: string, errors: an
   // ==========================================
   let plain = `안녕하세요. ${hospital}입니다.\n\n`;
   plain += `[요양기관 청구 실패 내역 안내]\n`;
-  
+
   // 일반 텍스트에서는 크기 태그 [size=...]를 제거하여 일반 글씨로 나오도록 처리
   const cleanIntro = (introText.value || '').replace(/\[size=\d+?\](.*?)\[\/size\]/g, '$1');
   plain += `${cleanIntro}\n\n`;
-  
+
   plain += `■ ${hospital} - 청구 오류 내역 취합 현황\n\n`;
-  
+
   categories.forEach((cat, catIdx) => {
     const catErrors = errors.filter(e => normalizeCategoryName(e.category) === cat);
     plain += `${catIdx + 1}) ${appendApiSuffix(cat, catErrors[0])}\n`;
@@ -579,7 +579,7 @@ function formatClipboardText(hospital: string, institutionId: string, errors: an
   if (plainInstructions) {
     plain += `[오류별 조치 요령 안내]\n` + plainInstructions + `\n`;
   }
-  
+
   plain += `감사합니다.\n`;
 
   // ==========================================
@@ -608,10 +608,10 @@ function formatClipboardText(hospital: string, institutionId: string, errors: an
       <tr style="background-color: #1f4e78; color: #ffffff; height: 28px; font-weight: bold;">
         <th style="border: 1px solid #a6a6a6; padding: 5px; width: 40px; text-align: center;">No</th>
         <th style="border: 1px solid #a6a6a6; padding: 5px; width: 90px; text-align: center;">병원기관번호</th>
-        <th style="border: 1px solid #a6a6a6; padding: 5px; width: 160px; text-align: left;">병원명</th>
+        <th style="border: 1px solid #a6a6a6; padding: 5px; width: 160px; text-align: center;">병원명</th>
         <th style="border: 1px solid #a6a6a6; padding: 5px; width: 90px; text-align: center;">병원EMR</th>
-        <th style="border: 1px solid #a6a6a6; padding: 5px; width: 220px; text-align: left;">청구실패사유</th>
-        <th style="border: 1px solid #a6a6a6; padding: 5px; text-align: left;">진료내역 (진료일자 및 UUID)</th>
+        <th style="border: 1px solid #a6a6a6; padding: 5px; width: 320px; text-align: center;">청구실패사유</th>
+        <th style="border: 1px solid #a6a6a6; padding: 5px; width: 520px; text-align: left;">진료내역 (진료일자 및 UUID)</th>
       </tr>
     </thead>
     <tbody>
@@ -655,7 +655,7 @@ function formatClipboardText(hospital: string, institutionId: string, errors: an
 
   html += htmlTables;
 
-  html += `<p style="margin-top: 20px;">처리되시면 회신 부탁드립니다.<br>감사합니다..</p>`;
+  html += `<p style="margin-top: 20px;">처리되시면 회신 부탁드립니다.<br>감사합니다.</p>`;
   html += `</div>`;
 
   return { plain, html };
@@ -664,18 +664,18 @@ function formatClipboardText(hospital: string, institutionId: string, errors: an
 function copyHospitalErrors(item: any) {
   const institutionId = item.cases[0]?.institutionId || '-';
   const errors = item.cases.flatMap((c: any) => c.rows || []);
-  
+
   const content = formatClipboardText(item.hospital, institutionId, errors);
-  
+
   // 클립보드 아이템 생성 (Text와 HTML을 모두 제공하여 붙여넣는 앱에 맞춰 스마트하게 복사되도록 함)
   const textBlob = new Blob([content.plain], { type: 'text/plain' });
   const htmlBlob = new Blob([content.html], { type: 'text/html' });
-  
+
   const clipboardItem = new ClipboardItem({
     'text/plain': textBlob,
     'text/html': htmlBlob
   });
-  
+
   navigator.clipboard.write([clipboardItem])
     .then(() => {
       alert(`${item.hospital}의 오류 내역(${errors.length}건)이 클립보드에 복사되었습니다!\n\n💡 메일(Naver/Outlook/Gmail 등)이나 슬랙/워드에 붙여넣기(Ctrl+V) 하시면 실제 엑셀 표 서식 그대로 정렬되어 붙여넣어집니다.`);
