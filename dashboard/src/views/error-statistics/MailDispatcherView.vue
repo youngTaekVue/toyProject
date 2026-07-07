@@ -1353,6 +1353,7 @@ function appendApiSuffix(category: string, err?: any): string {
 }
 
 // 요양기관 각각 발송용 콤팩트 테이블 포맷터
+// 요양기관 각각 발송용 콤팩트 테이블 포맷터
 function formatHospitalSpecificText(hospital: string, institutionId: string, errors: any[]) {
   const introTextVal = localIntroText.value;
   const customInstructionsVal = localCustomInstructions.value;
@@ -1385,11 +1386,18 @@ function formatHospitalSpecificText(hospital: string, institutionId: string, err
   
   categories.forEach((cat, catIdx) => {
     const catErrors = errors.filter(e => normalizeCategoryName(e.category) === cat);
-    plain += `${catIdx + 1}) ${appendApiSuffix(cat, catErrors[0])}\n`;
+    plain += `■ 청구실패 사유: ${appendApiSuffix(cat, catErrors[0])}\n`;
     plain += `No | 병원기관번호 | 병원명 | 병원EMR | 청구실패사유 | 진료내역\n`;
     plain += `------------------------------------------------------------\n`;
     catErrors.forEach((err, idx) => {
-      plain += `${idx + 1} | ${err.institutionId || '-'} | ${err.hospital || '-'} | ${err.emr || '-'} | ${err.category || '-'} | ${err.details || '-'}\n`;
+      const reasonVal = err.category && err.category.includes('(') ? err.category.split('(')[0].trim() : (err.category || '-');
+      const detailsVal = (err.visitDate && err.visitDate !== '-' && err.uuid && err.uuid !== '-') 
+        ? `(진료일자: ${err.visitDate.replace(/-/g, '')} / UUID: ${err.uuid}` 
+        : (err.details || '-');
+      if (idx > 0) {
+        plain += `========================================================================\n`;
+      }
+      plain += `${idx + 1} | ${err.institutionId || '-'} | ${err.hospital || '-'} | ${err.emr || '-'} | ${reasonVal} | ${detailsVal}\n`;
     });
     plain += `------------------------------------------------------------\n\n`;
   });
@@ -1418,20 +1426,33 @@ function formatHospitalSpecificText(hospital: string, institutionId: string, err
   let htmlTables = '';
   categories.forEach((cat, catIdx) => {
     const catErrors = errors.filter(e => normalizeCategoryName(e.category) === cat);
-    const htmlRows = catErrors.map((err, idx) => `
+    const htmlRows = catErrors.map((err, idx) => {
+      const reasonVal = err.category && err.category.includes('(') ? err.category.split('(')[0].trim() : (err.category || '-');
+      const detailsVal = (err.visitDate && err.visitDate !== '-' && err.uuid && err.uuid !== '-') 
+        ? `(진료일자: ${err.visitDate.replace(/-/g, '')} / UUID: ${err.uuid}` 
+        : (err.details || '-');
+      const separator = idx > 0 ? `
+      <tr style="height: 20px;">
+        <td colspan="6" style="border: none; text-align: center; color: #a6a6a6; font-size: 11px; padding: 4px 0;">
+          ========================================================================
+        </td>
+      </tr>
+      ` : '';
+      return separator + `
       <tr style="height: 25px;">
         <td style="border: 1px solid #d9d9d9; padding: 8px 12px; text-align: center; color: #333;">${idx + 1}</td>
         <td style="border: 1px solid #d9d9d9; padding: 8px 12px; text-align: center; color: #333;">${err.institutionId || '-'}</td>
         <td style="border: 1px solid #d9d9d9; padding: 8px 12px; text-align: left; color: #333;">${err.hospital || '-'}</td>
         <td style="border: 1px solid #d9d9d9; padding: 8px 12px; text-align: center; color: #333;">${err.emr || '-'}</td>
-        <td style="border: 1px solid #d9d9d9; padding: 8px 12px; text-align: left; color: #1e3a8a; font-weight: bold;">${err.category || '-'}</td>
-        <td style="border: 1px solid #d9d9d9; padding: 8px 12px; text-align: left; color: #555; word-break: break-all;">${err.details || '-'}</td>
+        <td style="border: 1px solid #d9d9d9; padding: 8px 12px; text-align: left; color: #1e3a8a; font-weight: bold;">${reasonVal}</td>
+        <td style="border: 1px solid #d9d9d9; padding: 8px 12px; text-align: left; color: #555; word-break: break-all;">${detailsVal}</td>
       </tr>
-    `).join('');
+      `;
+    }).join('');
 
     htmlTables += `
     <div style="margin-top: 18px; margin-bottom: 6px; font-size: 13.5px; font-weight: bold; color: #1f4e78;">
-      ${catIdx + 1}) ${appendApiSuffix(cat, catErrors[0])}
+      ■ 청구실패 사유: ${appendApiSuffix(cat, catErrors[0])}
     </div>
     <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #1f4e78; margin-bottom: 18px; font-size: 12px;">
       <thead>
@@ -1528,11 +1549,18 @@ function formatClipboardText(hospital: string, institutionId: string, errors: an
   
   categories.forEach((cat, catIdx) => {
     const catErrors = errors.filter(e => normalizeCategoryName(e.category) === cat);
-    plain += `${catIdx + 1}) ${cat}\n`;
+    plain += `■ 청구실패 사유: ${cat}\n`;
     plain += `No | 병원기관번호 | 병원명 | 병원EMR | 청구실패사유 | 진료내역\n`;
     plain += `------------------------------------------------------------\n`;
     catErrors.forEach((err, idx) => {
-      plain += `${idx + 1} | ${err.institutionId || '-'} | ${err.hospital || '-'} | ${err.emr || '-'} | ${err.category || '-'} | ${err.details || '-'}\n`;
+      const reasonVal = err.category && err.category.includes('(') ? err.category.split('(')[0].trim() : (err.category || '-');
+      const detailsVal = (err.visitDate && err.visitDate !== '-' && err.uuid && err.uuid !== '-') 
+        ? `(진료일자: ${err.visitDate.replace(/-/g, '')} / UUID: ${err.uuid}` 
+        : (err.details || '-');
+      if (idx > 0) {
+        plain += `========================================================================\n`;
+      }
+      plain += `${idx + 1} | ${err.institutionId || '-'} | ${err.hospital || '-'} | ${err.emr || '-'} | ${reasonVal} | ${detailsVal}\n`;
     });
     plain += `------------------------------------------------------------\n\n`;
   });
@@ -1555,20 +1583,33 @@ function formatClipboardText(hospital: string, institutionId: string, errors: an
   let htmlTables = '';
   categories.forEach((cat, catIdx) => {
     const catErrors = errors.filter(e => normalizeCategoryName(e.category) === cat);
-    const htmlRows = catErrors.map((err, idx) => `
-    <tr style="height: 25px;">
-      <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: center; color: #333;">${idx + 1}</td>
-      <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: center; color: #333;">${err.institutionId || '-'}</td>
-      <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: left; color: #333;">${err.hospital || '-'}</td>
-      <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: center; color: #333;">${err.emr || '-'}</td>
-      <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: left; color: #333;">${err.category || '-'}</td>
-      <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: left; color: #333;">${err.details || '-'}</td>
-    </tr>
-  `).join('');
+    const htmlRows = catErrors.map((err, idx) => {
+      const reasonVal = err.category && err.category.includes('(') ? err.category.split('(')[0].trim() : (err.category || '-');
+      const detailsVal = (err.visitDate && err.visitDate !== '-' && err.uuid && err.uuid !== '-') 
+        ? `(진료일자: ${err.visitDate.replace(/-/g, '')} / UUID: ${err.uuid}` 
+        : (err.details || '-');
+      const separator = idx > 0 ? `
+      <tr style="height: 20px;">
+        <td colspan="6" style="border: none; text-align: center; color: #a6a6a6; font-size: 11px; padding: 4px 0;">
+          ========================================================================
+        </td>
+      </tr>
+      ` : '';
+      return separator + `
+      <tr style="height: 25px;">
+        <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: center; color: #333;">${idx + 1}</td>
+        <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: center; color: #333;">${err.institutionId || '-'}</td>
+        <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: left; color: #333;">${err.hospital || '-'}</td>
+        <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: center; color: #333;">${err.emr || '-'}</td>
+        <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: left; color: #333;">${reasonVal}</td>
+        <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: left; color: #333;">${detailsVal}</td>
+      </tr>
+      `;
+    }).join('');
 
     htmlTables += `
   <div style="margin-top: 20px; margin-bottom: 8px; font-size: 14px; font-weight: bold; color: #1f4e78;">
-    ${catIdx + 1}) ${cat}
+    ■ 청구실패 사유: ${cat}
   </div>
   <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #1f4e78; margin-bottom: 20px; font-size: 11px;">
     <thead>

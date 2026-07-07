@@ -518,6 +518,14 @@ function appendApiSuffix(category: string, err?: any): string {
  * 클립보드에 복사될 요양기관별 청구 실패 텍스트 및 HTML 포맷을 생성하는 헬퍼 함수
  * 💡 이 함수 내부의 문구(인사말, 고정 문구, 조치 가이드 등)를 수정하여 서식을 자유롭게 조절해 보세요!
  */
+function getClaimFailureReason(err: any): string {
+  if (err.visitDate && err.visitDate !== '-' && err.uuid && err.uuid !== '-') {
+    const categoryBase = err.category && err.category.includes('(') ? err.category.split('(')[0].trim() : (err.category || '');
+    return `${categoryBase} (진료일자: ${err.visitDate.replace(/-/g, '')} / UUID: ${err.uuid}`;
+  }
+  return err.category || '-';
+}
+
 function formatClipboardText(hospital: string, institutionId: string, errors: any[]) {
   // 1. 중복 사유 추출
   const categories = Array.from(new Set(errors.map(e => normalizeCategoryName(e.category))));
@@ -556,11 +564,18 @@ function formatClipboardText(hospital: string, institutionId: string, errors: an
 
   categories.forEach((cat, catIdx) => {
     const catErrors = errors.filter(e => normalizeCategoryName(e.category) === cat);
-    plain += `${catIdx + 1}) ${appendApiSuffix(cat, catErrors[0])}\n`;
+    plain += `■ 청구실패 사유: ${appendApiSuffix(cat, catErrors[0])}\n`;
     plain += `No | 병원기관번호 | 병원명 | 병원EMR | 청구실패사유 | 진료내역\n`;
     plain += `------------------------------------------------------------\n`;
     catErrors.forEach((err, idx) => {
-      plain += `${idx + 1} | ${err.institutionId || '-'} | ${err.hospital || '-'} | ${err.emr || '-'} | ${err.category || '-'} | ${err.details || '-'}\n`;
+      const reasonVal = err.category && err.category.includes('(') ? err.category.split('(')[0].trim() : (err.category || '-');
+      const detailsVal = (err.visitDate && err.visitDate !== '-' && err.uuid && err.uuid !== '-') 
+        ? `(진료일자: ${err.visitDate.replace(/-/g, '')} / UUID: ${err.uuid}` 
+        : (err.details || '-');
+      if (idx > 0) {
+        plain += `========================================================================\n`;
+      }
+      plain += `${idx + 1} | ${err.institutionId || '-'} | ${err.hospital || '-'} | ${err.emr || '-'} | ${reasonVal} | ${detailsVal}\n`;
     });
     plain += `------------------------------------------------------------\n\n`;
   });
@@ -588,20 +603,33 @@ function formatClipboardText(hospital: string, institutionId: string, errors: an
   let htmlTables = '';
   categories.forEach((cat, catIdx) => {
     const catErrors = errors.filter(e => normalizeCategoryName(e.category) === cat);
-    const htmlRows = catErrors.map((err, idx) => `
-    <tr style="height: 25px;">
-      <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: center; color: #333;">${idx + 1}</td>
-      <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: center; color: #333;">${err.institutionId || '-'}</td>
-      <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: left; color: #333;">${err.hospital || '-'}</td>
-      <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: center; color: #333;">${err.emr || '-'}</td>
-      <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: left; color: #333;">${err.category || '-'}</td>
-      <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: left; color: #333;">${err.details || '-'}</td>
-    </tr>
-  `).join('');
+    const htmlRows = catErrors.map((err, idx) => {
+      const reasonVal = err.category && err.category.includes('(') ? err.category.split('(')[0].trim() : (err.category || '-');
+      const detailsVal = (err.visitDate && err.visitDate !== '-' && err.uuid && err.uuid !== '-') 
+        ? `(진료일자: ${err.visitDate.replace(/-/g, '')} / UUID: ${err.uuid}` 
+        : (err.details || '-');
+      const separator = idx > 0 ? `
+      <tr style="height: 20px;">
+        <td colspan="6" style="border: none; text-align: center; color: #a6a6a6; font-size: 11px; padding: 4px 0;">
+          ========================================================================
+        </td>
+      </tr>
+      ` : '';
+      return separator + `
+      <tr style="height: 25px;">
+        <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: center; color: #333;">${idx + 1}</td>
+        <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: center; color: #333;">${err.institutionId || '-'}</td>
+        <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: left; color: #333;">${err.hospital || '-'}</td>
+        <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: center; color: #333;">${err.emr || '-'}</td>
+        <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: left; color: #333;">${reasonVal}</td>
+        <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: left; color: #333;">${detailsVal}</td>
+      </tr>
+      `;
+    }).join('');
 
     htmlTables += `
   <div style="margin-top: 20px; margin-bottom: 8px; font-size: 14px; font-weight: bold; color: #1f4e78;">
-    ${catIdx + 1}) ${appendApiSuffix(cat, catErrors[0])}
+    ■ 청구실패 사유: ${appendApiSuffix(cat, catErrors[0])}
   </div>
   <table style="width: 70%; border-collapse: collapse; border: 1.5px solid #1f4e78; margin-bottom: 20px; font-size: 11px;">
     <thead>
@@ -611,7 +639,7 @@ function formatClipboardText(hospital: string, institutionId: string, errors: an
         <th style="border: 1px solid #a6a6a6; padding: 5px; width: 160px; text-align: center;">병원명</th>
         <th style="border: 1px solid #a6a6a6; padding: 5px; width: 90px; text-align: center;">병원EMR</th>
         <th style="border: 1px solid #a6a6a6; padding: 5px; width: 320px; text-align: center;">청구실패사유</th>
-        <th style="border: 1px solid #a6a6a6; padding: 5px; width: 520px; text-align: left;">진료내역 (진료일자 및 UUID)</th>
+        <th style="border: 1px solid #a6a6a6; padding: 5px; width: 520px; text-align: center;">진료내역 (진료일자 및 UUID)</th>
       </tr>
     </thead>
     <tbody>
