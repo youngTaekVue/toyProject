@@ -198,9 +198,10 @@ function handleSort(key: string) {
 }
 
 const fileOptions = computed(() => {
-  return allFileKeys.value
+  const options = allFileKeys.value
       .map(key => ({ title: key.replace(/_/g, '-'), value: key }))
       .sort((a, b) => b.value.localeCompare(a.value));
+  return [{ title: '전체', value: 'all' }, ...options];
 });
 
 const normalizedRows = computed<ErrorDetail[]>(() => {
@@ -247,7 +248,7 @@ const allGroupedClaimCases = computed<ClaimCase[]>(() => {
 });
 
 const groupedClaimCases = computed<ClaimCase[]>(() => {
-  if (!selectedFileKey.value) return allGroupedClaimCases.value;
+  if (!selectedFileKey.value || selectedFileKey.value === 'all') return allGroupedClaimCases.value;
   return allGroupedClaimCases.value.filter(c => c.fileKey === selectedFileKey.value);
 });
 

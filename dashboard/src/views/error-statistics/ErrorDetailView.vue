@@ -135,15 +135,37 @@ function handleSort(key: string) {
 async function loadData() {
   isLoading.value = true;
   try {
-    const dataRes = await fetch(`${API_BASE_URL}/data/${currentFileKey.value}?t=${Date.now()}`);
-    if (!dataRes.ok) throw new Error('Data load failed');
-    const dataJson = await dataRes.json();
+    let loadedRows: ErrorDetail[] = [];
+    if (currentFileKey.value === 'all') {
+      const filesRes = await fetch(`${API_BASE_URL}/files?t=${Date.now()}`);
+      if (!filesRes.ok) throw new Error('Failed to load file list');
+      const filesJson = await filesRes.json();
+      if (filesJson.success && Array.isArray(filesJson.files)) {
+        for (const fileKey of filesJson.files) {
+          const dataRes = await fetch(`${API_BASE_URL}/data/${fileKey}?t=${Date.now()}`);
+          if (!dataRes.ok) continue;
+          const dataJson = await dataRes.json();
+          if (dataJson.success && Array.isArray(dataJson.rows)) {
+            dataJson.rows.forEach((row: ErrorDetail) => {
+              loadedRows.push(row);
+            });
+          }
+        }
+      }
+    } else {
+      const dataRes = await fetch(`${API_BASE_URL}/data/${currentFileKey.value}?t=${Date.now()}`);
+      if (!dataRes.ok) throw new Error('Data load failed');
+      const dataJson = await dataRes.json();
+      if (dataJson.success && Array.isArray(dataJson.rows)) {
+        loadedRows = dataJson.rows;
+      }
+    }
 
-    if (dataJson.success && Array.isArray(dataJson.rows)) {
+    if (loadedRows.length >= 0) {
       const tempPersistedStates: Record<string, RowState> = {};
       const groups: Record<string, ErrorDetail[]> = {};
       
-      dataJson.rows.forEach((row: ErrorDetail) => {
+      loadedRows.forEach((row: ErrorDetail) => {
         const key = getGroupKey(row);
         tempPersistedStates[key] = row.state;
         if (!groups[key]) groups[key] = [];

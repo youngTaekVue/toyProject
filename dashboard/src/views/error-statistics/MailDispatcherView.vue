@@ -677,9 +677,10 @@ function getGroupKey(row: ErrorDetail): string {
 }
 
 const fileOptions = computed(() => {
-  return allFileKeys.value
+  const options = allFileKeys.value
       .map(key => ({ title: key.replace(/_/g, '-'), value: key }))
       .sort((a, b) => b.value.localeCompare(a.value));
+  return [{ title: '전체', value: 'all' }, ...options];
 });
 
 const normalizedRows = computed<ErrorDetail[]>(() => {
@@ -724,7 +725,7 @@ const allGroupedClaimCases = computed<ClaimCase[]>(() => {
 });
 
 const groupedClaimCases = computed<ClaimCase[]>(() => {
-  if (!selectedFileKey.value) return allGroupedClaimCases.value;
+  if (!selectedFileKey.value || selectedFileKey.value === 'all') return allGroupedClaimCases.value;
   return allGroupedClaimCases.value.filter(c => c.fileKey === selectedFileKey.value);
 });
 
@@ -1201,19 +1202,33 @@ function buildEmrMailContentCombined() {
     plain += `[오류별 조치 요령 안내]\n` + plainInstructions + `\n`;
   }
 
-  plain += `■ 기관별 취합 현황:\n`;
-
-  activeHospitals.forEach((h, index) => {
-    const totalCount = h.cases.reduce((sum, c) => sum + c.count, 0);
-    const catNames = Array.from(new Set(h.cases.map(c => appendApiSuffix(c.category, c.rows?.[0]))));
-    const catNamesStr = catNames.join(', ');
-    plain += `${index + 1}) [${h.hospital}] (${catNamesStr}): 오류 ${totalCount}건 발생\n`;
-    h.cases.forEach((err) => {
-      plain += `   - 사유: ${appendApiSuffix(err.category, err.rows?.[0])} (${err.count}건) -> 환자: ${err.patient}\n`;
+  activeHospitals.forEach((h) => {
+    plain += `■ ${h.hospital} - 청구 오류 내역 취합 현황\n\n`;
+    
+    // 병원별 소속 에러 행 추출
+    const allHospitalRows = h.cases.flatMap(c => c.rows || []);
+    const categories = Array.from(new Set(allHospitalRows.map(e => normalizeCategoryName(e.category))));
+    
+    categories.forEach((cat) => {
+      const catErrors = allHospitalRows.filter(e => normalizeCategoryName(e.category) === cat);
+      plain += `■ 청구실패 사유: ${appendApiSuffix(cat, catErrors[0])}\n`;
+      plain += `No | 병원기관번호 | 병원명 | 병원EMR | 청구실패사유 | 진료내역\n`;
+      plain += `------------------------------------------------------------\n`;
+      catErrors.forEach((err, idx) => {
+        const reasonVal = err.category && err.category.includes('(') ? err.category.split('(')[0].trim() : (err.category || '-');
+        const detailsVal = (err.visitDate && err.visitDate !== '-' && err.uuid && err.uuid !== '-') 
+          ? `(진료일자: ${err.visitDate.replace(/-/g, '')} / UUID: ${err.uuid}` 
+          : (err.details || '-');
+        if (idx > 0) {
+          plain += `========================================================================\n`;
+        }
+        plain += `${idx + 1} | ${err.institutionId || '-'} | ${err.hospital || '-'} | ${err.emr || '-'} | ${reasonVal} | ${detailsVal}\n`;
+      });
+      plain += `------------------------------------------------------------\n\n`;
     });
   });
 
-  plain += `\n처리되시면 회신 부탁드립니다.\n감사합니다.\n`;
+  plain += `처리되시면 회신 부탁드립니다.\n감사합니다.\n`;
 
   // ----------------------------------------------------
   // [B] Rich HTML 표 서식 취합 빌드
@@ -1224,50 +1239,72 @@ function buildEmrMailContentCombined() {
   // 조치 가이드 배치 (인사말 아래)
   if (guidelinesHtml) {
     html += `
-    <div style="background-color: #f2f5f8; border-left: 4px solid #1e3a8a; padding: 12px 16px; margin: 15px 0 20px 0; border-radius: 4px; font-size: 12px;">
-      <div style="font-weight: bold; margin-bottom: 8px; color: #1e3a8a;">[오류별 조치 요령 안내]</div>
+    <div style="background-color: #f2f5f8; border-left: 4px solid #1f4e78; padding: 12px 16px; margin: 15px 0 20px 0; border-radius: 4px; font-size: 12px;">
+      <div style="font-weight: bold; margin-bottom: 8px; color: #1f4e78;">[오류별 조치 요령 안내]</div>
       <ul style="margin: 0; padding-left: 18px; color: #444; line-height: 1.6;">
         ${guidelinesHtml}
       </ul>
     </div>`;
   }
 
-  html += `<div style="margin-top: 25px; margin-bottom: 5px; font-size: 15px; font-weight: bold; color: #0f172a;">`;
-  html += `  ■ 기관별 상세 오류 접수 대장 (${dateStr})`;
-  html += `</div>`;
-
   activeHospitals.forEach((h, hIdx) => {
-    const htmlRows = h.cases.flatMap((c) => {
-      return (c.rows || []).map((err, idx) => `
+    const allHospitalRows = h.cases.flatMap(c => c.rows || []);
+    const categories = Array.from(new Set(allHospitalRows.map(e => normalizeCategoryName(e.category))));
+    
+    let htmlTables = '';
+    categories.forEach((cat) => {
+      const catErrors = allHospitalRows.filter(e => normalizeCategoryName(e.category) === cat);
+      const htmlRows = catErrors.map((err, idx) => {
+        const reasonVal = err.category && err.category.includes('(') ? err.category.split('(')[0].trim() : (err.category || '-');
+        const detailsVal = (err.visitDate && err.visitDate !== '-' && err.uuid && err.uuid !== '-') 
+          ? `(진료일자: ${err.visitDate.replace(/-/g, '')} / UUID: ${err.uuid}` 
+          : (err.details || '-');
+        const separator = idx > 0 ? `
+        <tr style="height: 20px;">
+          <td colspan="6" style="border: none; text-align: center; color: #a6a6a6; font-size: 11px; padding: 4px 0;">
+            ========================================================================
+          </td>
+        </tr>
+        ` : '';
+        return separator + `
         <tr style="height: 25px;">
           <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: center; color: #333;">${idx + 1}</td>
           <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: center; color: #333;">${err.institutionId || '-'}</td>
-          <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: left; color: #333;">${appendApiSuffix(err.category, err)}</td>
-          <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: left; color: #333;">${err.details || '-'}</td>
+          <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: left; color: #333;">${err.hospital || '-'}</td>
+          <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: center; color: #333;">${err.emr || '-'}</td>
+          <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: left; color: #333;">${reasonVal}</td>
+          <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: left; color: #333;">${detailsVal}</td>
         </tr>
-      `);
-    }).join('');
+        `;
+      }).join('');
 
-    const catNames = Array.from(new Set(h.cases.map(c => appendApiSuffix(c.category, c.rows?.[0]))));
-    const catNamesStr = catNames.join(', ');
-
-    html += `
-    <div style="margin-top: 15px; margin-bottom: 6px; font-size: 13.5px; font-weight: bold; color: #1e3a8a;">
-      ${hIdx + 1}. ${h.hospital} (${catNamesStr})
+      htmlTables += `
+    <div style="margin-top: 20px; margin-bottom: 8px; font-size: 14px; font-weight: bold; color: #1f4e78;">
+      ■ 청구실패 사유: ${appendApiSuffix(cat, catErrors[0])}
     </div>
-    <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #1e3a8a; margin-bottom: 15px; font-size: 11px;">
+    <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #1f4e78; margin-bottom: 20px; font-size: 11px;">
       <thead>
-        <tr style="background-color: #1e3a8a; color: #ffffff; height: 26px; font-weight: bold;">
-          <th style="border: 1px solid #a6a6a6; padding: 5px; width: 45px; text-align: center;">No</th>
-          <th style="border: 1px solid #a6a6a6; padding: 5px; width: 100px; text-align: center;">기관번호</th>
-          <th style="border: 1px solid #a6a6a6; padding: 5px; width: 200px; text-align: left;">실패분류</th>
-          <th style="border: 1px solid #a6a6a6; padding: 5px; text-align: left;">세부 오류 진단 정보</th>
+        <tr style="background-color: #1f4e78; color: #ffffff; height: 28px; font-weight: bold;">
+          <th style="border: 1px solid #a6a6a6; padding: 5px; width: 40px; text-align: center;">No</th>
+          <th style="border: 1px solid #a6a6a6; padding: 5px; width: 90px; text-align: center;">병원기관번호</th>
+          <th style="border: 1px solid #a6a6a6; padding: 5px; width: 160px; text-align: left;">병원명</th>
+          <th style="border: 1px solid #a6a6a6; padding: 5px; width: 90px; text-align: center;">병원EMR</th>
+          <th style="border: 1px solid #a6a6a6; padding: 5px; width: 170px; text-align: left;">청구실패사유</th>
+          <th style="border: 1px solid #a6a6a6; padding: 5px; text-align: left;">진료내역 (진료일자 및 UUID)</th>
         </tr>
       </thead>
       <tbody>
         ${htmlRows}
       </tbody>
     </table>
+    `;
+    });
+
+    html += `
+    <div style="margin-top: 25px; margin-bottom: 5px; font-size: 16px; font-weight: bold; color: #002060;">
+      ■ ${h.hospital} - 청구 오류 내역 취합 현황
+    </div>
+    ${htmlTables}
     `;
   });
 
