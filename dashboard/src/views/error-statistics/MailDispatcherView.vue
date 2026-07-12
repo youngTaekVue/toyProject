@@ -73,7 +73,45 @@
       <div v-show="activeTab === 'hospital'">
         <v-card class="table-card" elevation="0">
           <v-card-title class="d-flex justify-space-between align-center py-3 px-5 table-card-header flex-wrap gap-y-3">
-            <span class="table-card-title">요양기관별 에러 내역 리스트</span>
+            <div class="d-flex align-center" style="gap: 8px;">
+              <span class="table-card-title mr-2">요양기관별 에러 내역 리스트</span>
+              <v-btn 
+                v-if="selectedHospitalNames.length > 0"
+                color="success" 
+                variant="flat" 
+                density="comfortable"
+                class="font-weight-bold text-none px-3" 
+                style="border-radius: 8px; font-size: 12px; height: 34px; letter-spacing: -0.2px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);"
+                prepend-icon="mdi-email-send-outline"
+                @click="sendBatchToNaverDebugPort('naver')"
+              >
+                선택 전송 (네이버: {{ selectedHospitalNames.length }}건)
+              </v-btn>
+              <v-btn 
+                v-if="selectedHospitalNames.length > 0"
+                color="info" 
+                variant="flat" 
+                density="comfortable"
+                class="font-weight-bold text-none px-3" 
+                style="border-radius: 8px; font-size: 12px; height: 34px; letter-spacing: -0.2px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);"
+                prepend-icon="mdi-email-send-outline"
+                @click="sendBatchToNaverDebugPort('hiworks')"
+              >
+                선택 전송 (하이웍스: {{ selectedHospitalNames.length }}건)
+              </v-btn>
+              <v-btn 
+                v-if="selectedHospitalNames.length > 0"
+                color="warning" 
+                variant="flat" 
+                density="comfortable"
+                class="font-weight-bold text-none px-3" 
+                style="border-radius: 8px; font-size: 12px; height: 34px; letter-spacing: -0.2px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);"
+                prepend-icon="mdi-email-send-outline"
+                @click="sendBatchToNaverDebugPort('other')"
+              >
+                선택 전송 (기타: {{ selectedHospitalNames.length }}건)
+              </v-btn>
+            </div>
             <div class="d-flex align-center gap-2">
               <div class="search-box">
                 <div class="search-input-wrapper">
@@ -87,6 +125,14 @@
           <v-table class="dashboard-table">
             <thead>
               <tr>
+                <th class="text-center" style="width: 50px;">
+                  <input 
+                    type="checkbox" 
+                    :checked="isAllHospitalsSelected" 
+                    @change="toggleAllHospitalsSelection" 
+                    class="custom-checkbox"
+                  />
+                </th>
                 <th class="text-center" style="width: 60px;">No</th>
                 <th class="text-left" style="width: 250px;">요양기관명</th>
                 <th class="text-center" style="width: 100px;">EMR사</th>
@@ -97,10 +143,18 @@
             </thead>
             <tbody>
               <tr v-for="(item, idx) in filteredHospitals" :key="item.hospital">
+                <td class="text-center">
+                  <input 
+                    type="checkbox" 
+                    :value="item.hospital" 
+                    v-model="selectedHospitalNames" 
+                    class="custom-checkbox"
+                  />
+                </td>
                 <td class="text-center text-slate-400">{{ idx + 1 }}</td>
                 <td class="text-left font-weight-medium text-slate-800">{{ item.hospital }}</td>
                 <td class="text-center">
-                  <span class="emr-tag">{{ item.emr }}</span>
+                  <span :class="['emr-tag-badge', getEmrClass(item.emr)]">{{ item.emr }}</span>
                 </td>
                 <td class="text-right font-weight-bold text-red">{{ item.count }}건</td>
                 <td class="text-left">
@@ -120,7 +174,7 @@
                 </td>
               </tr>
               <tr v-if="filteredHospitals.length === 0">
-                <td colspan="6" class="text-center py-10 text-slate-400">조회된 데이터가 없습니다.</td>
+                <td colspan="7" class="text-center py-10 text-slate-400">조회된 데이터가 없습니다.</td>
               </tr>
             </tbody>
           </v-table>
@@ -307,8 +361,38 @@
             </v-row>
           </div>
 
-          <div class="copy-helper-footer d-flex justify-end">
-            <button class="sleek-btn sleek-btn-info-outline" @click="hospitalSetupDialog = false">닫기</button>
+          <div class="copy-helper-footer d-flex justify-end align-center" style="gap: 12px;">
+            <v-btn 
+              color="success" 
+              variant="flat" 
+              class="font-weight-bold text-none px-4" 
+              style="border-radius: 8px; height: 38px;"
+              prepend-icon="mdi-email-send-outline"
+              @click="sendToNaverDebugPort('naver')"
+            >
+              네이버 메일(8080) 전송
+            </v-btn>
+            <v-btn 
+              color="info" 
+              variant="flat" 
+              class="font-weight-bold text-none px-4" 
+              style="border-radius: 8px; height: 38px;"
+              prepend-icon="mdi-email-send-outline"
+              @click="sendToNaverDebugPort('hiworks')"
+            >
+              하이웍스(8080) 전송
+            </v-btn>
+            <v-btn 
+              color="warning" 
+              variant="flat" 
+              class="font-weight-bold text-none px-4" 
+              style="border-radius: 8px; height: 38px;"
+              prepend-icon="mdi-email-send-outline"
+              @click="sendToNaverDebugPort('other')"
+            >
+              기타 메일(8080)
+            </v-btn>
+            <button class="sleek-btn sleek-btn-info-outline" @click="hospitalSetupDialog = false" style="height: 38px;">닫기</button>
           </div>
         </v-card>
       </v-dialog>
@@ -565,6 +649,13 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:300
 
 const isLoading = ref(false);
 const activeTab = ref<'hospital' | 'emr'>('hospital');
+
+const getEmrClass = (emr: string) => {
+  if (!emr || emr === '미지정') return 'emr-unassigned';
+  if (emr.includes('인티그레이션')) return 'emr-integration';
+  if (emr.includes('이원헬스케어')) return 'emr-eone';
+  return 'emr-default';
+};
 const allFileKeys = ref<string[]>([]);
 const selectedFileKey = ref<string>('');
 const rawRows = ref<ErrorDetail[]>([]);
@@ -587,6 +678,19 @@ const emrEmails = ref<Record<string, string>>(JSON.parse(localStorage.getItem('c
 
 // 테이블 제어용
 const hospitalSearch = ref('');
+const selectedHospitalNames = ref<string[]>([]);
+
+const isAllHospitalsSelected = computed(() => {
+  return filteredHospitals.value.length > 0 && selectedHospitalNames.value.length === filteredHospitals.value.length;
+});
+
+function toggleAllHospitalsSelection() {
+  if (isAllHospitalsSelected.value) {
+    selectedHospitalNames.value = [];
+  } else {
+    selectedHospitalNames.value = filteredHospitals.value.map(h => h.hospital);
+  }
+}
 
 // 토스트 피드백
 const snackbar = ref(false);
@@ -942,6 +1046,103 @@ function copyCurrentHospitalMailBody() {
   copyRichText(plain, html);
 }
 
+// 요양기관별 메일 8080 크롬 디버깅 포트 전송 API 호출
+async function sendToNaverDebugPort(serviceType = 'naver') {
+  try {
+    const to = hospitalSetupData.value.to;
+    const cc = hospitalSetupData.value.cc;
+    const subject = hospitalSetupData.value.subject;
+    const html_body = currentHospitalHtmlBody.value;
+
+    // 로컬 백엔드 서버(Express)에 팝업 요청 전송
+    const response = await fetch(`${API_BASE_URL}/open-naver-popup`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        to,
+        cc,
+        subject,
+        html_body,
+        hospital: currentHospitalName.value,
+        service: serviceType
+      })
+    });
+
+    const res = await response.json();
+    if (res.success) {
+      alert(`✅ 크롬 디버깅 8080 포트를 통해 ${serviceType === 'naver' ? '네이버' : '하이웍스'} 메일 주입이 실행되었습니다!`);
+    } else {
+      alert(`❌ 전송 실패: ${res.error || '알 수 없는 오류'}`);
+    }
+  } catch (error) {
+    console.error("메일 디버깅 전송 중 에러:", error);
+    alert(`❌ 에러 발생: ${error.message || error}`);
+  }
+}
+
+// 요양기관 선택 일괄 팝업 전송 API 호출
+async function sendBatchToNaverDebugPort(serviceType = 'naver') {
+  if (selectedHospitalNames.value.length === 0) {
+    alert("선택된 요양기관이 없습니다.");
+    return;
+  }
+
+  const selectedHospitals = filteredHospitals.value.filter(h => selectedHospitalNames.value.includes(h.hospital));
+
+  // 1. 일괄 발송 확인 메시지
+  if (!confirm(`선택한 ${selectedHospitalNames.value.length}개 요양기관의 메일 창(${serviceType === 'naver' ? '네이버' : '하이웍스'})을 띄우시겠습니까?`)) {
+    return;
+  }
+
+  try {
+    // 최신 설정 갱신
+    localIntroText.value = localStorage.getItem('claim_intro_text') || '이메일 또는 메신저로 전달되는 자동화 문구입니다.';
+    localCustomInstructions.value = JSON.parse(localStorage.getItem('claim_custom_instructions') || '{}');
+
+    // 3. 메일 데이터 리스트 구성
+    const mailList = selectedHospitals.map(h => {
+      const errors = h.cases.flatMap((c: any) => c.rows || []);
+      const institutionId = errors[0]?.institutionId || '-';
+      
+      // formatHospitalSpecificText(hospitalName, institutionId, activeErrors)
+      const { html } = formatHospitalSpecificText(h.hospital, institutionId, errors);
+      const subject = buildEmailSubject(h.hospital, selectedFileKey.value);
+      const to = hospitalEmails.value[h.hospital];
+
+      return {
+        hospital: h.hospital,
+        to: to,
+        cc: fixedCc.value.trim(),
+        subject: subject,
+        html_body: html,
+        service: serviceType
+      };
+    });
+
+    // 4. 백엔드로 배치 요청 전송
+    const response = await fetch(`${API_BASE_URL}/open-naver-popup-batch`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ mailList })
+    });
+
+    const res = await response.json();
+    if (res.success) {
+      alert(`✅ ${selectedHospitalNames.value.length}개 병원의 ${serviceType === 'naver' ? '네이버' : '하이웍스'} 메일 주입 스크립트가 실행되었습니다!`);
+      selectedHospitalNames.value = []; // 성공 시 선택 초기화
+    } else {
+      alert(`❌ 전송 실패: ${res.error || '알 수 없는 오류'}`);
+    }
+  } catch (error: any) {
+    console.error("배치 전송 중 에러:", error);
+    alert(`❌ 에러 발생: ${error.message || error}`);
+  }
+}
+
 // ==========================================================================
 // [모달 2] EMR사별 취합 발송 - 듀얼 리스트 요양기관 이동 ("넣을꺼 넣고 뺄꺼 빼고")
 // ==========================================================================
@@ -1257,16 +1458,10 @@ function buildEmrMailContentCombined() {
       const htmlRows = catErrors.map((err, idx) => {
         const reasonVal = err.category && err.category.includes('(') ? err.category.split('(')[0].trim() : (err.category || '-');
         const detailsVal = (err.visitDate && err.visitDate !== '-' && err.uuid && err.uuid !== '-') 
-          ? `(진료일자: ${err.visitDate.replace(/-/g, '')} / UUID: ${err.uuid}` 
+          ? `진료일자: ${err.visitDate.replace(/-/g, '')} / UUID: ${err.uuid}` 
           : (err.details || '-');
-        const separator = idx > 0 ? `
-        <tr style="height: 20px;">
-          <td colspan="6" style="border: none; text-align: center; color: #a6a6a6; font-size: 11px; padding: 4px 0;">
-            ========================================================================
-          </td>
-        </tr>
-        ` : '';
-        return separator + `
+        
+        return `
         <tr style="height: 25px;">
           <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: center; color: #333;">${idx + 1}</td>
           <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: center; color: #333;">${err.institutionId || '-'}</td>
@@ -1279,18 +1474,18 @@ function buildEmrMailContentCombined() {
       }).join('');
 
       htmlTables += `
-    <div style="margin-top: 20px; margin-bottom: 8px; font-size: 14px; font-weight: bold; color: #1f4e78;">
+    <div style="margin-top: 20px; margin-bottom: 8px; font-size: 14px; font-weight: bold; color: #333;">
       ■ 청구실패 사유: ${appendApiSuffix(cat, catErrors[0])}
     </div>
-    <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #1f4e78; margin-bottom: 20px; font-size: 11px;">
+    <table style="width: 100%; border-collapse: collapse; border: 1px solid #a6a6a6; margin-bottom: 20px; font-size: 11px;">
       <thead>
-        <tr style="background-color: #1f4e78; color: #ffffff; height: 28px; font-weight: bold;">
+        <tr style="background-color: #f2f2f2; color: #333333; height: 28px; font-weight: bold;">
           <th style="border: 1px solid #a6a6a6; padding: 5px; width: 40px; text-align: center;">No</th>
           <th style="border: 1px solid #a6a6a6; padding: 5px; width: 90px; text-align: center;">병원기관번호</th>
-          <th style="border: 1px solid #a6a6a6; padding: 5px; width: 160px; text-align: left;">병원명</th>
+          <th style="border: 1px solid #a6a6a6; padding: 5px; width: 160px; text-align: center;">병원명</th>
           <th style="border: 1px solid #a6a6a6; padding: 5px; width: 90px; text-align: center;">병원EMR</th>
-          <th style="border: 1px solid #a6a6a6; padding: 5px; width: 170px; text-align: left;">청구실패사유</th>
-          <th style="border: 1px solid #a6a6a6; padding: 5px; text-align: left;">진료내역 (진료일자 및 UUID)</th>
+          <th style="border: 1px solid #a6a6a6; padding: 5px; width: 170px; text-align: center;">청구실패사유</th>
+          <th style="border: 1px solid #a6a6a6; padding: 5px; text-align: center;">진료내역 (진료일자 및 UUID)</th>
         </tr>
       </thead>
       <tbody>
@@ -1466,40 +1661,34 @@ function formatHospitalSpecificText(hospital: string, institutionId: string, err
     const htmlRows = catErrors.map((err, idx) => {
       const reasonVal = err.category && err.category.includes('(') ? err.category.split('(')[0].trim() : (err.category || '-');
       const detailsVal = (err.visitDate && err.visitDate !== '-' && err.uuid && err.uuid !== '-') 
-        ? `(진료일자: ${err.visitDate.replace(/-/g, '')} / UUID: ${err.uuid}` 
+        ? `진료일자: ${err.visitDate.replace(/-/g, '')} / UUID: ${err.uuid}` 
         : (err.details || '-');
-      const separator = idx > 0 ? `
-      <tr style="height: 20px;">
-        <td colspan="6" style="border: none; text-align: center; color: #a6a6a6; font-size: 11px; padding: 4px 0;">
-          ========================================================================
-        </td>
-      </tr>
-      ` : '';
-      return separator + `
+
+      return `
       <tr style="height: 25px;">
         <td style="border: 1px solid #d9d9d9; padding: 8px 12px; text-align: center; color: #333;">${idx + 1}</td>
         <td style="border: 1px solid #d9d9d9; padding: 8px 12px; text-align: center; color: #333;">${err.institutionId || '-'}</td>
         <td style="border: 1px solid #d9d9d9; padding: 8px 12px; text-align: left; color: #333;">${err.hospital || '-'}</td>
         <td style="border: 1px solid #d9d9d9; padding: 8px 12px; text-align: center; color: #333;">${err.emr || '-'}</td>
-        <td style="border: 1px solid #d9d9d9; padding: 8px 12px; text-align: left; color: #1e3a8a; font-weight: bold;">${reasonVal}</td>
+        <td style="border: 1px solid #d9d9d9; padding: 8px 12px; text-align: left; color: #333;">${reasonVal}</td>
         <td style="border: 1px solid #d9d9d9; padding: 8px 12px; text-align: left; color: #555; word-break: break-all;">${detailsVal}</td>
       </tr>
       `;
     }).join('');
 
     htmlTables += `
-    <div style="margin-top: 18px; margin-bottom: 6px; font-size: 13.5px; font-weight: bold; color: #1f4e78;">
+    <div style="margin-top: 18px; margin-bottom: 6px; font-size: 13.5px; font-weight: bold; color: #333;">
       ■ 청구실패 사유: ${appendApiSuffix(cat, catErrors[0])}
     </div>
-    <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #1f4e78; margin-bottom: 18px; font-size: 12px;">
+    <table style="width: 100%; border-collapse: collapse; border: 1px solid #a6a6a6; margin-bottom: 18px; font-size: 12px;">
       <thead>
-        <tr style="background-color: #1f4e78; color: #ffffff; height: 28px; font-weight: bold;">
+        <tr style="background-color: #f2f2f2; color: #333333; height: 28px; font-weight: bold;">
           <th style="border: 1px solid #a6a6a6; padding: 5px; width: 40px; text-align: center;">No</th>
           <th style="border: 1px solid #a6a6a6; padding: 5px; width: 90px; text-align: center;">병원기관번호</th>
-          <th style="border: 1px solid #a6a6a6; padding: 5px; width: 160px; text-align: left;">병원명</th>
+          <th style="border: 1px solid #a6a6a6; padding: 5px; width: 160px; text-align: center;">병원명</th>
           <th style="border: 1px solid #a6a6a6; padding: 5px; width: 90px; text-align: center;">병원EMR</th>
-          <th style="border: 1px solid #a6a6a6; padding: 5px; width: 170px; text-align: left;">청구실패사유</th>
-          <th style="border: 1px solid #a6a6a6; padding: 5px; text-align: left;">진료내역 (진료일자 및 UUID)</th>
+          <th style="border: 1px solid #a6a6a6; padding: 5px; width: 170px; text-align: center;">청구실패사유</th>
+          <th style="border: 1px solid #a6a6a6; padding: 5px; text-align: center;">진료내역 (진료일자 및 UUID)</th>
         </tr>
       </thead>
       <tbody>
@@ -1623,16 +1812,10 @@ function formatClipboardText(hospital: string, institutionId: string, errors: an
     const htmlRows = catErrors.map((err, idx) => {
       const reasonVal = err.category && err.category.includes('(') ? err.category.split('(')[0].trim() : (err.category || '-');
       const detailsVal = (err.visitDate && err.visitDate !== '-' && err.uuid && err.uuid !== '-') 
-        ? `(진료일자: ${err.visitDate.replace(/-/g, '')} / UUID: ${err.uuid}` 
+        ? `진료일자: ${err.visitDate.replace(/-/g, '')} / UUID: ${err.uuid}` 
         : (err.details || '-');
-      const separator = idx > 0 ? `
-      <tr style="height: 20px;">
-        <td colspan="6" style="border: none; text-align: center; color: #a6a6a6; font-size: 11px; padding: 4px 0;">
-          ========================================================================
-        </td>
-      </tr>
-      ` : '';
-      return separator + `
+
+      return `
       <tr style="height: 25px;">
         <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: center; color: #333;">${idx + 1}</td>
         <td style="border: 1px solid #d9d9d9; padding: 4px 6px; text-align: center; color: #333;">${err.institutionId || '-'}</td>
@@ -1645,18 +1828,18 @@ function formatClipboardText(hospital: string, institutionId: string, errors: an
     }).join('');
 
     htmlTables += `
-  <div style="margin-top: 20px; margin-bottom: 8px; font-size: 14px; font-weight: bold; color: #1f4e78;">
+  <div style="margin-top: 20px; margin-bottom: 8px; font-size: 14px; font-weight: bold; color: #333;">
     ■ 청구실패 사유: ${cat}
   </div>
-  <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #1f4e78; margin-bottom: 20px; font-size: 11px;">
+  <table style="width: 100%; border-collapse: collapse; border: 1px solid #a6a6a6; margin-bottom: 20px; font-size: 11px;">
     <thead>
-      <tr style="background-color: #1f4e78; color: #ffffff; height: 28px; font-weight: bold;">
+      <tr style="background-color: #f2f2f2; color: #333333; height: 28px; font-weight: bold;">
         <th style="border: 1px solid #a6a6a6; padding: 5px; width: 40px; text-align: center;">No</th>
         <th style="border: 1px solid #a6a6a6; padding: 5px; width: 90px; text-align: center;">병원기관번호</th>
-        <th style="border: 1px solid #a6a6a6; padding: 5px; width: 160px; text-align: left;">병원명</th>
+        <th style="border: 1px solid #a6a6a6; padding: 5px; width: 160px; text-align: center;">병원명</th>
         <th style="border: 1px solid #a6a6a6; padding: 5px; width: 90px; text-align: center;">병원EMR</th>
-        <th style="border: 1px solid #a6a6a6; padding: 5px; width: 170px; text-align: left;">청구실패사유</th>
-        <th style="border: 1px solid #a6a6a6; padding: 5px; text-align: left;">진료내역 (진료일자 및 UUID)</th>
+        <th style="border: 1px solid #a6a6a6; padding: 5px; width: 170px; text-align: center;">청구실패사유</th>
+        <th style="border: 1px solid #a6a6a6; padding: 5px; text-align: center;">진료내역 (진료일자 및 UUID)</th>
       </tr>
     </thead>
     <tbody>
@@ -1708,84 +1891,101 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 구글 폰트 및 Pretendard 적용 */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
 .dashboard-wrapper {
   width: 100%;
   margin: 0 auto;
+  font-family: 'Plus Jakarta Sans', 'Pretendard', sans-serif;
 }
 
 .error-monitor-section {
-  font-family: 'Plus Jakarta Sans', 'Pretendard', sans-serif;
-  background-color: #f1f5f9;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   min-height: 100vh;
 }
 
-/* sleek-select */
-.sleek-select {
-  appearance: none;
-  background-color: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 6px 36px 6px 12px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #334155;
-  outline: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  background-size: 14px;
-  cursor: pointer;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-  transition: border-color 0.2s;
-}
-
+/* 프리미엄 카드 디자인 */
 .table-card {
-  background: #ffffff;
-  border-radius: 9px;
-  border: 1px solid #cbd5e1;
-  box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 16px !important;
+  border: 1px solid rgba(226, 232, 240, 0.8) !important;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.04), 0 1px 1px rgba(0, 0, 0, 0.01) !important;
   overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .table-card-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 800;
   color: #0f172a;
+  letter-spacing: -0.3px;
 }
 
 .table-card-header {
   border-bottom: 1px solid #f1f5f9;
-  background-color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(8px);
 }
 
 .field-label {
   font-size: 13px;
   font-weight: 700;
   color: #475569;
+  letter-spacing: -0.2px;
 }
 
+/* 인풋창 스타일링 */
 .sleek-input {
   width: 100%;
-  height: 36px;
+  height: 40px;
   box-sizing: border-box;
-  padding: 6px 12px;
-  font-size: 13px;
+  padding: 8px 14px;
+  font-size: 13.5px;
   border: 1px solid #cbd5e1;
-  border-radius: 8px;
+  border-radius: 10px;
   background-color: #f8fafc;
   outline: none;
-  transition: border-color 0.2s, background-color 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 .sleek-input:focus {
-  border-color: #3b82f6;
+  border-color: #4f46e5;
   background-color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15), inset 0 1px 1px rgba(0, 0, 0, 0.01);
 }
 
+/* 차수 선택 셀렉트 박스 */
+.sleek-select {
+  appearance: none;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 6px 36px 6px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+  outline: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23475569' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  height: 38px;
+}
+.sleek-select:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15);
+}
+
+/* 안내 배너 박스 */
 .info-alert-box {
-  background-color: #fff7ed;
-  border-left: 4px solid #f97316;
-  padding: 10px 14px;
-  border-radius: 4px;
+  background-color: #eff6ff;
+  border-left: 4px solid #3b82f6;
+  padding: 12px 16px;
+  border-radius: 8px;
 }
 
 .bg-blue-light {
@@ -1793,43 +1993,42 @@ onMounted(() => {
   border-left: 4px solid #3b82f6 !important;
 }
 
-/* Custom Nav Tabs */
+/* 슬라이딩 캡슐 형태의 네비게이션 탭 (Vercel/Stripe 스타일) */
 .custom-nav-tabs {
-  display: flex;
-  gap: 8px;
-  border-bottom: 2px solid #e2e8f0;
+  display: inline-flex;
+  background-color: #e2e8f0;
+  padding: 6px;
+  border-radius: 12px;
+  gap: 4px;
+  border: 1px solid #cbd5e1;
 }
 .nav-tab-btn {
   border: none;
   background: transparent;
-  padding: 10px 20px;
-  font-size: 14px;
+  padding: 8px 18px;
+  font-size: 13.5px;
   font-weight: 700;
-  color: #64748b;
+  color: #475569;
   cursor: pointer;
-  position: relative;
-  transition: color 0.2s;
+  border-radius: 8px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   outline: none;
+  display: flex;
+  align-items: center;
 }
 .nav-tab-btn:hover {
-  color: #3b82f6;
+  color: #0f172a;
+  background-color: rgba(255, 255, 255, 0.4);
 }
 .nav-tab-btn.active {
-  color: #3b82f6;
-}
-.nav-tab-btn.active::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background-color: #3b82f6;
+  color: #4f46e5;
+  background-color: #ffffff;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
 }
 
-/* search-box */
+/* 검색 박스 */
 .search-box {
-  width: 200px;
+  width: 220px;
 }
 .search-input-wrapper {
   position: relative;
@@ -1839,114 +2038,185 @@ onMounted(() => {
 }
 .search-input-icon {
   position: absolute;
-  left: 10px;
-  color: #94a3b8;
-  font-size: 16px !important;
+  left: 12px;
+  color: #64748b;
+  font-size: 17px !important;
   pointer-events: none;
 }
 .sleek-search-input {
   width: 100%;
-  height: 32px;
+  height: 36px;
   box-sizing: border-box;
-  padding: 6px 10px 6px 32px;
-  font-size: 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  padding: 6px 12px 6px 36px;
+  font-size: 12.5px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
   background-color: #f8fafc;
-  color: #334155;
+  color: #1e293b;
   outline: none;
-  transition: border-color 0.2s, background-color 0.2s;
+  transition: all 0.3s ease;
 }
 .sleek-search-input:focus {
-  border-color: #3b82f6;
+  border-color: #4f46e5;
   background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
 }
 
-/* Table styles */
+/* 프리미엄 테이블 스타일링 */
 .dashboard-table {
   width: 100%;
   border-collapse: collapse;
 }
 .dashboard-table th {
   background-color: #f8fafc;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 11.5px;
+  font-weight: 800;
   color: #475569;
-  border-bottom: 1px solid #e2e8f0;
-  padding: 10px 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid #e2e8f0;
+  padding: 14px 18px;
 }
 .dashboard-table td {
-  padding: 8px 16px;
+  padding: 10px 18px;
   border-bottom: 1px solid #f1f5f9;
   font-size: 13px;
+  color: #334155;
   vertical-align: middle;
 }
+.dashboard-table tbody tr {
+  transition: background-color 0.2s ease;
+}
+.dashboard-table tbody tr:hover {
+  background-color: rgba(241, 245, 249, 0.5) !important;
+}
 
-/* input inside table */
+/* 테이블 내부 이메일 입력 박스 */
 .table-cell-input {
   width: 100%;
-  height: 28px;
+  height: 32px;
   box-sizing: border-box;
-  padding: 4px 8px;
-  font-size: 12px;
+  padding: 0 12px;
+  font-size: 12.5px;
   border: 1px solid #cbd5e1;
-  border-radius: 6px;
+  border-radius: 8px;
   background-color: #f8fafc;
   outline: none;
+  transition: all 0.25s ease;
+  display: flex;
+  align-items: center;
 }
 .table-cell-input:focus {
   border-color: #3b82f6;
   background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
 
-/* Badge tags */
-.emr-tag {
+/* 프리미엄 커스텀 체크박스 */
+.custom-checkbox {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #cbd5e1;
+  border-radius: 5px;
+  outline: none;
+  background-color: #ffffff;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-block;
+  vertical-align: middle;
+}
+.custom-checkbox:hover {
+  border-color: #94a3b8;
+}
+.custom-checkbox:checked {
+  border-color: #4f46e5;
+  background-color: #4f46e5;
+}
+.custom-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 1.5px;
+  width: 5px;
+  height: 9px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* EMR사별 맞춤형 컬러 배지 스타일 */
+.emr-tag-badge {
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  box-sizing: border-box;
+}
+.emr-tag-badge.emr-unassigned {
+  background-color: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+.emr-tag-badge.emr-integration {
   background-color: #eff6ff;
   color: #2563eb;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 700;
+  border: 1px solid #bfdbfe;
+}
+.emr-tag-badge.emr-eone {
+  background-color: #f5f3ff;
+  color: #7c3aed;
+  border: 1px solid #ddd6fe;
+}
+.emr-tag-badge.emr-default {
+  background-color: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
 }
 
 .text-red {
   color: #ef4444;
 }
 
-/* Buttons */
+/* 액션 버튼 고정 스타일 */
 .sleek-btn {
   border: 1px solid transparent;
   background-color: #f1f5f9;
   color: #475569;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 700;
-  padding: 5px 12px;
-  border-radius: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   outline: none;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
-.sleek-btn-primary {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  color: #ffffff;
-}
-.sleek-btn-primary:hover {
-  opacity: 0.9;
-}
-.sleek-btn-primary:disabled {
-  background: #cbd5e1;
-  color: #94a3b8;
-  cursor: not-allowed;
+.sleek-btn:hover {
+  background-color: #e2e8f0;
+  transform: translateY(-1px);
 }
 .sleek-btn-primary-outline {
   border-color: #e2e8f0;
-  background-color: #ffffff;
-  color: #0284c7;
+  background-color: #f8fafc;
+  color: #4f46e5;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 .sleek-btn-primary-outline:hover {
-  background-color: #f0f9ff;
-  border-color: #0284c7;
+  background-color: #4f46e5;
+  color: #ffffff;
+  border-color: #4f46e5;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
 }
 .sleek-btn-info-outline {
   border-color: #e2e8f0;
@@ -1955,23 +2225,24 @@ onMounted(() => {
 }
 .sleek-btn-info-outline:hover {
   background-color: #f1f5f9;
-  border-color: #64748b;
+  border-color: #cbd5e1;
+  color: #0f172a;
 }
 
 /* ==========================================================================
    복사 도우미 다이얼로그 전용 프리미엄 스타일
    ========================================================================== */
 .copy-helper-card {
-  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
-  border-radius: 12px !important;
-  border: 1px solid #cbd5e1 !important;
+  font-family: 'Pretendard', sans-serif !important;
+  border-radius: 16px !important;
   background-color: #ffffff !important;
   overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15) !important;
 }
 
 .copy-helper-header {
   border-bottom: 1px solid #f1f5f9;
-  padding: 16px 20px !important;
+  padding: 18px 24px !important;
   background-color: #ffffff;
 }
 
@@ -1989,14 +2260,13 @@ onMounted(() => {
   display: flex;
   background-color: #eff6ff;
   border-left: 4px solid #3b82f6;
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 12px 16px;
   color: #1e3a8a;
 }
 
-.input-copy-group .field-title,
 .field-title {
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 700;
   color: #475569;
   display: inline-flex;
@@ -2010,7 +2280,7 @@ onMounted(() => {
 .sleek-input-group {
   display: flex;
   position: relative;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #cbd5e1;
   background-color: #f8fafc;
   border-radius: 10px;
   overflow: hidden;
@@ -2026,7 +2296,7 @@ onMounted(() => {
 .sleek-input-group:focus-within {
   border-color: #4f46e5;
   background-color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12), inset 0 1px 1px rgba(0, 0, 0, 0.01);
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15), inset 0 1px 1px rgba(0, 0, 0, 0.01);
 }
 
 .helper-read-input {
@@ -2036,7 +2306,7 @@ onMounted(() => {
   height: 100%;
   padding: 8px 14px;
   font-size: 13.5px;
-  font-weight: 500;
+  font-weight: 600;
   color: #1e293b;
   font-family: 'Pretendard', sans-serif;
   letter-spacing: -0.2px;
@@ -2045,7 +2315,7 @@ onMounted(() => {
 .input-inline-btn {
   background: #ffffff;
   border: none;
-  border-left: 1px solid #e2e8f0;
+  border-left: 1px solid #cbd5e1;
   color: #64748b;
   width: 44px;
   height: 100%;
@@ -2068,10 +2338,10 @@ onMounted(() => {
   width: 100%;
   box-sizing: border-box;
   padding: 12px;
-  font-size: 12px;
-  font-family: 'Fira Code', monospace;
+  font-size: 12.5px;
+  font-family: 'Fira Code', Consolas, Monaco, monospace;
   line-height: 1.5;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #cbd5e1;
   border-radius: 10px;
   background-color: #f8fafc;
   outline: none;
@@ -2088,7 +2358,7 @@ onMounted(() => {
 .copy-helper-footer {
   background-color: #f8fafc;
   border-top: 1px solid #e2e8f0;
-  padding: 14px 24px !important;
+  padding: 16px 24px !important;
 }
 
 .helper-read-html {
@@ -2097,7 +2367,7 @@ onMounted(() => {
   overflow-y: auto;
   box-sizing: border-box;
   padding: 20px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #cbd5e1;
   border-radius: 12px;
   background-color: #ffffff;
   outline: none;
@@ -2105,7 +2375,7 @@ onMounted(() => {
   line-height: 1.6;
   color: #334155;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-family: 'Pretendard', sans-serif !important;
   transition: border-color 0.3s ease;
 }
 .helper-read-html:hover {
@@ -2133,7 +2403,7 @@ onMounted(() => {
   font-size: 12px !important;
   margin: 16px 0 !important;
   box-shadow: 0 1px 3px rgba(0,0,0,0.02) !important;
-  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-family: 'Pretendard', sans-serif !important;
 }
 .helper-read-html :deep(th) {
   background-color: #1f4e78 !important;
@@ -2222,7 +2492,7 @@ onMounted(() => {
    ========================================================================== */
 .list-container-card {
   border: 1px solid #cbd5e1;
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
   background-color: #ffffff;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
@@ -2233,18 +2503,18 @@ onMounted(() => {
 }
 
 .list-container-header {
-  padding: 10px 14px;
+  padding: 12px 16px;
   border-bottom: 1px solid #cbd5e1;
 }
 
 .list-title {
-  font-size: 13px;
+  font-size: 13.5px;
 }
 
 .list-body-scroll {
   height: 250px;
   overflow-y: auto;
-  padding: 10px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -2277,7 +2547,7 @@ onMounted(() => {
 .empty-list-placeholder {
   text-align: center;
   padding-top: 80px;
-  font-size: 12px;
+  font-size: 12.5px;
   color: #94a3b8;
 }
 

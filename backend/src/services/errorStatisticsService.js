@@ -500,10 +500,84 @@ async function sendMailViaSmtp(to, cc, subject, body) {
   return { success: true, message: '네이버 SMTP를 통해 메일이 성공적으로 발송되었습니다.' };
 }
 
+async function openNaverPopupDebug(to, cc, subject, html_body, hospital, service) {
+  const { exec } = require('child_process');
+  const pythonDir = path.join(__dirname, '../../../007.python');
+  const tempJsonPath = path.join(pythonDir, 'temp_single_mail.json');
+  
+  const mailData = [{
+    hospital: hospital || '알 수 없는 병원',
+    to: to,
+    cc: cc || '',
+    subject: subject,
+    html_body: html_body,
+    service: service || 'naver'
+  }];
+
+  fs.writeFileSync(tempJsonPath, JSON.stringify(mailData, null, 2), 'utf-8');
+
+  const scriptPath = path.join(pythonDir, 'hiworks_mail_debug_port.py');
+  const pythonCmd = `python "${scriptPath}" --temp`;
+  
+  console.log(`[Express Service] Executing command: ${pythonCmd}`);
+  
+  exec(pythonCmd, { 
+    cwd: pythonDir,
+    env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
+  }, (error, stdout, stderr) => {
+    if (error) {
+      console.error(`[Express Backend] 파이썬 자동 팝업 실행 실패: ${error}`);
+      console.error(`[Stderr]: ${stderr}`);
+      return;
+    }
+    console.log(`[Express Backend] 파이썬 자동 팝업 실행 성공:\n${stdout}`);
+  });
+
+  return { success: true, message: '백그라운드에서 크롬 팝업 주입 스크립트가 실행되었습니다.' };
+}
+
+async function openMailPopupBatch(mailList) {
+  const { exec } = require('child_process');
+  const pythonDir = path.join(__dirname, '../../../007.python');
+  const tempJsonPath = path.join(pythonDir, 'temp_single_mail.json');
+  
+  const mailData = mailList.map(item => ({
+    hospital: item.hospital || '알 수 없는 병원',
+    to: item.to,
+    cc: item.cc || '',
+    subject: item.subject,
+    html_body: item.html_body,
+    service: item.service || 'naver'
+  }));
+
+  fs.writeFileSync(tempJsonPath, JSON.stringify(mailData, null, 2), 'utf-8');
+
+  const scriptPath = path.join(pythonDir, 'hiworks_mail_debug_port.py');
+  const pythonCmd = `python "${scriptPath}" --temp`;
+  
+  console.log(`[Express Service] Executing batch command: ${pythonCmd} for ${mailData.length} items`);
+  
+  exec(pythonCmd, { 
+    cwd: pythonDir,
+    env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
+  }, (error, stdout, stderr) => {
+    if (error) {
+      console.error(`[Express Backend] 파이썬 자동 팝업 배치 실행 실패: ${error}`);
+      console.error(`[Stderr]: ${stderr}`);
+      return;
+    }
+    console.log(`[Express Backend] 파이썬 자동 팝업 배치 실행 성공:\n${stdout}`);
+  });
+
+  return { success: true, message: `백그라운드에서 ${mailData.length}건의 메일 팝업 주입 스크립트가 실행되었습니다.` };
+}
+
 module.exports = {
   getExcelFilesList,
   parseExcelFile,
   updateClaimState,
   updateClaimStateMultiple,
-  sendMailViaSmtp
+  sendMailViaSmtp,
+  openNaverPopupDebug,
+  openMailPopupBatch
 };

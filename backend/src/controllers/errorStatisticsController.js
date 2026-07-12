@@ -69,10 +69,38 @@ async function sendMail(req, res) {
     return res.status(error.status || 500).json({ error: error.message || '이메일 발송 중 오류가 발생했습니다.' });
   }
 }
+
+async function openNaverPopup(req, res) {
+  const { to, cc, subject, html_body, hospital } = req.body;
+  try {
+    const result = await errorStatisticsService.openNaverPopupDebug(to, cc, subject, html_body, hospital);
+    return res.json(result);
+  } catch (error) {
+    console.error('Error in openNaverPopup controller:', error);
+    return res.status(error.status || 500).json({ error: error.message || '팝업 실행 중 오류가 발생했습니다.' });
+  }
+}
+
+async function openNaverPopupBatch(req, res) {
+  const { mailList } = req.body;
+  try {
+    if (!mailList || !Array.isArray(mailList)) {
+      return res.status(400).json({ error: '필수 매개변수(mailList 배열)가 누락되었습니다.' });
+    }
+    const result = await errorStatisticsService.openMailPopupBatch(mailList);
+    return res.json(result);
+  } catch (error) {
+    console.error('Error in openNaverPopupBatch controller:', error);
+    return res.status(error.status || 500).json({ error: error.message || '일괄 팝업 실행 중 오류가 발생했습니다.' });
+  }
+}
+
 module.exports = {
   getFiles,
   getFileData,
   updateStatus,
   updateMultipleStatus,
-  sendMail
+  sendMail,
+  openNaverPopup,
+  openNaverPopupBatch
 };

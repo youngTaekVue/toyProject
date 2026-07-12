@@ -14,4 +14,10 @@ router.put('/status', errorStatisticsController.updateStatus);
 // 4. Send email via SMTP
 router.post('/sendMail', errorStatisticsController.sendMail);
 
+// 5. Open Naver Mail popup via Selenium Debug Port
+router.post('/open-naver-popup', errorStatisticsController.openNaverPopup);
+
+// 6. Open multiple mail popups in batch
+router.post('/open-naver-popup-batch', errorStatisticsController.openNaverPopupBatch);
+
 module.exports = router;
