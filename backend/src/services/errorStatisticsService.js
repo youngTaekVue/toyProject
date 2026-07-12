@@ -500,76 +500,396 @@ async function sendMailViaSmtp(to, cc, subject, body) {
   return { success: true, message: '네이버 SMTP를 통해 메일이 성공적으로 발송되었습니다.' };
 }
 
-async function openNaverPopupDebug(to, cc, subject, html_body, hospital, service) {
-  const { exec } = require('child_process');
-  const pythonDir = path.join(__dirname, '../../../007.python');
-  const tempJsonPath = path.join(pythonDir, 'temp_single_mail.json');
+// 백그라운드 크롬 디버깅 포트(8080) 브라우저 자동 기입 로직 (네이티브 Node.js Puppeteer 이식)
+async function executeMailPopupAutomation(mailList) {
+  const puppeteer = require('puppeteer-core');
   
+  let browser;
+  try {
+    console.log('[Express Automation] Connecting to Chrome debugger at port 8080...');
+    browser = await puppeteer.connect({
+      browserURL: 'http://127.0.0.1:8080',
+      defaultViewport: null
+    });
+    console.log('✅ Connected to Chrome successfully!');
+  } catch (err) {
+    console.error('❌ Failed to connect to Chrome at port 8080:', err);
+    throw new Error('포트 8080으로 실행된 크롬 브라우저를 찾을 수 없습니다. 크롬을 완전히 종료 후 디버깅 모드(--remote-debugging-port=8080)로 다시 실행해 주세요.');
+  }
+
+  // 1) 하이웍스 도메인 동적 자동 감지 (사용자가 열어둔 탭 탐색)
+  let detectedHiworksDomain = 'https://mails.office.hiworks.com';
+  try {
+    const pages = await browser.pages();
+    for (const page of pages) {
+      const url = page.url();
+      if (url.includes('mails.office.hiworks.com')) {
+        detectedHiworksDomain = 'https://mails.office.hiworks.com';
+        console.log(`🔍 [하이웍스 감지] 신형 메일 플랫폼 감지: ${detectedHiworksDomain}`);
+        break;
+      } else if (url.includes('office.hiworks.com')) {
+        const parts = url.split('/');
+        if (parts.length >= 4) {
+          detectedHiworksDomain = parts.slice(0, 4).join('/');
+          console.log(`🔍 [하이웍스 감지] 구형 오피스 플랫폼 감지: ${detectedHiworksDomain}`);
+          break;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('⚠️ 하이웍스 도메인 탐색 중 실패 (폴백 사용):', err.message);
+  }
+
+  // 2) 개별 메일 팝업 창 생성 및 주입
+  for (let idx = 0; idx < mailList.length; idx++) {
+    const hosp = mailList[idx];
+    const itemService = hosp.service || 'naver';
+    
+    let writeUrl = '';
+    let isNaver = false;
+    let isHiworks = false;
+    let isOther = false;
+    
+    if (itemService === 'naver') {
+      writeUrl = 'https://mail.naver.com/v2/popup/new';
+      isNaver = true;
+    } else if (itemService === 'hiworks') {
+      const hDomain = hosp.hiworks_domain || detectedHiworksDomain;
+      if (hDomain.includes('mails.office.hiworks.com')) {
+        writeUrl = `${hDomain}/write?mode=normal`;
+      } else {
+        writeUrl = `${hDomain}/mail/write/`;
+      }
+      isHiworks = true;
+    } else if (itemService === 'other') {
+      writeUrl = hosp.other_domain || 'https://mail.example.com';
+      isOther = true;
+    }
+    
+    console.log(`📂 [${idx + 1}/${mailList.length}] ${hosp.hospital} 팝업 창 띄우는 중 (서비스: ${itemService}, 주소: ${writeUrl})...`);
+    
+    try {
+      // 새 탭 생성 및 이동
+      const page = await browser.newPage();
+      
+      // 네이버는 팝업 크기 조절 (Puppeteer viewport)
+      if (isNaver) {
+        await page.setViewport({ width: 1100, height: 750 });
+      }
+      
+      await page.goto(writeUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      
+      // 주소창 로딩 대기
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      if (isNaver) {
+        // [네이버 받는사람 입력]
+        const toSelector = '#recipient_input_element, textarea[placeholder*="받는 사람"], input[placeholder*="받는 사람"], textarea[placeholder*="받는사람"]';
+        try {
+          await page.waitForSelector(toSelector, { timeout: 8000 });
+          if (hosp.to && hosp.to.trim()) {
+            const toEl = await page.$(toSelector);
+            if (toEl) {
+              await toEl.click();
+              await toEl.type(hosp.to);
+              await page.keyboard.press('Enter');
+            }
+          }
+        } catch (e) {
+          console.warn(`⚠️ [${hosp.hospital}] 네이버 받는사람 입력창 대기 시간 초과 또는 실패: ${e.message}`);
+        }
+        
+        // [네이버 제목 입력]
+        try {
+          const subSelector = '#subject_title, input[placeholder*="제목"]';
+          const subEl = await page.$(subSelector);
+          if (subEl) {
+            await subEl.click();
+            await page.evaluate(el => el.value = '', subEl);
+            await subEl.type(hosp.subject);
+          }
+        } catch (e) {
+          console.warn(`⚠️ [${hosp.hospital}] 네이버 제목 주입 실패: ${e.message}`);
+        }
+        
+        // [네이버 HTML 탭 클릭]
+        let htmlBtnClicked = false;
+        try {
+          htmlBtnClicked = await page.evaluate(() => {
+            const xpath = "//button[contains(., 'HTML')] | //span[contains(., 'HTML')] | //a[contains(., 'HTML')]";
+            const res = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+            const el = res.singleNodeValue;
+            if (el) { el.click(); return true; }
+            return false;
+          });
+        } catch (e) {}
+
+        if (!htmlBtnClicked) {
+          const frames = page.frames();
+          for (const frame of frames) {
+            try {
+              htmlBtnClicked = await frame.evaluate(() => {
+                const xpath = "//button[contains(., 'HTML')] | //span[contains(., 'HTML')] | //a[contains(., 'HTML')]";
+                const res = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                const el = res.singleNodeValue;
+                if (el) { el.click(); return true; }
+                return false;
+              });
+              if (htmlBtnClicked) {
+                console.log("👉 [HTML] 버튼 클릭 성공 (iframe 내부)");
+                break;
+              }
+            } catch (e) {}
+          }
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // [네이버 HTML 소스 코드 입력창(textarea) 주입]
+        let sourceInputFilled = false;
+        const taSelector = "textarea[class*='source'], textarea[class*='editor'], textarea#ir1, textarea";
+        
+        try {
+          const ta = await page.$(taSelector);
+          if (ta) {
+            await page.evaluate((el, val) => {
+              el.value = val;
+              el.dispatchEvent(new Event('change'));
+            }, ta, hosp.html_body);
+            sourceInputFilled = true;
+          }
+        } catch (e) {}
+
+        if (!sourceInputFilled) {
+          const frames = page.frames();
+          for (const frame of frames) {
+            try {
+              const ta = await frame.$(taSelector);
+              if (ta) {
+                await frame.evaluate((el, val) => {
+                  el.value = val;
+                  el.dispatchEvent(new Event('change'));
+                }, ta, hosp.html_body);
+                sourceInputFilled = true;
+                console.log("👉 HTML 소스 코드 주입 완료 (iframe 내부)");
+                break;
+              }
+            } catch (e) {}
+          }
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        // [네이버 Editor 탭 복귀]
+        let editorBtnClicked = false;
+        try {
+          editorBtnClicked = await page.evaluate(() => {
+            const xpath = "//button[contains(., 'Editor')] | //span[contains(., 'Editor')] | //button[contains(., '에디터')] | //span[contains(., '에디터')]";
+            const res = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+            const el = res.singleNodeValue;
+            if (el) { el.click(); return true; }
+            return false;
+          });
+        } catch (e) {}
+
+        if (!editorBtnClicked) {
+          const frames = page.frames();
+          for (const frame of frames) {
+            try {
+              editorBtnClicked = await frame.evaluate(() => {
+                const xpath = "//button[contains(., 'Editor')] | //span[contains(., 'Editor')] | //button[contains(., '에디터')] | //span[contains(., '에디터')]";
+                const res = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                const el = res.singleNodeValue;
+                if (el) { el.click(); return true; }
+                return false;
+              });
+              if (editorBtnClicked) {
+                console.log("👉 [Editor] 버튼 복원 완료 (iframe 내부)");
+                break;
+              }
+            } catch (e) {}
+          }
+        }
+        
+      } else if (isHiworks) {
+        // [하이웍스 받는사람 입력]
+        const toSelector = "input[placeholder*='구분하여 입력하세요'], input[class*='AddressInput_address-input'], input[name='to'], #mail_to_input";
+        try {
+          await page.waitForSelector(toSelector, { timeout: 8000 });
+          if (hosp.to && hosp.to.trim()) {
+            const toEl = await page.$(toSelector);
+            if (toEl) {
+              await toEl.click();
+              await toEl.type(hosp.to);
+              await page.keyboard.press('Enter');
+            }
+          }
+        } catch (e) {
+          console.warn(`⚠️ [${hosp.hospital}] 하이웍스 받는사람 입력 실패: ${e.message}`);
+        }
+        
+        // [하이웍스 숨은참조 입력 (선택)]
+        if (hosp.cc && hosp.cc.trim()) {
+          try {
+            // 1) 숨은참조 입력창이 현재 노출 상태인지 확인
+            let bccVisible = await page.evaluate(() => {
+              const xpath = "//*[contains(text(), '숨은참조')]/ancestor::tr//input[contains(@class, 'AddressInput_address-input')] | //th[contains(., '숨은참조')]/..//input | //*[contains(text(), '숨은참조')]/..//input";
+              const res = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+              const el = res.singleNodeValue;
+              return el && el.offsetWidth > 0 && el.offsetHeight > 0;
+            });
+
+            // 2) 숨겨져 있다면 활성화 버튼 클릭
+            if (!bccVisible) {
+              await page.evaluate(() => {
+                const xpath = "//button[contains(., '숨은참조')] | //span[contains(., '숨은참조')] | //a[contains(., '숨은참조')]";
+                const res = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                const el = res.singleNodeValue;
+                if (el) el.click();
+              });
+              await new Promise(resolve => setTimeout(resolve, 300));
+            }
+
+            // 3) 다시 숨은참조 입력창 타겟팅 및 입력
+            await page.evaluate((ccValue) => {
+              const xpath = "//*[contains(text(), '숨은참조')]/ancestor::tr//input[contains(@class, 'AddressInput_address-input')] | //th[contains(., '숨은참조')]/..//input | //*[contains(text(), '숨은참조')]/..//input";
+              const res = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+              let el = res.singleNodeValue;
+              
+              if (!el) {
+                const addrInputs = document.querySelectorAll("input[class*='AddressInput_address-input']");
+                if (addrInputs.length > 2) {
+                  el = addrInputs[2];
+                } else if (addrInputs.length > 1) {
+                  el = addrInputs[1];
+                }
+              }
+              
+              if (el) {
+                el.focus();
+                el.value = ccValue;
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+                return true;
+              }
+              return false;
+            }, hosp.cc);
+            
+            await page.keyboard.press('Enter');
+            console.log("👉 하이웍스 숨은참조(BCC) 주입 완료");
+          } catch (ccErr) {
+            console.warn('⚠️ 하이웍스 숨은참조(BCC) 입력 실패:', ccErr.message);
+          }
+        }
+        
+        // [하이웍스 제목 입력]
+        try {
+          const subSelector = "input[class*='Input_input-right-padding'], input[class*='Input_input__'], input[name='subject'], #mail_subject_input";
+          const subEl = await page.$(subSelector);
+          if (subEl) {
+            await subEl.click();
+            await page.evaluate(el => el.value = '', subEl);
+            await subEl.type(hosp.subject);
+          }
+        } catch (e) {
+          console.warn(`⚠️ [${hosp.hospital}] 하이웍스 제목 주입 실패: ${e.message}`);
+        }
+        
+        // [하이웍스 에디터 본문 주입 - SynapEditor iframe]
+        try {
+          const iframeSelector = "iframe.se-contents-edit, iframe[title='웹에디터'], iframe.editor-iframe";
+          await page.waitForSelector(iframeSelector, { timeout: 8000 });
+          
+          const frames = page.frames();
+          let synapFrame = null;
+          for (const frame of frames) {
+            const hasContents = await frame.$('div.se-contents');
+            if (hasContents) {
+              synapFrame = frame;
+              break;
+            }
+          }
+          
+          if (synapFrame) {
+            await synapFrame.evaluate((bodyHtml) => {
+              var contentsDiv = document.querySelector('div.se-contents');
+              var signBody = document.getElementById('sign_body');
+              if (contentsDiv) {
+                  var mailWrapper = document.createElement('div');
+                  mailWrapper.innerHTML = bodyHtml + '<br>';
+                  
+                  if (signBody) {
+                      contentsDiv.insertBefore(mailWrapper, signBody);
+                      var firstP = contentsDiv.querySelector('p');
+                      if (firstP && firstP !== signBody && (firstP.innerHTML === '<br>' || firstP.textContent.trim() === '')) {
+                          try { contentsDiv.removeChild(firstP); } catch(e) {}
+                      }
+                  } else {
+                      contentsDiv.appendChild(mailWrapper);
+                  }
+                  return true;
+              }
+              return false;
+            }, hosp.html_body);
+            console.log("👉 하이웍스 에디터 본문 주입 완료 (서명 보존)");
+          }
+        } catch (e) {
+          console.warn(`⚠️ [${hosp.hospital}] 하이웍스 에디터 본문 주입 실패: ${e.message}`);
+        }
+        
+      } else if (isOther) {
+        console.log(`👉 [기타 메일] 주입 완료 (수신인: ${hosp.to})`);
+      }
+      
+      console.log(`✅ [${hosp.hospital}] 팝업 데이터 자동 기입 완료!`);
+      
+    } catch (popupErr) {
+      console.error(`❌ [${hosp.hospital}] 메일 창 자동 제어 실패:`, popupErr.message);
+    }
+    
+    // 창 전환 속도 및 부하 대기
+    await new Promise(resolve => setTimeout(resolve, 1500));
+  }
+}
+
+async function openNaverPopupDebug(to, cc, subject, html_body, hospital, service) {
   const mailData = [{
     hospital: hospital || '알 수 없는 병원',
-    to: to,
+    to: to || '',
     cc: cc || '',
-    subject: subject,
-    html_body: html_body,
+    subject: subject || '',
+    html_body: html_body || '',
     service: service || 'naver'
   }];
 
-  fs.writeFileSync(tempJsonPath, JSON.stringify(mailData, null, 2), 'utf-8');
-
-  const scriptPath = path.join(pythonDir, 'hiworks_mail_debug_port.py');
-  const pythonCmd = `python "${scriptPath}" --temp`;
+  console.log(`[Express Service] Starting native Chrome debugger automation for single mail (${service})`);
   
-  console.log(`[Express Service] Executing command: ${pythonCmd}`);
-  
-  exec(pythonCmd, { 
-    cwd: pythonDir,
-    env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
-  }, (error, stdout, stderr) => {
-    if (error) {
-      console.error(`[Express Backend] 파이썬 자동 팝업 실행 실패: ${error}`);
-      console.error(`[Stderr]: ${stderr}`);
-      return;
-    }
-    console.log(`[Express Backend] 파이썬 자동 팝업 실행 성공:\n${stdout}`);
+  // 비동기로 자동 기입 백그라운드 구동 (API 응답 지연 방지)
+  executeMailPopupAutomation(mailData).catch(err => {
+    console.error('[Express Automation Error] 단일 메일 자동 주입 실패:', err.message);
   });
 
-  return { success: true, message: '백그라운드에서 크롬 팝업 주입 스크립트가 실행되었습니다.' };
+  return { success: true, message: '백엔드 크롬 원격 제어가 백그라운드에서 실행되었습니다.' };
 }
 
 async function openMailPopupBatch(mailList) {
-  const { exec } = require('child_process');
-  const pythonDir = path.join(__dirname, '../../../007.python');
-  const tempJsonPath = path.join(pythonDir, 'temp_single_mail.json');
-  
   const mailData = mailList.map(item => ({
     hospital: item.hospital || '알 수 없는 병원',
-    to: item.to,
+    to: item.to || '',
     cc: item.cc || '',
-    subject: item.subject,
-    html_body: item.html_body,
+    subject: item.subject || '',
+    html_body: item.html_body || '',
     service: item.service || 'naver'
   }));
 
-  fs.writeFileSync(tempJsonPath, JSON.stringify(mailData, null, 2), 'utf-8');
-
-  const scriptPath = path.join(pythonDir, 'hiworks_mail_debug_port.py');
-  const pythonCmd = `python "${scriptPath}" --temp`;
+  console.log(`[Express Service] Starting native Chrome debugger automation for batch (${mailData.length}건)`);
   
-  console.log(`[Express Service] Executing batch command: ${pythonCmd} for ${mailData.length} items`);
-  
-  exec(pythonCmd, { 
-    cwd: pythonDir,
-    env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
-  }, (error, stdout, stderr) => {
-    if (error) {
-      console.error(`[Express Backend] 파이썬 자동 팝업 배치 실행 실패: ${error}`);
-      console.error(`[Stderr]: ${stderr}`);
-      return;
-    }
-    console.log(`[Express Backend] 파이썬 자동 팝업 배치 실행 성공:\n${stdout}`);
+  // 비동기 일괄 자동 기입 백그라운드 구동
+  executeMailPopupAutomation(mailData).catch(err => {
+    console.error('[Express Automation Error] 일괄 메일 자동 주입 실패:', err.message);
   });
 
-  return { success: true, message: `백그라운드에서 ${mailData.length}건의 메일 팝업 주입 스크립트가 실행되었습니다.` };
+  return { success: true, message: `총 ${mailData.length}건의 일괄 백엔드 크롬 원격 제어가 시작되었습니다.` };
 }
 
 module.exports = {
