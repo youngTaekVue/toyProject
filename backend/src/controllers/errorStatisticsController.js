@@ -71,9 +71,9 @@ async function sendMail(req, res) {
 }
 
 async function openNaverPopup(req, res) {
-  const { to, cc, subject, html_body, hospital } = req.body;
+  const { to, cc, subject, html_body, hospital, service } = req.body;
   try {
-    const result = await errorStatisticsService.openNaverPopupDebug(to, cc, subject, html_body, hospital);
+    const result = await errorStatisticsService.openNaverPopupDebug(to, cc, subject, html_body, hospital, service);
     return res.json(result);
   } catch (error) {
     console.error('Error in openNaverPopup controller:', error);

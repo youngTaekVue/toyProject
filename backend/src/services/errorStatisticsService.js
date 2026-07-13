@@ -561,9 +561,12 @@ async function executeMailPopupAutomation(mailList) {
         writeUrl = `${hDomain}/mail/write/`;
       }
       isHiworks = true;
-    } else if (itemService === 'other') {
-      writeUrl = hosp.other_domain || 'https://mail.example.com';
-      isOther = true;
+    } else if (itemService === 'portal' || itemService === 'other') {
+      const toVal = hosp.to ? hosp.to : 'silsonapi.dev@kidi.or.kr';
+      const subjectVal = hosp.subject ? encodeURIComponent(hosp.subject) : 'undefined';
+      writeUrl = `https://portal.kidi.or.kr/mail/userMail/goMailWindowWritePopup.do?uid=undefined&listSubject=undefined&folderNm=undefined&userMail=silsonapi.dev@kidi.or.kr&inputUserId=KIDI_silsonapi&messageId=undefined&popup=Y`;
+      if (itemService === 'portal') isPortal = true;
+      else isOther = true;
     }
     
     console.log(`📂 [${idx + 1}/${mailList.length}] ${hosp.hospital} 팝업 창 띄우는 중 (서비스: ${itemService}, 주소: ${writeUrl})...`);
@@ -580,7 +583,7 @@ async function executeMailPopupAutomation(mailList) {
       await page.goto(writeUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
       
       // 주소창 로딩 대기
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 3000));
       
       if (isNaver) {
         // [네이버 받는사람 입력]
@@ -837,8 +840,232 @@ async function executeMailPopupAutomation(mailList) {
           console.warn(`⚠️ [${hosp.hospital}] 하이웍스 에디터 본문 주입 실패: ${e.message}`);
         }
         
-      } else if (isOther) {
-        console.log(`👉 [기타 메일] 주입 완료 (수신인: ${hosp.to})`);
+      } else if (isPortal || isOther) {
+        // [사내포털 받는사람 입력]
+        const toSelector = '#orgAutoCon';
+        try {
+          await page.waitForSelector(toSelector, { timeout: 8000 });
+          if (hosp.to && hosp.to.trim()) {
+            const toEl = await page.$(toSelector);
+            if (toEl) {
+              await toEl.click();
+              await page.evaluate(el => el.value = '', toEl);
+              
+              // 쉼표(,)나 세미콜론(;)으로 구분된 이메일 주소들을 분할하여 하나씩 입력 (토큰 등록용)
+              const toEmails = hosp.to.split(/[,;]/).map(e => e.trim()).filter(Boolean);
+              for (const email of toEmails) {
+                await toEl.type(email);
+                await page.keyboard.press('Enter');
+                await new Promise(resolve => setTimeout(resolve, 300)); // 토큰 등록 대기
+              }
+            }
+          }
+        } catch (e) {
+          console.warn(`⚠️ [${hosp.hospital}] 사내포털 받는사람 입력창 대기 시간 초과 또는 실패: ${e.message}`);
+        }
+
+        // [사내포털 숨은 참조(BCC) 입력]
+        const bccSelector = '#orgAutoConBCC';
+        try {
+          if (hosp.cc && hosp.cc.trim()) {
+            const bccEl = await page.$(bccSelector);
+            if (bccEl) {
+              await bccEl.click();
+              await page.evaluate(el => el.value = '', bccEl);
+              
+              // 쉼표(,)나 세미콜론(;)으로 구분된 이메일 주소들을 분할하여 하나씩 입력 (토큰 등록용)
+              const ccEmails = hosp.cc.split(/[,;]/).map(e => e.trim()).filter(Boolean);
+              for (const email of ccEmails) {
+                await bccEl.type(email);
+                await page.keyboard.press('Enter');
+                await new Promise(resolve => setTimeout(resolve, 300)); // 토큰 등록 대기
+              }
+            }
+          }
+        } catch (e) {
+          console.warn(`⚠️ [${hosp.hospital}] 사내포털 숨은참조 입력 실패: ${e.message}`);
+        }
+        
+        // [사내포털 제목 입력]
+        try {
+          const subSelector = '#subject, #txtSubject, input[name="subject"], input[name="Subject"], #subject_title';
+          const subEl = await page.$(subSelector);
+          if (subEl) {
+            await subEl.click();
+            await page.evaluate(el => el.value = '', subEl);
+            await subEl.type(hosp.subject);
+          }
+        } catch (e) {
+          console.warn(`⚠️ [${hosp.hospital}] 사내포털 제목 주입 실패: ${e.message}`);
+        }
+        
+        // [사내포털 본문(TinyMCE Editor) 주입]
+        console.log(`[사내포털] 본문 주입 시도...`);
+        let bodyInjected = false;
+        
+        // 방법 1: 네이버 메일 스타일 (HTML 탭 클릭 -> textarea에 HTML 주입 -> Editor 탭 복귀)
+        try {
+          // 1) HTML 버튼 클릭 시도 (메인 프레임 및 모든 iframe 검색)
+          let htmlBtnClicked = false;
+          const htmlXpath = "//button[contains(., 'HTML')] | //span[contains(., 'HTML')] | //a[contains(., 'HTML')]";
+          
+          try {
+            htmlBtnClicked = await page.evaluate((xpath) => {
+              const res = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+              const el = res.singleNodeValue;
+              if (el) { el.click(); return true; }
+              return false;
+            }, htmlXpath);
+          } catch (e) {}
+
+          if (!htmlBtnClicked) {
+            const frames = page.frames();
+            for (const frame of frames) {
+              try {
+                htmlBtnClicked = await frame.evaluate((xpath) => {
+                  const res = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                  const el = res.singleNodeValue;
+                  if (el) { el.click(); return true; }
+                  return false;
+                }, htmlXpath);
+                if (htmlBtnClicked) {
+                  console.log("👉 HTML 버튼 클릭 성공 (iframe 내부)");
+                  break;
+                }
+              } catch (e) {}
+            }
+          }
+
+          if (htmlBtnClicked) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // 2) HTML 소스 코드 입력창(textarea#covieditorContainer_html)에 본문 주입
+            const taSelector = '#covieditorContainer_html';
+            let sourceInputFilled = false;
+            
+            try {
+              const ta = await page.$(taSelector);
+              if (ta) {
+                await page.evaluate((el, val) => {
+                  el.value = val;
+                  el.dispatchEvent(new Event('input', { bubbles: true }));
+                  el.dispatchEvent(new Event('change', { bubbles: true }));
+                }, ta, hosp.html_body);
+                sourceInputFilled = true;
+              }
+            } catch (e) {}
+
+            if (!sourceInputFilled) {
+              const frames = page.frames();
+              for (const frame of frames) {
+                try {
+                  const ta = await frame.$(taSelector);
+                  if (ta) {
+                    await frame.evaluate((el, val) => {
+                      el.value = val;
+                      el.dispatchEvent(new Event('input', { bubbles: true }));
+                      el.dispatchEvent(new Event('change', { bubbles: true }));
+                    }, ta, hosp.html_body);
+                    sourceInputFilled = true;
+                    console.log("👉 HTML 소스 코드 주입 완료 (iframe 내부 textarea)");
+                    break;
+                  }
+                } catch (e) {}
+              }
+            }
+
+            if (sourceInputFilled) {
+              await new Promise(resolve => setTimeout(resolve, 300));
+              
+              // 3) Editor 탭 복귀 버튼 클릭 시도 (메인 프레임 및 모든 iframe 검색)
+              let editorBtnClicked = false;
+              const editorXpath = "//button[contains(., 'Editor')] | //span[contains(., 'Editor')] | //button[contains(., '에디터')] | //span[contains(., '에디터')]";
+              
+              try {
+                editorBtnClicked = await page.evaluate((xpath) => {
+                  const res = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                  const el = res.singleNodeValue;
+                  if (el) { el.click(); return true; }
+                  return false;
+                }, editorXpath);
+              } catch (e) {}
+
+              if (!editorBtnClicked) {
+                const frames = page.frames();
+                for (const frame of frames) {
+                  try {
+                    editorBtnClicked = await frame.evaluate((xpath) => {
+                      const res = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                      const el = res.singleNodeValue;
+                      if (el) { el.click(); return true; }
+                      return false;
+                    }, editorXpath);
+                    if (editorBtnClicked) {
+                      console.log("👉 [Editor] 버튼 복원 완료 (iframe 내부)");
+                      break;
+                    }
+                  } catch (e) {}
+                }
+              }
+              
+              if (editorBtnClicked) {
+                bodyInjected = true;
+                console.log('👉 [방법 1] 네이버 스타일 HTML/에디터 탭 전환을 통한 주입 성공!');
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('⚠️ 네이버 스타일 탭 전환 주입 중 예외 발생 (폴백 진행):', err.message);
+        }
+
+        // 방법 2 (폴백): 페이지 컨텍스트 내 TinyMCE API 직접 활용
+        if (!bodyInjected) {
+          try {
+            bodyInjected = await page.evaluate((html) => {
+              if (window.tinymce) {
+                const editor = window.tinymce.get('covieditorContainer') || window.tinymce.activeEditor;
+                if (editor) {
+                  editor.setContent(html);
+                  return true;
+                }
+              }
+              return false;
+            }, hosp.html_body);
+            if (bodyInjected) {
+              console.log('👉 [방법 2] TinyMCE API를 통한 본문 주입 성공 (폴백)');
+            }
+          } catch (e) {
+            console.warn('⚠️ TinyMCE API 주입 실패 (DOM 직접 삽입 폴백 진행):', e.message);
+          }
+        }
+
+        // 방법 3 (최종 폴백): TinyMCE iframe 내부의 body[contenteditable="true"]에 직접 주입
+        if (!bodyInjected) {
+          try {
+            const iframeSelector = '#covieditorContainer_ifr';
+            await page.waitForSelector(iframeSelector, { timeout: 8000 });
+            const iframeHandle = await page.$(iframeSelector);
+            if (iframeHandle) {
+              const frame = await iframeHandle.contentFrame();
+              if (frame) {
+                bodyInjected = await frame.evaluate((html) => {
+                  const body = document.querySelector('body#tinymce, body[contenteditable="true"], body');
+                  if (body) {
+                    body.innerHTML = html;
+                    return true;
+                  }
+                  return false;
+                }, hosp.html_body);
+                
+                if (bodyInjected) {
+                  console.log('👉 [방법 3] TinyMCE iframe 내부 DOM 직접 삽입 성공 (최종 폴백)');
+                }
+              }
+            }
+          } catch (e) {
+            console.warn(`⚠️ [${hosp.hospital}] TinyMCE iframe 본문 주입 실패: ${e.message}`);
+          }
+        }
       }
       
       console.log(`✅ [${hosp.hospital}] 팝업 데이터 자동 기입 완료!`);
@@ -848,7 +1075,7 @@ async function executeMailPopupAutomation(mailList) {
     }
     
     // 창 전환 속도 및 부하 대기
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    await new Promise(resolve => setTimeout(resolve, 3000));
   }
 }
 

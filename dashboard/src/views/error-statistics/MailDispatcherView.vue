@@ -101,6 +101,18 @@
               </v-btn>
               <v-btn 
                 v-if="selectedHospitalNames.length > 0"
+                color="indigo" 
+                variant="flat" 
+                density="comfortable"
+                class="font-weight-bold text-none px-3" 
+                style="border-radius: 8px; font-size: 12px; height: 34px; letter-spacing: -0.2px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);"
+                prepend-icon="mdi-email-send-outline"
+                @click="sendBatchToNaverDebugPort('portal')"
+              >
+                선택 전송 (사내메일: {{ selectedHospitalNames.length }}건)
+              </v-btn>
+              <v-btn 
+                v-if="selectedHospitalNames.length > 0"
                 color="warning" 
                 variant="flat" 
                 density="comfortable"
@@ -381,6 +393,16 @@
               @click="sendToNaverDebugPort('hiworks')"
             >
               하이웍스(8080) 전송
+            </v-btn>
+            <v-btn 
+              color="indigo" 
+              variant="flat" 
+              class="font-weight-bold text-none px-4" 
+              style="border-radius: 8px; height: 38px;"
+              prepend-icon="mdi-email-send-outline"
+              @click="sendToNaverDebugPort('portal')"
+            >
+              사내 메일(8080) 전송
             </v-btn>
             <v-btn 
               color="warning" 
@@ -1072,7 +1094,8 @@ async function sendToNaverDebugPort(serviceType = 'naver') {
 
     const res = await response.json();
     if (res.success) {
-      alert(`✅ 크롬 디버깅 8080 포트를 통해 ${serviceType === 'naver' ? '네이버' : '하이웍스'} 메일 주입이 실행되었습니다!`);
+      const serviceName = serviceType === 'naver' ? '네이버' : (serviceType === 'hiworks' ? '하이웍스' : (serviceType === 'portal' ? '사내메일' : '기타'));
+      alert(`✅ 크롬 디버깅 8080 포트를 통해 ${serviceName} 메일 주입이 실행되었습니다!`);
     } else {
       alert(`❌ 전송 실패: ${res.error || '알 수 없는 오류'}`);
     }
@@ -1090,9 +1113,10 @@ async function sendBatchToNaverDebugPort(serviceType = 'naver') {
   }
 
   const selectedHospitals = filteredHospitals.value.filter(h => selectedHospitalNames.value.includes(h.hospital));
+  const serviceName = serviceType === 'naver' ? '네이버' : (serviceType === 'hiworks' ? '하이웍스' : (serviceType === 'portal' ? '사내메일' : '기타'));
 
   // 1. 일괄 발송 확인 메시지
-  if (!confirm(`선택한 ${selectedHospitalNames.value.length}개 요양기관의 메일 창(${serviceType === 'naver' ? '네이버' : '하이웍스'})을 띄우시겠습니까?`)) {
+  if (!confirm(`선택한 ${selectedHospitalNames.value.length}개 요양기관의 메일 창(${serviceName})을 띄우시겠습니까?`)) {
     return;
   }
 
@@ -1132,7 +1156,7 @@ async function sendBatchToNaverDebugPort(serviceType = 'naver') {
 
     const res = await response.json();
     if (res.success) {
-      alert(`✅ ${selectedHospitalNames.value.length}개 병원의 ${serviceType === 'naver' ? '네이버' : '하이웍스'} 메일 주입 스크립트가 실행되었습니다!`);
+      alert(`✅ ${selectedHospitalNames.value.length}개 병원의 ${serviceName} 메일 주입 스크립트가 실행되었습니다!`);
       selectedHospitalNames.value = []; // 성공 시 선택 초기화
     } else {
       alert(`❌ 전송 실패: ${res.error || '알 수 없는 오류'}`);
