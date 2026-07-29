@@ -4,6 +4,7 @@ import re
 import time
 import calendar
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -49,15 +50,20 @@ def load_report_data(year, week):
 
 def save_report_data(year, week, tasks, formatted_text):
     json_path = get_report_filepath(year, week)
+    txt_path = json_path.replace(".json", ".txt")
 
     try:
-        # 구조화된 JSON 데이터만 저장
+        # 1. 구조화된 JSON 데이터 저장
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump({
                 "year": year,
                 "week": week,
                 "tasks": tasks
             }, f, ensure_ascii=False, indent=2)
+
+        # 2. 바로 복사해 쓸 수 있는 TXT 텍스트 파일 저장
+        with open(txt_path, "w", encoding="utf-8") as f:
+            f.write(formatted_text)
 
         return True
     except Exception as e:
@@ -360,6 +366,66 @@ class TaskCard(ttk.LabelFrame):
         self.txt_details.insert("1.0", details)
         self.txt_details.bind("<KeyRelease>", self.on_key_release)
 
+        # --- [신규] AI 제안 컨테이너 프레임 (처음에는 비노출) ---
+        self.ai_proposal_frame = ttk.Frame(inner_frame, padding=(2, 4))
+        
+        # 1) 제안 헤더 바 (좌측 타이틀 + 우측 적용/거절 버튼)
+        proposal_header = ttk.Frame(self.ai_proposal_frame)
+        proposal_header.pack(fill="x", pady=(0, 2))
+        
+        self.lbl_proposal_tag = ttk.Label(
+            proposal_header, text="✨ AI 추천 문장", 
+            font=("Malgun Gothic", 9, "bold"), foreground="#137333"
+        )
+        self.lbl_proposal_tag.pack(side="left")
+        
+        self.btn_reject_proposal = tk.Button(
+            proposal_header, text="❌ 거절",
+            command=self.hide_ai_proposal,
+            relief="flat", bd=0, cursor="hand2", bg="#FCE8E6", fg="#C5221F",
+            font=("Malgun Gothic", 8, "bold"), padx=6, pady=1
+        )
+        self.btn_reject_proposal.pack(side="right", padx=2)
+
+        self.btn_apply_proposal = tk.Button(
+            proposal_header, text="✔️ 적용",
+            command=self.apply_proposal,
+            relief="flat", bd=0, cursor="hand2", bg="#E6F4EA", fg="#137333",
+            font=("Malgun Gothic", 8, "bold"), padx=6, pady=1
+        )
+        self.btn_apply_proposal.pack(side="right", padx=2)
+
+        # 2) 제안 본문 바 (다중 라인 자동 줄바꿈 라벨로 잘림 차단)
+        proposal_body = ttk.Frame(self.ai_proposal_frame)
+        proposal_body.pack(fill="x")
+        
+        self.lbl_proposal = ttk.Label(
+            proposal_body, text="",
+            font=("Malgun Gothic", 9, "italic"),
+            foreground="#555555",
+            justify="left",
+            anchor="w",
+            wraplength=480  # 480px 도달 시 자동 줄바꿈
+        )
+        self.lbl_proposal.pack(fill="x", expand=True, padx=5, pady=2)
+
+    def show_ai_proposal(self, proposal_text):
+        self.lbl_proposal.config(text=proposal_text)
+        # 상세 업무 내용 바로 아래에 pack
+        self.ai_proposal_frame.pack(fill="x", pady=(5, 0))
+        self.parent.repack_cards()
+
+    def hide_ai_proposal(self):
+        self.ai_proposal_frame.pack_forget()
+        self.parent.repack_cards()
+
+    def apply_proposal(self):
+        proposal_text = self.lbl_proposal.cget("text")
+        self.txt_details.delete("1.0", tk.END)
+        self.txt_details.insert("1.0", proposal_text)
+        self.hide_ai_proposal()
+        self.on_change_callback()
+
     def update_label(self, idx):
         self.config(text=f" 📋 업무 #{idx} ")
 
@@ -500,25 +566,16 @@ class NativeWeeklyReportApp(tk.Tk):
         ai_control_bar = ttk.Frame(right_box)
         ai_control_bar.pack(fill="x", pady=(0, 5))
 
-        # ✨ [AI 정제 생성] 수동 실행 버튼
+        # ✨ [AI 문장 교정 제안] 수동 실행 버튼 (콤보 박스는 요구대로 제거)
         self.btn_run_ai = ttk.Button(
             ai_control_bar,
-            text="✨ AI 정제 생성",
+            text="✨ AI 문장 교정 제안",
             command=self.request_ai_refinement
         )
         self.btn_run_ai.pack(side="left")
 
         if not self.gemini_client:
             self.btn_run_ai.config(state="disabled")
-
-        self.combo_ai_mode = ttk.Combobox(
-            ai_control_bar,
-            values=["핵심 요약형", "정통 보고서형"],
-            width=12,
-            state="readonly"
-        )
-        self.combo_ai_mode.set("핵심 요약형")
-        self.combo_ai_mode.pack(side="right")
 
         self.txt_output = tk.Text(
             right_box,
@@ -605,7 +662,7 @@ class NativeWeeklyReportApp(tk.Tk):
     def render_basic_text(self):
         raw_text = self._build_raw_text()
         self._update_output_text(raw_text)
-        self.lbl_status.config(text="기본 텍스트 조합 완료 (AI 정제 필요 시 버튼 클릭)")
+        self.lbl_status.config(text="기본 텍스트 조합 완료 (AI 교정 제안 필요 시 버튼 클릭)")
 
     def _build_raw_text(self):
         formatted_lines = []
@@ -636,69 +693,93 @@ class NativeWeeklyReportApp(tk.Tk):
 
         return "\n".join(formatted_lines)
 
-    # 버튼 클릭 시에만 Gemini API 연동 호출
+    # 버튼 클릭 시에만 Gemini API 연동 호출 (단일 호출 통합 스레드 구동)
     def request_ai_refinement(self):
-        raw_text = self._build_raw_text()
-
-        if not raw_text.strip():
-            messagebox.showwarning("주의", "정제할 업무 내용이 없습니다.")
-            return
-
         if not self.gemini_client:
             messagebox.showerror("오류", "Gemini API가 연동되지 않았습니다. .env 파일의 API Key를 확인해 주세요.")
             return
 
+        # AI 요청용 카드별 결합 텍스트 빌드
+        ai_input_lines = []
+        has_content = False
+        for idx, card in enumerate(self.rows, 1):
+            data = card.get_data()
+            details = data["details"].strip()
+            if details:
+                ai_input_lines.append(f"===CARD_{idx}===\n{details}")
+                has_content = True
+
+        if not has_content:
+            messagebox.showwarning("주의", "교정 제안을 생성할 세부 내용이 없습니다.")
+            return
+
+        raw_input_text = "\n\n".join(ai_input_lines)
+
         self.btn_run_ai.config(state="disabled")
-        self.lbl_status.config(text="✨ Gemini AI 정제 요청 중...")
-        mode = self.combo_ai_mode.get()
+        self.lbl_status.config(text="✨ AI 문장 교정 제안 생성 중...")
 
         threading.Thread(
-            target=self._run_gemini_refine_thread,
-            args=(raw_text, mode),
+            target=self._run_single_call_refine_thread,
+            args=(raw_input_text,),
             daemon=True
         ).start()
 
-    # --- Gemini API 호출 스레드 메서드 ---
-    def _run_gemini_refine_thread(self, raw_text, mode):
-        style_instruction = "핵심 요약 형태(불렛포인트)" if mode == "핵심 요약형" else "격식 있는 정통 보고서 형태(줄글/명확한 문장)"
+    # --- 단 1회의 API 호출로 전체 카드를 통합 교정 처리하여 429 할당량 초과 차단 ---
+    def _run_single_call_refine_thread(self, raw_input_text):
         sys_instruction = (
-            f"너는 의료/시스템 업무 주간보고서 정제 전문가이다. "
-            f"입력된 업무 항목들을 읽고, 가독성이 높고 명확한 {style_instruction}로 정제하라. "
-            f"원문의 요양기관명, 작업 내용, 통신 체크 및 완료 여부 등의 중요한 핵심 정보는 절대로 누락하지 마라."
+            "너는 주간보고서 상세 문장 교정 전문가이다.\n"
+            "사용자가 전달한 본문은 여러 개의 카드 입력 정보이며, 각 카드 정보는 '===CARD_번호===' 마커로 구분되어 있다.\n"
+            "네 역할은 각 마커 뒤에 오는 상세 문장을 읽고, 원래 의미를 절대 훼손하지 않으면서 격식 있고 전문적인 '보고서용 개조식 문체'로 매끄럽고 고급스럽게 교정하는 것이다.\n\n"
+            "말투 규칙:\n"
+            "1. '~하였습니다', '~했습니다', '~합니다', '~함' 등의 서술형 종결어미를 절대 쓰지 마라.\n"
+            "2. 무조건 명사나 명사형 종결어미(예: '~ 완료', '~ 조치', '~ 분석', '~ 요청', '~ 확인', '~ 진행', '~ 파악')로 문장을 간결하게 끝맺어라.\n"
+            "   - [잘못된 예] 원격 연결을 통해 SSL 인증서를 갱신하였습니다. -> [올바른 예] 원격 연결을 통한 SSL 인증서 수동 갱신 완료\n"
+            "   - [잘못된 예] 에러가 나서 개발팀에 물어보고 조치했습니다. -> [올바른 예] 시스템 오류 발생에 따른 연동 부서 확인 및 조치 완료\n"
+            "3. 출력 양식은 입력받은 마커 구조('===CARD_번호===')를 절대 지우거나 수정하지 말고 그대로 복사해서 각 결과의 헤더로 유지하라.\n"
+            "   - 예시:\n"
+            "     ===CARD_1===\n"
+            "     원격 연결을 통한 SSL 인증서 수동 갱신 완료\n"
+            "     ===CARD_2===\n"
+            "     시스템 오류 발생에 따른 연동 부서 확인 및 조치 완료\n"
+            "4. 없는 사실을 지어내거나 추정하여 새로운 작업 내용을 임의로 추가하지 마라."
         )
 
-        max_retries = 3
-        refined_result = None
-
-        for attempt in range(max_retries):
-            try:
-                response = self.gemini_client.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=raw_text,
-                    config=types.GenerateContentConfig(
-                        system_instruction=sys_instruction,
-                        temperature=0.2,
-                    )
+        refined_output = None
+        try:
+            response = self.gemini_client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=raw_input_text,
+                config=types.GenerateContentConfig(
+                    system_instruction=sys_instruction,
+                    temperature=0.2,
                 )
-                refined_result = response.text
-                break
-            except APIError as e:
-                if e.code == 429:
-                    time.sleep((attempt + 1) * 1.5)
-                else:
-                    break
-            except Exception as e:
-                print(f"API Error: {e}")
-                break
+            )
+            refined_output = response.text.strip()
+        except Exception as e:
+            print(f"API Error: {e}")
 
         # UI 업데이트는 메인 스레드에서 처리
         def update_ui():
             self.btn_run_ai.config(state="normal")
-            if refined_result:
-                self._update_output_text(refined_result)
-                self.lbl_status.config(text="✨ Gemini AI 정제 완료!")
+            if not refined_output:
+                self.lbl_status.config(text="AI 교정 제안 생성 실패")
+                return
+
+            # 정규식 패턴으로 각 CARD 번호와 문장 매핑 파싱
+            pattern = r"===CARD_(\d+)===\s*(.*?)(?=\s*===CARD_\d+===|\s*$)"
+            matches = re.findall(pattern, refined_output, re.DOTALL)
+            proposal_map = {int(idx): text.strip() for idx, text in matches}
+
+            success_count = 0
+            for idx, card in enumerate(self.rows, 1):
+                if idx in proposal_map and proposal_map[idx]:
+                    card.show_ai_proposal(proposal_map[idx])
+                    success_count += 1
+
+            if success_count > 0:
+                self.lbl_status.config(text=f"✨ {success_count}개 업무에 AI 교정 제안 완료! (개별 카드별로 [적용] 여부를 결정하세요)")
             else:
-                self.lbl_status.config(text="AI 정제 실패 (기본 텍스트 유지)")
+                self.lbl_status.config(text="AI 제안 파싱 실패 (양식 불일치)")
 
         self.after(0, update_ui)
 
