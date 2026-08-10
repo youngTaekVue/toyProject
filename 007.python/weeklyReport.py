@@ -32,8 +32,17 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-# 사용자의 주간 계산 오프셋 (+8주)
-WEEK_OFFSET = 8
+# --- 상태 및 요청자 상수 ---
+STATUS_PENDING = "작업대기"
+STATUS_DOING = "작업중"
+STATUS_DONE = "완료"
+REQUESTER_NONE = "선택안함"
+REQUESTER_INTERNAL_DEPT = "내부부서"
+REQUESTER_INTERNAL_CALL = "내부전화"
+REQUESTER_TRX = "송수신"
+
+# 사용자의 주간 계산 오프셋 (+9주)
+WEEK_OFFSET = 9
 
 def get_report_filepath(year, week):
     return os.path.join(DATA_DIR, f"report_{year}_W{week:02d}.json")
@@ -99,18 +108,18 @@ def parse_legacy_text(raw_text):
         first_line = lines[0]
         first_line = re.sub(r"^[✔⏳💤⏸]\s*", "", first_line)
 
-        status = "작업대기"
+        status = STATUS_PENDING
         status_match = re.search(r"\[(작업대기|작업중|완료|콜요청|요청|청구\s*실패|Done|Doing|WIP|Pending|To Do|Hold)\]", first_line, re.IGNORECASE)
 
         title = first_line
         if status_match:
             raw_status = status_match.group(1)
             if raw_status in ["완료", "Done"]:
-                status = "완료"
+                status = STATUS_DONE
             elif raw_status in ["작업중", "진행중", "Doing", "WIP"]:
-                status = "작업중"
+                status = STATUS_DOING
             else:
-                status = "작업대기"
+                status = STATUS_PENDING
 
             title = first_line.replace(status_match.group(0), "").strip()
 
@@ -122,7 +131,7 @@ def parse_legacy_text(raw_text):
         details = "\n".join(details_list)
         tasks.append({
             "title": title,
-            "requester": "선택안함",
+            "requester": REQUESTER_NONE,
             "status": status,
             "details": details,
             "start_time": "",
@@ -248,11 +257,12 @@ class CalendarPopup(tk.Toplevel):
 # ----------------------------------------
 class TaskCard(ttk.LabelFrame):
     def __init__(self, parent, container, on_change_callback, on_delete_callback,
-                 title="", requester="선택안함", status="작업대기", details="", start_time="", end_date=""):
+                 title="", requester=REQUESTER_NONE, status=STATUS_PENDING, details="", start_time="", end_date=""):
         super().__init__(container, text=" 📋 업무 ")
         self.parent = parent
         self.on_change_callback = on_change_callback
         self.on_delete_callback = on_delete_callback
+        self.is_dirty = False  # AI 교정 필요 여부 플래그
 
         self._setup_ui(title, requester, status, details, start_time, end_date)
 
@@ -272,25 +282,25 @@ class TaskCard(ttk.LabelFrame):
         ttk.Label(row1, text="요청자").pack(side="left", padx=(8, 4))
         self.combo_requester = ttk.Combobox(
             row1,
-            values=["선택안함", "내부부서", "내부전화", "송수신"],
+            values=[REQUESTER_NONE, REQUESTER_INTERNAL_DEPT, REQUESTER_INTERNAL_CALL, REQUESTER_TRX],
             width=8,
             state="readonly",
             justify="center"
         )
         self.combo_requester.pack(side="left", padx=2)
-        self.combo_requester.set(requester if requester else "선택안함")
+        self.combo_requester.set(requester if requester else REQUESTER_NONE)
         self.combo_requester.bind("<<ComboboxSelected>>", self.on_combo_change)
 
         ttk.Label(row1, text="진행상태").pack(side="left", padx=(8, 4))
         self.combo_status = ttk.Combobox(
             row1,
-            values=["작업대기", "작업중", "완료"],
+            values=[STATUS_PENDING, STATUS_DOING, STATUS_DONE],
             width=8,
             state="readonly",
             justify="center"
         )
         self.combo_status.pack(side="left", padx=2)
-        self.combo_status.set(status if status else "작업대기")
+        self.combo_status.set(status if status else STATUS_PENDING)
         self.combo_status.bind("<<ComboboxSelected>>", self.on_combo_change)
 
         row2 = ttk.Frame(inner_frame)
@@ -424,6 +434,7 @@ class TaskCard(ttk.LabelFrame):
         self.txt_details.delete("1.0", tk.END)
         self.txt_details.insert("1.0", proposal_text)
         self.hide_ai_proposal()
+        self.is_dirty = False  # AI 제안 적용 시, 'clean' 상태로 변경
         self.on_change_callback()
 
     def update_label(self, idx):
@@ -446,9 +457,11 @@ class TaskCard(ttk.LabelFrame):
         }
 
     def on_key_release(self, event=None):
+        self.is_dirty = True  # 내용 변경 시, 'dirty' 상태로 변경
         self.on_change_callback()
 
     def on_combo_change(self, event=None):
+        self.is_dirty = True  # 내용 변경 시, 'dirty' 상태로 변경
         self.on_change_callback()
 
     def delete_row(self):
@@ -601,10 +614,11 @@ class NativeWeeklyReportApp(tk.Tk):
             self.canvas.itemconfig(self.canvas_window, width=event.width)
 
     def add_empty_row(self):
-        self.add_row()
+        card = self.add_row()
+        card.is_dirty = True  # 새로 추가된 빈 카드는 항상 'dirty' 상태
         self.render_basic_text()
 
-    def add_row(self, title="", requester="선택안함", status="작업대기", details="", start_time="", end_date=""):
+    def add_row(self, title="", requester=REQUESTER_NONE, status=STATUS_PENDING, details="", start_time="", end_date=""):
         card = TaskCard(
             self,
             self.scrollable_frame,
@@ -619,6 +633,7 @@ class NativeWeeklyReportApp(tk.Tk):
         )
         self.rows.append(card)
         self.repack_cards()
+        return card
 
     def remove_row(self, row_obj):
         if len(self.rows) <= 1:
@@ -699,18 +714,17 @@ class NativeWeeklyReportApp(tk.Tk):
             messagebox.showerror("오류", "Gemini API가 연동되지 않았습니다. .env 파일의 API Key를 확인해 주세요.")
             return
 
-        # AI 요청용 카드별 결합 텍스트 빌드
+        # AI 요청용 텍스트 빌드 (내용이 변경된 'dirty' 카드만 대상)
         ai_input_lines = []
-        has_content = False
+        has_dirty_content = False
         for idx, card in enumerate(self.rows, 1):
-            data = card.get_data()
-            details = data["details"].strip()
-            if details:
+            if card.is_dirty and card.get_data()["details"]:
+                details = card.get_data()["details"].strip()
                 ai_input_lines.append(f"===CARD_{idx}===\n{details}")
-                has_content = True
+                has_dirty_content = True
 
-        if not has_content:
-            messagebox.showwarning("주의", "교정 제안을 생성할 세부 내용이 없습니다.")
+        if not has_dirty_content:
+            messagebox.showwarning("주의", "AI 교정을 요청할 변경된 내용이 없습니다.")
             return
 
         raw_input_text = "\n\n".join(ai_input_lines)
@@ -724,7 +738,7 @@ class NativeWeeklyReportApp(tk.Tk):
             daemon=True
         ).start()
 
-    # --- 단 1회의 API 호출로 전체 카드를 통합 교정 처리하여 429 할당량 초과 차단 ---
+    # --- 단 1회의 API 호출로 전체 카드를 통합 교정 처리 (429 한도 초과 시 모델 자동 변경 및 대기 재시도) ---
     def _run_single_call_refine_thread(self, raw_input_text):
         sys_instruction = (
             "너는 주간보고서 상세 문장 교정 전문가이다.\n"
@@ -745,27 +759,64 @@ class NativeWeeklyReportApp(tk.Tk):
         )
 
         refined_output = None
-        try:
+
+        # 순차적으로 시도할 대체 모델 리스트 (존재하는 모델명으로 수정)
+        candidate_models = ["gemini-1.5-flash", "gemini-1.5-pro"]
+
+        def make_api_call(target_model):
             response = self.gemini_client.models.generate_content(
-                model="gemini-2.5-flash",
+                model=target_model,
                 contents=raw_input_text,
                 config=types.GenerateContentConfig(
                     system_instruction=sys_instruction,
                     temperature=0.2,
                 )
             )
-            refined_output = response.text.strip()
-        except Exception as e:
-            print(f"API Error: {e}")
+            return response.text.strip()
 
-        # UI 업데이트는 메인 스레드에서 처리
+        # 1. 모델 순회하며 호출 시도
+        for model_name in candidate_models:
+            try:
+                print(f"🤖 [{model_name}] 모델로 AI 교정 호출 시도...")
+                refined_output = make_api_call(model_name)
+                print(f"✅ [{model_name}] 호출 성공!")
+                break
+            except APIError as e:
+                if e.code == 429 or "RESOURCE_EXHAUSTED" in str(e):
+                    print(f"⚠️ [{model_name}] 한도 초과(429). 다음 모델로 전환합니다.")
+                    self.after(0, lambda m=model_name: self.lbl_status.config(
+                        text=f"⏳ {m} 한도 초과로 대체 모델 전환 중..."
+                    ))
+                    continue
+                else:
+                    print(f"❌ [{model_name}] API Error: {e}")
+                    break
+            except Exception as e:
+                print(f"❌ [{model_name}] 일반 오류: {e}")
+                break
+
+        # 2. 후보 모델이 모두 429 한도 초과인 경우 60초 대기 후 최후 재시도
+        if not refined_output:
+            print("⚠️ 모든 후보 모델 한도 초과! 60초 대기 후 재시도합니다...")
+            self.after(0, lambda: self.lbl_status.config(text="⏳ 모든 모델 한도 초과로 60초 대기 중..."))
+            time.sleep(60)
+
+            for model_name in candidate_models:
+                try:
+                    print(f"🔄 재시도: [{model_name}] 호출 시도...")
+                    refined_output = make_api_call(model_name)
+                    print(f"✅ [{model_name}] 재시도 성공!")
+                    break
+                except Exception as e:
+                    print(f"❌ [{model_name}] 재시도 실패: {e}")
+
+        # 3. UI 업데이트 (메인 스레드)
         def update_ui():
             self.btn_run_ai.config(state="normal")
             if not refined_output:
-                self.lbl_status.config(text="AI 교정 제안 생성 실패")
+                self.lbl_status.config(text="AI 교정 제안 생성 실패 (모든 모델 한도 초과 또는 오류)")
                 return
 
-            # 정규식 패턴으로 각 CARD 번호와 문장 매핑 파싱
             pattern = r"===CARD_(\d+)===\s*(.*?)(?=\s*===CARD_\d+===|\s*$)"
             matches = re.findall(pattern, refined_output, re.DOTALL)
             proposal_map = {int(idx): text.strip() for idx, text in matches}
@@ -777,7 +828,7 @@ class NativeWeeklyReportApp(tk.Tk):
                     success_count += 1
 
             if success_count > 0:
-                self.lbl_status.config(text=f"✨ {success_count}개 업무에 AI 교정 제안 완료! (개별 카드별로 [적용] 여부를 결정하세요)")
+                self.lbl_status.config(text=f"✨ {success_count}개 업무에 AI 교정 제안 완료!")
             else:
                 self.lbl_status.config(text="AI 제안 파싱 실패 (양식 불일치)")
 
@@ -804,8 +855,8 @@ class NativeWeeklyReportApp(tk.Tk):
                 for task in tasks:
                     self.add_row(
                         title=task.get("title", ""),
-                        requester=task.get("requester", "선택안함"),
-                        status=task.get("status", "작업대기"),
+                        requester=task.get("requester", REQUESTER_NONE),
+                        status=task.get("status", STATUS_PENDING),
                         details=task.get("details", ""),
                         start_time=task.get("start_time", ""),
                         end_date=task.get("end_date", "")
@@ -815,8 +866,8 @@ class NativeWeeklyReportApp(tk.Tk):
                 for task in tasks:
                     self.add_row(
                         title=task.get("title", ""),
-                        requester=task.get("requester", "선택안함"),
-                        status=task.get("status", "작업대기"),
+                        requester=task.get("requester", REQUESTER_NONE),
+                        status=task.get("status", STATUS_PENDING),
                         details=task.get("details", ""),
                         start_time="",
                         end_date=""
