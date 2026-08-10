@@ -738,7 +738,7 @@ class NativeWeeklyReportApp(tk.Tk):
             daemon=True
         ).start()
 
-    # --- 단 1회의 API 호출로 전체 카드를 통합 교정 처리 (429 한도 초과 시 모델 자동 변경 및 대기 재시도) ---
+    # --- 단 1회의 API 호출로 전체 카드를 통합 교정 처리 (API 오류 시 모델 자동 변경 및 대기 재시도) ---
     def _run_single_call_refine_thread(self, raw_input_text):
         sys_instruction = (
             "너는 주간보고서 상세 문장 교정 전문가이다.\n"
@@ -760,17 +760,25 @@ class NativeWeeklyReportApp(tk.Tk):
 
         refined_output = None
 
-        # 순차적으로 시도할 대체 모델 리스트 (존재하는 모델명으로 수정)
-        candidate_models = ["gemini-1.5-flash", "gemini-1.5-pro"]
+        # 순차적으로 시도할 대체 모델 리스트 (안정적인 latest 버전 우선)
+        candidate_models = ["gemini-1.5-pro-latest", "gemini-1.5-flash-latest"]
 
         def make_api_call(target_model):
-            response = self.gemini_client.models.generate_content(
-                model=target_model,
+            # 모델 경로에 'models/' 접두사가 없는 경우 추가
+            model_path = target_model if target_model.startswith("models/") else f"models/{target_model}"
+            
+            model = self.gemini_client.get_model(model_path)
+            response = model.generate_content(
                 contents=raw_input_text,
-                config=types.GenerateContentConfig(
-                    system_instruction=sys_instruction,
+                generation_config=types.GenerationConfig(
                     temperature=0.2,
-                )
+                ),
+                safety_settings={
+                    'HARM_CATEGORY_HARASSMENT': 'BLOCK_NONE',
+                    'HARM_CATEGORY_HATE_SPEECH': 'BLOCK_NONE',
+                    'HARM_CATEGORY_SEXUALLY_EXPLICIT': 'BLOCK_NONE',
+                    'HARM_CATEGORY_DANGEROUS_CONTENT': 'BLOCK_NONE'
+                }
             )
             return response.text.strip()
 
@@ -782,23 +790,21 @@ class NativeWeeklyReportApp(tk.Tk):
                 print(f"✅ [{model_name}] 호출 성공!")
                 break
             except APIError as e:
-                if e.code == 429 or "RESOURCE_EXHAUSTED" in str(e):
-                    print(f"⚠️ [{model_name}] 한도 초과(429). 다음 모델로 전환합니다.")
-                    self.after(0, lambda m=model_name: self.lbl_status.config(
-                        text=f"⏳ {m} 한도 초과로 대체 모델 전환 중..."
-                    ))
-                    continue
-                else:
-                    print(f"❌ [{model_name}] API Error: {e}")
-                    break
+                # API 관련 오류 발생 시 (모델명 오류, 한도 초과 등) 다음 모델로 전환
+                print(f"⚠️ [{model_name}] API 오류 발생: {e}. 다음 모델로 전환합니다.")
+                self.after(0, lambda m=model_name: self.lbl_status.config(
+                    text=f"⏳ '{m}' 모델 오류, 대체 모델로 전환 중..."
+                ))
+                continue
             except Exception as e:
-                print(f"❌ [{model_name}] 일반 오류: {e}")
+                # 그 외 일반 오류 발생 시 중단
+                print(f"❌ [{model_name}] 일반 오류 발생: {e}")
                 break
 
-        # 2. 후보 모델이 모두 429 한도 초과인 경우 60초 대기 후 최후 재시도
+        # 2. 모든 후보 모델 호출 실패 시 (재시도 로직은 유지)
         if not refined_output:
-            print("⚠️ 모든 후보 모델 한도 초과! 60초 대기 후 재시도합니다...")
-            self.after(0, lambda: self.lbl_status.config(text="⏳ 모든 모델 한도 초과로 60초 대기 중..."))
+            print("⚠️ 모든 후보 모델 호출 실패. 60초 후 최종 재시도를 시작합니다...")
+            self.after(0, lambda: self.lbl_status.config(text="⏳ 모든 모델 호출 실패, 60초 후 재시도..."))
             time.sleep(60)
 
             for model_name in candidate_models:
@@ -808,13 +814,14 @@ class NativeWeeklyReportApp(tk.Tk):
                     print(f"✅ [{model_name}] 재시도 성공!")
                     break
                 except Exception as e:
-                    print(f"❌ [{model_name}] 재시도 실패: {e}")
+                    print(f"❌ [{model_name}] 재시도 최종 실패: {e}")
 
         # 3. UI 업데이트 (메인 스레드)
         def update_ui():
             self.btn_run_ai.config(state="normal")
             if not refined_output:
-                self.lbl_status.config(text="AI 교정 제안 생성 실패 (모든 모델 한도 초과 또는 오류)")
+                self.lbl_status.config(text="AI 교정 제안 생성 최종 실패 (오류 발생)")
+                messagebox.showerror("AI 호출 실패", "모든 후보 모델 호출에 실패했습니다. API Key 또는 네트워크 상태를 확인해 주세요.")
                 return
 
             pattern = r"===CARD_(\d+)===\s*(.*?)(?=\s*===CARD_\d+===|\s*$)"
@@ -830,7 +837,7 @@ class NativeWeeklyReportApp(tk.Tk):
             if success_count > 0:
                 self.lbl_status.config(text=f"✨ {success_count}개 업무에 AI 교정 제안 완료!")
             else:
-                self.lbl_status.config(text="AI 제안 파싱 실패 (양식 불일치)")
+                self.lbl_status.config(text="AI 제안 파싱 실패 (양식 불일치 또는 내용 없음)")
 
         self.after(0, update_ui)
 
